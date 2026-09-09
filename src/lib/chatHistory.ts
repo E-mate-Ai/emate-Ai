@@ -178,3 +178,6 @@ export function formatChatTime(timestamp: number): string {
   if (days < 7) return `${days}d ago`;
   return new Date(timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
+
+
+

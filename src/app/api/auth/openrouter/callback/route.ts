@@ -33,6 +33,10 @@ export async function GET(request: NextRequest) {
 
     const apiKey = tokenData.key;
 
+    const lastPage = request.cookies.get('last_visited_page')?.value
+      ? decodeURIComponent(request.cookies.get('last_visited_page')?.value)
+      : '/ai-topper-chat';
+
     const htmlResponse = `
       <!DOCTYPE html>
       <html>
@@ -47,10 +51,10 @@ export async function GET(request: NextRequest) {
                 window.opener.postMessage({ type: "OPENROUTER_AUTH_SUCCESS", key: "${apiKey}" }, "*");
                 window.close();
               } else {
-                window.location.href = "/upgrade";
+                window.location.href = "${lastPage}";
               }
             } catch (e) {
-              window.location.href = "/upgrade";
+              window.location.href = "${lastPage}";
             }
           </script>
         </body>
@@ -79,5 +83,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-
-
