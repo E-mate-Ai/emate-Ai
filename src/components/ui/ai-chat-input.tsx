@@ -16,6 +16,7 @@ import {
   BookOpen,
   Sparkles,
   Zap,
+  UploadCloud,
 } from 'lucide-react';
 
 // ----------------------------------------------------------------------
@@ -500,6 +501,8 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
     // Audio/Voice recording states
     const [isRecording, setIsRecording] = useState(false);
     const [audioData, setAudioData] = useState<number[]>(new Array(5).fill(0));
+    const [isDraggingOver, setIsDraggingOver] = useState(false);
+    const dragCounterRef = useRef(0);
 
     const isControlled = controlledValue !== undefined;
     const value = isControlled ? controlledValue : localValue;
@@ -810,6 +813,101 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
       setAttachments((prev) => [...prev, { id, file, url, name: file.name, width, height, kind }]);
     };
 
+    const processFiles = useCallback(
+      (incomingFiles: File[]) => {
+        if (!allowAttachments) return;
+        const validFiles = incomingFiles.filter(
+          (f) => f.type.startsWith('image/') || f.type !== ''
+        );
+        if (validFiles.length === 0) return;
+
+        const room = Math.max(0, maxAttachments - attachments.length);
+        const accepted = validFiles.slice(0, room);
+
+        for (const file of accepted) {
+          const isImg = file.type.startsWith('image/');
+          const url = URL.createObjectURL(file);
+          if (isImg) {
+            const img = new Image();
+            img.onload = () => addAttachment(file, url, img.naturalWidth, img.naturalHeight, 'image');
+            img.onerror = () => addAttachment(file, url, 800, 600, 'image');
+            img.src = url;
+          } else {
+            addAttachment(file, url, 0, 0, 'doc');
+          }
+        }
+      },
+      [allowAttachments, attachments.length, maxAttachments]
+    );
+
+    const handlePaste = useCallback(
+      (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+        if (!allowAttachments) return;
+        const clipboardItems = Array.from(e.clipboardData?.items || []);
+        const fileItems = clipboardItems.filter(
+          (item) => item.kind === 'file' || item.type.startsWith('image/')
+        );
+
+        if (fileItems.length === 0) return;
+
+        const files: File[] = [];
+        for (const item of fileItems) {
+          const file = item.getAsFile();
+          if (file) files.push(file);
+        }
+
+        if (files.length > 0) {
+          e.preventDefault();
+          processFiles(files);
+        }
+      },
+      [allowAttachments, processFiles]
+    );
+
+    const handleDragEnter = useCallback(
+      (e: React.DragEvent) => {
+        if (!allowAttachments) return;
+        e.preventDefault();
+        e.stopPropagation();
+        dragCounterRef.current += 1;
+        if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+          setIsDraggingOver(true);
+        }
+      },
+      [allowAttachments]
+    );
+
+    const handleDragLeave = useCallback((e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounterRef.current -= 1;
+      if (dragCounterRef.current <= 0) {
+        dragCounterRef.current = 0;
+        setIsDraggingOver(false);
+      }
+    }, []);
+
+    const handleDragOver = useCallback((e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    }, []);
+
+    const handleDrop = useCallback(
+      (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dragCounterRef.current = 0;
+        setIsDraggingOver(false);
+        if (!allowAttachments) return;
+
+        const droppedFiles = Array.from(e.dataTransfer.files || []);
+        if (droppedFiles.length > 0) {
+          processFiles(droppedFiles);
+        }
+      },
+      [allowAttachments, processFiles]
+    );
+
     const removeAttachment = (id: string) => {
       setAttachments((prev) => {
         const target = prev.find((a) => a.id === id);
@@ -862,11 +960,29 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
         {/* Primary Search Card Container — Clean Single-Card Layout without internal line collisions */}
         <div
           ref={ref}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
           className={cn(
-            'w-full max-w-2xl mx-auto rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-md flex flex-col justify-between transition-all duration-200 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500/40',
+            'relative w-full max-w-2xl mx-auto rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-md flex flex-col justify-between transition-all duration-200 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500/40',
+            isDraggingOver && 'border-dashed border-blue-500 dark:border-blue-400 ring-2 ring-blue-500/30',
             className
           )}
         >
+          {/* Drag & Drop Visual Overlay on input */}
+          {isDraggingOver && allowAttachments && (
+            <div className="absolute inset-0 z-30 rounded-3xl bg-blue-50/90 dark:bg-zinc-900/90 backdrop-blur-xs flex flex-col items-center justify-center pointer-events-none transition-all duration-150 animate-in fade-in">
+              <UploadCloud className="w-8 h-8 text-blue-600 dark:text-blue-400 animate-bounce mb-1" />
+              <p className="text-xs font-semibold text-blue-900 dark:text-blue-100">
+                Drop files here to attach
+              </p>
+              <p className="text-[10px] text-blue-600/80 dark:text-blue-400/80">
+                Images & documents supported
+              </p>
+            </div>
+          )}
+
           {/* Top Row: Auto-resizing Text Input */}
           <div className="w-full flex-1 mb-3">
             {/* Attachment preview row if files are attached */}
@@ -931,6 +1047,7 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
                 handleInput(e);
                 handleValueChange(e.target.value);
               }}
+              onPaste={handlePaste}
               onKeyDown={(e) => {
                 // Slash menu keyboard navigation
                 if (showSlashMenu && filteredCommands.length > 0) {

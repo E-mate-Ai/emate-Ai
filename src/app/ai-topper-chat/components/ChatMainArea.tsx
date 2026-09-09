@@ -28,6 +28,7 @@ import {
   Menu,
   NotebookText,
   Lock,
+  UploadCloud,
 } from 'lucide-react';
 import ChatMessageBubble from './ChatMessageBubble';
 import StreamingIndicator from './StreamingIndicator';
@@ -287,6 +288,62 @@ export default function ChatMainArea({
   const [quizLoading, setQuizLoading] = useState(false);
   // Preserved quiz data for the reinforce flow — survives after quizQuiz is cleared.
   const lastQuizRef = useRef<MCQQuiz | null>(null);
+
+  // Full-chat drag-and-drop state
+  const [isWindowDragging, setIsWindowDragging] = useState(false);
+  const windowDragCounterRef = useRef(0);
+
+  const handleWindowDragEnter = useCallback(
+    (e: React.DragEvent) => {
+      if (isGuest) return;
+      e.preventDefault();
+      e.stopPropagation();
+      windowDragCounterRef.current += 1;
+      if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+        setIsWindowDragging(true);
+      }
+    },
+    [isGuest]
+  );
+
+  const handleWindowDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    windowDragCounterRef.current -= 1;
+    if (windowDragCounterRef.current <= 0) {
+      windowDragCounterRef.current = 0;
+      setIsWindowDragging(false);
+    }
+  }, []);
+
+  const handleWindowDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleWindowDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      windowDragCounterRef.current = 0;
+      setIsWindowDragging(false);
+      if (isGuest) return;
+
+      const droppedFiles = Array.from(e.dataTransfer.files || []);
+      const validFiles = droppedFiles.filter(
+        (f) => f.type.startsWith('image/') || f.type !== ''
+      );
+      if (validFiles.length === 0) return;
+
+      setAttachedFiles((prev) => [...prev, ...validFiles]);
+      setPreviewUrls((prev) => [
+        ...prev,
+        ...validFiles.map((f) => (f.type.startsWith('image/') ? URL.createObjectURL(f) : '')),
+      ]);
+      toast.success(`${validFiles.length} file(s) attached`);
+    },
+    [isGuest]
+  );
 
   // Clear stale quiz state when switching notebooks or study context so old
   // results don't carry over into a new subject/unit.
@@ -989,6 +1046,10 @@ export default function ChatMainArea({
 
   return (
     <div
+      onDragEnter={handleWindowDragEnter}
+      onDragLeave={handleWindowDragLeave}
+      onDragOver={handleWindowDragOver}
+      onDrop={handleWindowDrop}
       className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative transition-colors duration-500"
       style={{
         background: theme === 'dark' ? '#080809' : '#f9f9fb',
@@ -996,6 +1057,18 @@ export default function ChatMainArea({
         fontFamily: "'Inter', sans-serif",
       }}
     >
+      {/* Full-window drop zone overlay when a file is dragged over the chat */}
+      {isWindowDragging && !isGuest && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center border-2 border-dashed border-blue-500 bg-blue-50/70 dark:bg-blue-950/50 backdrop-blur-sm pointer-events-none transition-all duration-200 animate-in fade-in">
+          <UploadCloud className="w-12 h-12 text-blue-600 dark:text-blue-400 animate-bounce mb-3" />
+          <p className="text-base font-semibold text-blue-900 dark:text-blue-100">
+            Drop your files here
+          </p>
+          <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+            Images, PDFs, and notes supported
+          </p>
+        </div>
+      )}
       <link
         rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap"
