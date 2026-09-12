@@ -34,6 +34,8 @@ const logos = [
   'Law',
   'Engineering',
 ];
+const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
+
 /** Plans without prices — prices are injected dynamically by useGeoCurrency */
 const PLANS = [
   {
@@ -41,7 +43,7 @@ const PLANS = [
     tier: 'free' as const,
     eyebrow: 'For students getting started',
     action: 'Start Learning for Free',
-    href: '/sign-up-login-screen',
+    href: `${APP_URL}/sign-up-login-screen`,
     icon: 'sparkles',
     tagline: 'Explore e-Mate and build your first flashcards.',
     note: 'Free forever · No credit card',
@@ -52,7 +54,7 @@ const PLANS = [
     tier: 'growth' as const,
     eyebrow: 'For power learners',
     action: 'Start Learning for Free',
-    href: '/sign-up-login-screen',
+    href: `${APP_URL}/sign-up-login-screen`,
     featured: true,
     icon: 'zap',
     tagline: 'Your full AI study copilot with unlimited momentum.',
@@ -69,7 +71,7 @@ const PLANS = [
     tier: 'scale' as const,
     eyebrow: 'For teams & enterprises',
     action: 'Contact sales',
-    href: '/sign-up-login-screen',
+    href: `${APP_URL}/sign-up-login-screen`,
     icon: 'building',
     tagline: 'Dedicated infrastructure for org-wide studying.',
     note: 'Annual billing · SSO & support',
@@ -155,7 +157,7 @@ export default function LandingPage() {
     <main className={dark ? 'site dark' : 'site'}>
       <style>{styles}</style>
       <header className="nav-shell">
-        <a className="brand" href="/sign-up-login-screen" aria-label="e-Mate AI home">
+        <a className="brand" href={`${APP_URL}/sign-up-login-screen`} aria-label="e-Mate AI home">
           <span className="brand-mark" aria-hidden="true">
             <Image src="/android-chrome-512x512.png" alt="e-Mate AI Logo" width={32} height={32} className="object-contain bg-transparent" loading="lazy" />
           </span>
@@ -178,7 +180,7 @@ export default function LandingPage() {
           >
             {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
-          <a className="button dark-button hidden sm:inline-flex" href="/sign-up-login-screen">
+          <a className="button dark-button hidden sm:inline-flex" href={`${APP_URL}/sign-up-login-screen`}>
             Start Learning for Free
           </a>
         </div>
@@ -188,7 +190,7 @@ export default function LandingPage() {
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 bg-white dark:bg-zinc-950 p-6 flex flex-col justify-between animate-in fade-in duration-200 md:hidden">
           <div className="flex items-center justify-between">
-            <a className="brand" href="/sign-up-login-screen" aria-label="e-Mate AI home">
+            <a className="brand" href={`${APP_URL}/sign-up-login-screen`} aria-label="e-Mate AI home">
               <span className="brand-mark" aria-hidden="true">
                 <Image src="/android-chrome-512x512.png" alt="e-Mate AI Logo" width={32} height={32} className="object-contain bg-transparent" loading="lazy" />
               </span>
@@ -211,7 +213,7 @@ export default function LandingPage() {
           <div className="flex flex-col gap-3">
             <a
               className="button dark-button text-center w-full py-3"
-              href="/sign-up-login-screen"
+              href={`${APP_URL}/sign-up-login-screen`}
               onClick={() => setMobileMenuOpen(false)}
             >
               Start Learning for Free
@@ -237,7 +239,7 @@ export default function LandingPage() {
           agentic workflows visually.
         </p>
         <div className="button-row">
-          <a className="button dark-button" href="/sign-up-login-screen">
+          <a className="button dark-button" href={`${APP_URL}/sign-up-login-screen`}>
             Start Learning for Free
           </a>
           <a className="button outline-button" href="#pricing">
@@ -456,7 +458,7 @@ export default function LandingPage() {
                       </RazorpayCheckout>
                     ) : (
                       <a
-                        href="/sign-up-login-screen"
+                        href={`${APP_URL}/sign-up-login-screen`}
                         className={
                           featured
                             ? 'w-full py-3 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-md transition-all block text-center'
@@ -510,7 +512,7 @@ export default function LandingPage() {
             </p>
             <a
               className="inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-medium bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:opacity-90 transition-opacity mt-5"
-              href="/sign-up-login-screen"
+              href={`${APP_URL}/sign-up-login-screen`}
             >
               Start Learning for Free
             </a>
@@ -539,7 +541,7 @@ export default function LandingPage() {
           <br className="desktop" /> you&apos;re looking for?
         </p>
         <div className="button-row">
-          <a className="button dark-button" href="/ai-topper-chat">
+          <a className="button dark-button" href={`${APP_URL}/ai-topper-chat`}>
             Read Docs
           </a>
           <a className="button outline-button" href="mailto:support@emate.ai">
@@ -577,7 +579,7 @@ export default function LandingPage() {
           <br />
           and Start <em>Learning</em>
         </h2>
-        <a className="button dark-button" href="/sign-up-login-screen">
+        <a className="button dark-button" href={`${APP_URL}/sign-up-login-screen`}>
           Start Learning for Free
         </a>
       </section>
