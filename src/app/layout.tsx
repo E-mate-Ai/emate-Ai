@@ -3,7 +3,6 @@ import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { Toaster } from 'sonner';
 import '../styles/tailwind.css';
-import RouteTracker from '@/components/RouteTracker';
 
 const geist = Geist({
   subsets: ['latin'],
@@ -94,7 +93,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         />
       </head>
       <body className={`${geist.className} ${geist.variable} ${geistMono.variable} overflow-x-hidden w-full max-w-[100vw] antialiased min-h-screen`}>
-        <RouteTracker />
         {children}
         <Toaster
           position="bottom-right"

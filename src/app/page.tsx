@@ -22,7 +22,6 @@ import {
 } from 'lucide-react';
 import { applyTheme } from '@/lib/theme';
 import { useGeoCurrency } from '@/hooks/useGeoCurrency';
-import RazorpayCheckout from '@/components/RazorpayCheckout';
 
 const logos = [
   'Physics',
@@ -34,7 +33,7 @@ const logos = [
   'Law',
   'Engineering',
 ];
-const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
+const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || 'https://emate-ai.vercel.app').replace(/\/$/, '');
 
 /** Plans without prices — prices are injected dynamically by useGeoCurrency */
 const PLANS = [
@@ -425,49 +424,16 @@ export default function LandingPage() {
                   </div>
 
                   <div className="relative mt-6">
-                    {plan.tier === 'free' ? (
-                      <a
-                        href={plan.href}
-                        className={
-                          featured
-                            ? 'w-full py-3 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-md transition-all block text-center'
-                            : 'w-full py-3 rounded-full border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 text-sm font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors block text-center'
-                        }
-                      >
-                        {plan.action}
-                      </a>
-                    ) : plan.tier === 'growth' && currency.currency === 'INR' ? (
-                      <RazorpayCheckout
-                        amount={699}
-                        planTier="growth"
-                        className={
-                          featured
-                            ? 'w-full py-3 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-md transition-all block text-center'
-                            : 'w-full py-3 rounded-full border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 text-sm font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors block text-center'
-                        }
-                      >
-                        {plan.action} · ₹699/mo
-                      </RazorpayCheckout>
-                    ) : plan.tier === 'scale' && currency.currency === 'INR' ? (
-                      <RazorpayCheckout
-                        amount={2099}
-                        planTier="scale"
-                        className="w-full py-3 rounded-full border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 text-sm font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors block text-center"
-                      >
-                        {plan.action} · ₹2,099/mo
-                      </RazorpayCheckout>
-                    ) : (
-                      <a
-                        href={`${APP_URL}/sign-up-login-screen`}
-                        className={
-                          featured
-                            ? 'w-full py-3 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-md transition-all block text-center'
-                            : 'w-full py-3 rounded-full border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 text-sm font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors block text-center'
-                        }
-                      >
-                        {plan.action}
-                      </a>
-                    )}
+                    <a
+                      href={plan.href}
+                      className={
+                        featured
+                          ? 'w-full py-3 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-md transition-all block text-center'
+                          : 'w-full py-3 rounded-full border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 text-sm font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors block text-center'
+                      }
+                    >
+                      {plan.action}
+                    </a>
                   </div>
 
                   <div className="relative my-6 h-px bg-gradient-to-r from-transparent via-zinc-200 dark:via-zinc-800 to-transparent" aria-hidden="true" />
