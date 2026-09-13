@@ -51,8 +51,19 @@ function dispatch() {
   }
 }
 
+export function isGuestSession(): boolean {
+  if (typeof document === 'undefined') return false;
+  const cookies = document.cookie;
+  const hasAuthCookie =
+    cookies.includes('sb-access-token') ||
+    cookies.includes('next-auth.session-token') ||
+    cookies.includes('__Secure-next-auth.session-token');
+  const isGuestCookie = cookies.includes('is_guest_user=true');
+  return isGuestCookie && !hasAuthCookie;
+}
+
 export function getChatHistory(): ChatHistoryItem[] {
-  if (typeof window === 'undefined') return [];
+  if (typeof window === 'undefined' || isGuestSession()) return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
@@ -66,7 +77,7 @@ export function getChatHistory(): ChatHistoryItem[] {
 
 /** Load the saved message transcript for a chat session (may be empty). */
 export function getChatTranscript(id: string): ChatMessage[] {
-  if (typeof window === 'undefined') return [];
+  if (typeof window === 'undefined' || isGuestSession()) return [];
   try {
     const raw = localStorage.getItem(TRANSCRIPT_KEY);
     if (!raw) return [];
@@ -81,11 +92,10 @@ export function getChatTranscript(id: string): ChatMessage[] {
  * Persist a chat session's full message transcript. Overwrites the latest
  * state so resuming a chat always shows the most recent conversation.
  *
- * Generated images are in-memory only — they are stripped before storage so
- * the (1–2MB base64) payloads never consume the localStorage quota.
+ * Guest session chats are never saved to localStorage.
  */
 export function saveChatTranscript(id: string, messages: ChatMessage[]): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || isGuestSession()) return;
   try {
     const raw = localStorage.getItem(TRANSCRIPT_KEY);
     const map = raw ? (JSON.parse(raw) as Record<string, ChatMessage[]>) : {};
@@ -124,7 +134,7 @@ export function deleteChatTranscript(id: string): void {
  * it is prepended so the newest always comes first.
  */
 export function saveChatSession(item: ChatHistoryItem): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || isGuestSession()) return;
   try {
     const list = getChatHistory();
     const existingIdx = list.findIndex((c) => c.id === item.id);
