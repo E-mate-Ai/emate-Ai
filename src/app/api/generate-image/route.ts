@@ -11,7 +11,13 @@ function getCookie(cookieHeader: string | null, name: string): string | undefine
 
 export async function POST(req: Request) {
   try {
-    const { prompt, aspectRatio, style } = await req.json().catch(() => ({}));
+    const authHeader = req.headers.get('authorization');
+    const authHeaderKey = authHeader ? authHeader.replace(/^Bearer\s+/i, '').trim() : '';
+
+    const cookieHeader = req.headers.get('cookie');
+    const cookieKey = getCookie(cookieHeader, 'user_openrouter_key');
+
+    const { prompt, aspectRatio, style, userApiKey: bodyKey } = await req.json().catch(() => ({}));
     void aspectRatio; // accepted for forward-compat; flux-1-schnell fixes its own ratio
 
     if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
@@ -21,31 +27,20 @@ export async function POST(req: Request) {
       });
     }
 
-    const cookieHeader = req.headers.get('cookie');
+    const apiKey =
+      authHeaderKey ||
+      bodyKey ||
+      cookieKey ||
+      process.env.OPENROUTER_SERVER_FREE_KEY ||
+      process.env.OPENROUTER_API_KEY;
 
-    // Image generation is authenticated-only (has real per-request cost). Guests
-    // (no BYOK cookie) are rejected server-side even if the UI is bypassed, which
-    // also protects the free OPENROUTER_SERVER_FREE_KEY from expensive image calls.
-    const userKey = getCookie(cookieHeader, 'user_openrouter_key');
-    if (!userKey) {
+    if (!apiKey || apiKey === 'your-openrouter-api-key-here') {
       return new Response(
         JSON.stringify({
           error: 'Image generation is available only for connected accounts. Connect your OpenRouter key to continue.',
           code: 'auth_required',
         }),
         { status: 403, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const apiKey =
-      userKey || process.env.OPENROUTER_SERVER_FREE_KEY || process.env.OPENROUTER_API_KEY;
-    if (!apiKey) {
-      return new Response(
-        JSON.stringify({
-          error:
-            'OpenRouter API key is missing. Please connect your OpenRouter account to continue.',
-        }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 

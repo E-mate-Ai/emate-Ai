@@ -43,8 +43,22 @@ export default function AITopperChatScreen() {
     typeof window === 'undefined' ? 'chat-new' : `chat-${Date.now()}`
   );
 
-  // Exit trigger listeners for beforeunload and mouseleave exit intent
+  // Exit trigger listeners for beforeunload and mouseleave exit intent (GUESTS ONLY)
   useEffect(() => {
+    // DO NOT show banner for authenticated users
+    const isAuthUser =
+      typeof document !== 'undefined' &&
+      (document.cookie.includes('sb-access-token') ||
+        document.cookie.includes('next-auth.session-token') ||
+        document.cookie.includes('__Secure-next-auth.session-token'));
+
+    const isGuest =
+      typeof document !== 'undefined' &&
+      (document.cookie.includes('is_guest_user=true') || !isAuthUser) &&
+      !isAuthUser;
+
+    if (!isGuest) return;
+
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = 'Guest session history will be deleted. Sign up to save your progress!';

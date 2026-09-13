@@ -242,6 +242,10 @@ export default function ChatMainArea({
       // Check when URL query parameter changes
       const params = new URLSearchParams(window.location.search);
       if (params.get('connected') === 'true') {
+        const cookieKey = document.cookie.split('; ').find((row) => row.startsWith('user_openrouter_key='))?.split('=')[1];
+        if (cookieKey) {
+          localStorage.setItem('user_openrouter_key', cookieKey);
+        }
         checkConnection();
         router.replace('/ai-topper-chat');
       } else if (!hasConnection) {
