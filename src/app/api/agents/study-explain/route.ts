@@ -1,6 +1,5 @@
 import { generateStudyExplanation } from '@/lib/agents/studyAgent';
 
-export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
 function getCookie(cookieHeader: string | null, name: string): string | undefined {

@@ -1,6 +1,5 @@
 import { openRouterCompletion, type OpenRouterError } from '@/lib/openrouter';
 
-export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
 /** Parse a specific cookie value from a raw Cookie header string */

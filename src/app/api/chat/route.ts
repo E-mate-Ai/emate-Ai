@@ -8,7 +8,6 @@ import {
 // Ultra-fast primary model (TTFT ~200-400ms via Nitro routing)
 const PRIMARY_MODEL = 'google/gemini-2.0-flash';
 
-export const runtime = 'edge'; // Edge runtime for lowest cold-start latency
 export const dynamic = 'force-dynamic';
 
 /** Parse a specific cookie value from a raw Cookie header string */
