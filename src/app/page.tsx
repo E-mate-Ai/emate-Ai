@@ -58,6 +58,7 @@ const PLANS = [
     tagline: 'Your full AI study copilot with unlimited momentum.',
     note: 'Bill monthly · Cancel anytime',
     features: [
+      'AI Image & Visual Note Generation (e-Mate Plus)',
       '25 active agents',
       '150 simulation runs',
       'Full RAG & active recall loops',

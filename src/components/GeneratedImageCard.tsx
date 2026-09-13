@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { Download, Maximize2, RefreshCw, X, Loader2, KeyRound } from 'lucide-react';
+import { Download, Maximize2, RefreshCw, X, Loader2, KeyRound, Sparkles } from 'lucide-react';
 import type { GeneratedImage } from '@/lib/chatHistory';
 import { ImageGeneration } from '@/components/ui/ai-chat-image-generation-1';
 
@@ -84,13 +84,20 @@ export default function GeneratedImageCard({
           Image generation is available only for connected accounts. Connect your OpenRouter key to continue.
         </p>
         <div className="flex flex-wrap items-center gap-2 pt-1">
+          <a
+            href="/upgrade"
+            className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+          >
+            <Sparkles size={13} />
+            Upgrade to e-Mate Plus
+          </a>
           <button
             type="button"
             onClick={handleConnectKey}
-            className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-500 transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+            className="px-3 py-1.5 rounded-lg border border-red-500/30 text-xs font-medium hover:bg-red-500/10 transition-colors flex items-center gap-1.5 cursor-pointer text-red-400"
           >
             <KeyRound size={13} />
-            Connect OpenRouter Key
+            Connect Key
           </button>
           {onRegenerate && (
             <button

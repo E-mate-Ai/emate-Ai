@@ -34,6 +34,7 @@ const TIERS: Tier[] = [
     inr: { monthly: 100, annual: 999 },
     usd: { monthly: 1.99, annual: 19.99 },
     features: [
+      { text: 'AI Image & Visual Note Generation', icon: <Sparkles size={15} /> },
       { text: 'Higher usage limits across Flash models', icon: <Zap size={15} /> },
       { text: 'Access to Flash Thinking model', icon: <Sparkles size={15} /> },
       { text: '100GB notebook storage', icon: <Zap size={15} /> },

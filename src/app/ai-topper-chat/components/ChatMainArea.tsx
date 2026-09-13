@@ -579,7 +579,7 @@ export default function ChatMainArea({
       : '';
 
     if (!userApiKey) {
-      toast.error('Image generation is available only for connected accounts. Connect your OpenRouter key to continue.');
+      toast.error('AI Image & Visual Note Generation is an e-Mate Plus feature. Upgrade to e-Mate Plus or connect your OpenRouter key to continue.');
       handleConnectOpenRouter();
       setMessages((prev) =>
         prev.map((m) => {
@@ -587,7 +587,7 @@ export default function ChatMainArea({
           return {
             ...m,
             images: [{ ...m.images[0], status: 'error' }],
-            content: 'Image generation is available only for connected accounts. Connect your OpenRouter key to continue.',
+            content: 'AI Image & Visual Note Generation is an e-Mate Plus feature. Upgrade to e-Mate Plus or connect your OpenRouter key to continue.',
           };
         })
       );
