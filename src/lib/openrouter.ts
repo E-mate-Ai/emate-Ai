@@ -208,8 +208,8 @@ export async function openRouterCompletion(
   return (await response.json()) as Record<string, unknown>;
 }
 
-/** The OpenRouter model id used for image generation — FLUX.2 Flex for crisp educational visuals. */
-export const IMAGE_GENERATION_MODEL = 'black-forest-labs/flux-2-flex';
+/** The OpenRouter model id used for image generation — FLUX.1 Schnell for high-speed educational visuals. */
+export const IMAGE_GENERATION_MODEL = 'black-forest-labs/flux-1-schnell';
 
 /**
  * Extract a `data:image/...` (or http) URL from an OpenRouter image-model
@@ -301,13 +301,15 @@ export async function openRouterImageCompletion(
   if (!response.ok) {
     let rawMessage = '';
     try {
-      const errJson = (await response.json()) as { error?: { message?: string } } | null;
-      rawMessage = errJson?.error?.message || response.statusText || '';
+      const errJson = (await response.json()) as { error?: { message?: string }; message?: string } | null;
+      rawMessage = errJson?.error?.message || errJson?.message || response.statusText || '';
+      console.error('[OpenRouter API Error Details]:', { status: response.status, model, error: errJson });
     } catch {
       rawMessage = response.statusText || '';
+      console.error('[OpenRouter API Error Details]:', { status: response.status, model, text: rawMessage });
     }
 
-    const err: OpenRouterError = new Error(getOpenRouterErrorMessage(response.status, model));
+    const err: OpenRouterError = new Error(rawMessage || getOpenRouterErrorMessage(response.status, model));
     err.status = response.status;
     err.retryable = shouldFallback(response.status);
     if (rawMessage) (err as OpenRouterError & { raw?: string }).raw = rawMessage;
