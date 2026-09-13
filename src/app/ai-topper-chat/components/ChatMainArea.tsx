@@ -603,6 +603,10 @@ export default function ChatMainArea({
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        if (res.status === 401 || res.status === 403 || data?.code === 'auth_required' || data?.error?.includes('connected accounts')) {
+          toast.error('An OpenRouter API key is required for image generation.');
+          handleConnectOpenRouter();
+        }
         throw new Error(data.error || `Image generation failed (${res.status})`);
       }
 
@@ -690,6 +694,10 @@ export default function ChatMainArea({
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        if (res.status === 401 || res.status === 403 || data?.code === 'auth_required' || data?.error?.includes('connected accounts')) {
+          toast.error('An OpenRouter API key is required for image generation.');
+          handleConnectOpenRouter();
+        }
         throw new Error(data.error || `Image generation failed (${res.status})`);
       }
 
