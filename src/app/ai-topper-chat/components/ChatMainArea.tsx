@@ -182,6 +182,10 @@ export default function ChatMainArea({
     ],
     [selectedContext.subject, selectedContext.unit]
   );
+  const handleConnectOpenRouter = useCallback(() => {
+    setShowConnectModal(true);
+  }, []);
+
   // Open OAuth in a popup window
   const handleOpenRouterConnect = () => {
     setShowConnectModal(false);
@@ -267,9 +271,16 @@ export default function ChatMainArea({
         setShowToast(true);
       }
     };
+    const handleOpenModal = () => {
+      handleConnectOpenRouter();
+    };
     window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
+    window.addEventListener('nk-open-openrouter-modal', handleOpenModal);
+    return () => {
+      window.removeEventListener('message', handleMessage);
+      window.removeEventListener('nk-open-openrouter-modal', handleOpenModal);
+    };
+  }, [handleConnectOpenRouter]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -557,10 +568,36 @@ export default function ChatMainArea({
       saveChatTranscript(sessionIdRef.current, newMessages);
     }
 
+    // Pre-flight key verification: check if user has a connected OpenRouter key
+    const userApiKey = typeof window !== 'undefined'
+      ? localStorage.getItem('user_openrouter_key') ||
+        (document.cookie.split('; ').find((row) => row.startsWith('user_openrouter_key='))?.split('=')[1] ?? '')
+      : '';
+
+    if (!userApiKey) {
+      toast.error('Image generation is available only for connected accounts. Connect your OpenRouter key to continue.');
+      handleConnectOpenRouter();
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id !== assistantMsg.id || !m.images?.length) return m;
+          return {
+            ...m,
+            images: [{ ...m.images[0], status: 'error' }],
+            content: 'Image generation is available only for connected accounts. Connect your OpenRouter key to continue.',
+          };
+        })
+      );
+      setIsStreaming(false);
+      return;
+    }
+
     try {
       const res = await fetch('/api/generate-image', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userApiKey}`,
+        },
         body: JSON.stringify({ prompt }),
       });
 
@@ -618,10 +655,36 @@ export default function ChatMainArea({
     );
     setIsStreaming(true);
 
+    const userApiKey = typeof window !== 'undefined'
+      ? localStorage.getItem('user_openrouter_key') ||
+        (document.cookie.split('; ').find((row) => row.startsWith('user_openrouter_key='))?.split('=')[1] ?? '')
+      : '';
+
+    if (!userApiKey) {
+      toast.error('Image generation is available only for connected accounts. Connect your OpenRouter key to continue.');
+      handleConnectOpenRouter();
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id !== messageId || !m.images) return m;
+          return {
+            ...m,
+            images: m.images.map((img) =>
+              img.id === imageId ? { ...img, status: 'error' as const } : img
+            ),
+          };
+        })
+      );
+      setIsStreaming(false);
+      return;
+    }
+
     try {
       const res = await fetch('/api/generate-image', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userApiKey}`,
+        },
         body: JSON.stringify({ prompt }),
       });
 

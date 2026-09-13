@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { Download, Maximize2, RefreshCw, X, Loader2 } from 'lucide-react';
+import { Download, Maximize2, RefreshCw, X, Loader2, KeyRound } from 'lucide-react';
 import type { GeneratedImage } from '@/lib/chatHistory';
 import { ImageGeneration } from '@/components/ui/ai-chat-image-generation-1';
 
@@ -10,6 +10,8 @@ interface GeneratedImageCardProps {
   theme?: 'light' | 'dark';
   /** Re-run generation for this image. Called with (imageId, prompt). */
   onRegenerate?: (imageId: string, prompt: string) => void;
+  /** Open OpenRouter connect modal */
+  onConnectOpenRouter?: () => void;
 }
 
 /**
@@ -21,9 +23,18 @@ export default function GeneratedImageCard({
   image,
   theme = 'dark',
   onRegenerate,
+  onConnectOpenRouter,
 }: GeneratedImageCardProps) {
   const [lightboxOpen, setLightboxOpen] = React.useState(false);
   const isDark = theme === 'dark';
+
+  const handleConnectKey = () => {
+    if (onConnectOpenRouter) {
+      onConnectOpenRouter();
+    } else if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('nk-open-openrouter-modal'));
+    }
+  };
 
   // Close the lightbox on Escape.
   useEffect(() => {
@@ -62,23 +73,36 @@ export default function GeneratedImageCard({
   if (image.status === 'error') {
     return (
       <div
-        className="max-w-md my-2 rounded-2xl border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/30 p-4 text-sm"
+        className="max-w-md my-2 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm space-y-3"
         style={{ color: isDark ? '#fca5a5' : '#b91c1c' }}
       >
-        <p className="font-medium mb-1">Image generation failed</p>
-        <p className="text-xs mb-3 opacity-80">
-          This can happen if the provider is busy or the prompt was rejected.
+        <div className="font-semibold flex items-center gap-2 text-sm text-red-500">
+          <KeyRound size={16} />
+          Image generation failed
+        </div>
+        <p className="text-xs text-red-400 leading-relaxed opacity-90">
+          Image generation is available only for connected accounts. Connect your OpenRouter key to continue.
         </p>
-        {onRegenerate && (
+        <div className="flex flex-wrap items-center gap-2 pt-1">
           <button
             type="button"
-            onClick={() => onRegenerate(image.id, image.prompt)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer bg-red-600 text-white hover:bg-red-700"
+            onClick={handleConnectKey}
+            className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-500 transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
           >
-            <RefreshCw size={12} />
-            Retry
+            <KeyRound size={13} />
+            Connect OpenRouter Key
           </button>
-        )}
+          {onRegenerate && (
+            <button
+              type="button"
+              onClick={() => onRegenerate(image.id, image.prompt)}
+              className="px-3 py-1.5 rounded-lg border border-red-500/30 text-xs font-medium hover:bg-red-500/10 transition-colors flex items-center gap-1.5 cursor-pointer text-red-400"
+            >
+              <RefreshCw size={12} />
+              Retry
+            </button>
+          )}
+        </div>
       </div>
     );
   }

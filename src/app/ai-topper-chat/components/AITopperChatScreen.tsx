@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import ChatMainArea from './ChatMainArea';
 import { getChatHistory, getChatTranscript, type ChatMessage } from '@/lib/chatHistory';
 import {
@@ -28,6 +28,8 @@ export interface SelectedContext {
 
 export default function AITopperChatScreen() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const [showExitNotification, setShowExitNotification] = useState(false);
   const [mode, setMode] = useState<StudyMode>('sprint');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [selectedContext, setSelectedContext] = useState<SelectedContext>({
@@ -40,6 +42,28 @@ export default function AITopperChatScreen() {
   const [sessionId, setSessionId] = useState(() =>
     typeof window === 'undefined' ? 'chat-new' : `chat-${Date.now()}`
   );
+
+  // Exit trigger listeners for beforeunload and mouseleave exit intent
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = 'Guest session history will be deleted. Sign up to save your progress!';
+    };
+
+    const handleMouseLeave = (e: MouseEvent) => {
+      if (e.clientY <= 0) {
+        setShowExitNotification(true);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('mouseleave', handleMouseLeave);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('mouseleave', handleMouseLeave);
+    };
+  }, []);
 
   // Sync active session when URL searchParam `chatId` changes
   useEffect(() => {
@@ -199,7 +223,33 @@ export default function AITopperChatScreen() {
   const ActiveIcon = steps[currentStep].icon;
 
   return (
-    <div className="flex h-screen min-h-screen overflow-hidden">
+    <div className="relative flex h-screen min-h-screen overflow-hidden">
+      {/* Leave Notification Banner */}
+      {showExitNotification && (
+        <div className="fixed top-4 right-4 z-[300] max-w-md p-4 rounded-xl bg-zinc-900 border border-zinc-800 text-white shadow-2xl flex items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div>
+            <p className="text-sm font-semibold">Sign up to save your progress!</p>
+            <p className="text-xs text-zinc-400">
+              Guest chats are non-persistent and will be cleared when you leave.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => router.push('/sign-up-login-screen')}
+              className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-500 transition-colors"
+            >
+              Sign Up
+            </button>
+            <button
+              onClick={() => setShowExitNotification(false)}
+              className="text-zinc-400 text-xs hover:text-white"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex-1 overflow-hidden">
         <div className="flex h-full flex-col overflow-hidden">
           <ChatMainArea
