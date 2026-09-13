@@ -37,25 +37,28 @@ export default function AITopperChatScreen() {
     unit: '',
   });
   const [selectedModel, setSelectedModel] = useState('openrouter/auto');
-  // Active chat session id (drives transcript persistence/loading). Defaults to
-  // a fresh id; updated to the loaded chat's id when a search result is picked.
-  const [sessionId, setSessionId] = useState(() =>
-    typeof window === 'undefined' ? 'chat-new' : `chat-${Date.now()}`
-  );
+  // Active chat session id (drives transcript persistence/loading). Starts with
+  // a stable SSR-safe default; replaced with a real timestamp id on the client
+  // via useEffect to avoid a hydration mismatch from Date.now() differing
+  // between the server render and the client hydration pass.
+  const [sessionId, setSessionId] = useState('chat-new');
+  useEffect(() => {
+    setSessionId((prev) => (prev === 'chat-new' ? `chat-${Date.now()}` : prev));
+  }, []);
 
   // Exit trigger listeners for beforeunload and mouseleave exit intent (GUESTS ONLY)
   useEffect(() => {
-    // DO NOT show banner for authenticated users
+    // DO NOT show banner for authenticated users (Supabase, NextAuth, or OpenRouter connected)
     const isAuthUser =
       typeof document !== 'undefined' &&
       (document.cookie.includes('sb-access-token') ||
         document.cookie.includes('next-auth.session-token') ||
-        document.cookie.includes('__Secure-next-auth.session-token'));
+        document.cookie.includes('__Secure-next-auth.session-token') ||
+        document.cookie.includes('user_openrouter_key') ||
+        !!localStorage.getItem('user_openrouter_key'));
 
-    const isGuest =
-      typeof document !== 'undefined' &&
-      (document.cookie.includes('is_guest_user=true') || !isAuthUser) &&
-      !isAuthUser;
+    // A guest is someone who has neither an auth cookie nor an OpenRouter key
+    const isGuest = !isAuthUser;
 
     if (!isGuest) return;
 

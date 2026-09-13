@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Trophy, Target, BookOpen, ArrowRight, TrendingDown } from 'lucide-react';
 import type { StudyAnalyzerReport as ReportType, MCQSubmission } from '@/lib/agents/types';
 import { cn } from '@/lib/utils';
@@ -11,6 +11,15 @@ interface StudyAnalyzerReportProps {
 }
 
 export default function StudyAnalyzerReport({ report, onReinforce }: StudyAnalyzerReportProps) {
+  // Server-safe default: start with light mode; sync from localStorage after hydration
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    setIsDark(localStorage.getItem('nk-theme') !== 'light');
+    const onStorage = () => setIsDark(localStorage.getItem('nk-theme') !== 'light');
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
   const scoreBg =
     report.overallScore >= 70
       ? 'bg-emerald-500/10 border-emerald-500/20'
@@ -76,7 +85,7 @@ export default function StudyAnalyzerReport({ report, onReinforce }: StudyAnalyz
                 <div
                   className={cn(
                     'h-1.5 rounded-full overflow-hidden',
-                    isDarkMode() ? 'bg-zinc-800' : 'bg-zinc-100'
+                    isDark ? 'bg-zinc-800' : 'bg-zinc-100'
                   )}
                 >
                   <div
@@ -134,9 +143,4 @@ function scoreColorClass(score: number): string {
   if (score >= 70) return 'text-emerald-500';
   if (score >= 40) return 'text-amber-500';
   return 'text-red-500';
-}
-
-function isDarkMode(): boolean {
-  if (typeof window === 'undefined') return true;
-  return localStorage.getItem('nk-theme') !== 'light';
 }

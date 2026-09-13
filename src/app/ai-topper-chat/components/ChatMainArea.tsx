@@ -36,7 +36,7 @@ import { PromptInput } from '@/components/ui/ai-chat-input';
 import type { ChatMessage, SelectedContext, StudyMode } from './AITopperChatScreen';
 import { applyTheme } from '@/lib/theme';
 import { ModelSelector } from '@/components/ModelSelector';
-import { buildNotebookContext, appendToNotebook, addSubject, getSubjects } from '@/lib/notebook';
+import { buildNotebookContext, appendToNotebook, addSubject, getSubjects, type Subject } from '@/lib/notebook';
 import { saveChatSession, saveChatTranscript } from '@/lib/chatHistory';
 import { loadDemoNotebook } from '@/lib/demoNotebook';
 import {
@@ -134,11 +134,12 @@ export default function ChatMainArea({
   const [isConnectingOpenRouter, setIsConnectingOpenRouter] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [guestCredits, setGuestCreditsState] = useState(GUEST_LIMIT);
-  const [subjects, setSubjects] = useState(() => getSubjects());
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const popupRef = useRef<Window | null>(null);
 
-  // Keep subjects list in sync so the empty-state card hides/shows reactively.
+  // Keep subjects list in sync — initial load + reactive updates.
   useEffect(() => {
+    setSubjects(getSubjects()); // populate from localStorage after hydration
     const sync = () => setSubjects(getSubjects());
     window.addEventListener('nk-subjects-changed', sync);
     return () => window.removeEventListener('nk-subjects-changed', sync);
