@@ -22,6 +22,8 @@ pnpm-debug.log*
 # OS-specific files
 .DS_Store
 Thumbs.db
+Icon?
+Icon*
 
 # Vercel deployment
 .vercel/
