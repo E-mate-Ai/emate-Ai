@@ -156,7 +156,7 @@ export default function LandingPage() {
     <main className={dark ? 'site dark' : 'site'}>
       <style>{styles}</style>
       <header className="nav-shell">
-        <a className="brand" href="/sign-up-login-screen" aria-label="e-Mate AI home">
+        <a className="brand" href="/" aria-label="e-Mate AI home">
           <span className="brand-mark" aria-hidden="true">
             <Image src="/android-chrome-512x512.png" alt="e-Mate AI Logo" width={32} height={32} className="object-contain bg-transparent" loading="lazy" />
           </span>
@@ -189,7 +189,7 @@ export default function LandingPage() {
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 bg-white dark:bg-zinc-950 p-6 flex flex-col justify-between animate-in fade-in duration-200 md:hidden">
           <div className="flex items-center justify-between">
-            <a className="brand" href="/sign-up-login-screen" aria-label="e-Mate AI home">
+            <a className="brand" href="/" aria-label="e-Mate AI home">
               <span className="brand-mark" aria-hidden="true">
                 <Image src="/android-chrome-512x512.png" alt="e-Mate AI Logo" width={32} height={32} className="object-contain bg-transparent" loading="lazy" />
               </span>

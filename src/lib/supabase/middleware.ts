@@ -55,12 +55,6 @@ export async function updateSession(request: NextRequest) {
 
   const isApiRoute = request.nextUrl.pathname.startsWith('/api');
 
-  // Authenticated user on the landing page → straight to chat
-  if (user && request.nextUrl.pathname === '/') {
-    const url = request.nextUrl.clone();
-    url.pathname = '/ai-topper-chat';
-    return NextResponse.redirect(url);
-  }
 
   // Unauthenticated, non-guest user on /ai-topper-chat → back to landing
   // Guest users (is_guest_user cookie) are allowed through.

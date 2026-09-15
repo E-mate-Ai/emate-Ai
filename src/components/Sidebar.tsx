@@ -329,7 +329,11 @@ export default function Sidebar({
         <div className="px-3 pt-3 pb-2 flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
           {/* Logo + collapse button */}
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2.5">
+            <Link
+              href="/"
+              className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
+              title="Return to Home Landing Page"
+            >
               <div
                 className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl"
                 style={{
@@ -349,7 +353,7 @@ export default function Sidebar({
               >
                 e-Mate AI
               </span>
-            </div>
+            </Link>
             <button
               type="button"
               className="w-9 h-9 flex items-center justify-center rounded-2xl border transition"
