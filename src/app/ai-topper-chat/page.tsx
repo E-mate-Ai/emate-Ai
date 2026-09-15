@@ -3,6 +3,8 @@ import type { Metadata } from 'next';
 import AppLayout from '@/components/AppLayout';
 import AITopperChatScreen from './components/AITopperChatScreen';
 
+import SkeletonLoader from '@/components/SkeletonLoader';
+
 export const metadata: Metadata = {
   title: 'Workspace — e-Mate AI',
   description:
@@ -12,7 +14,7 @@ export const metadata: Metadata = {
 export default function AITopperPage() {
   return (
     <AppLayout>
-      <Suspense fallback={<div className="flex h-screen items-center justify-center text-xs text-zinc-500">Loading workspace...</div>}>
+      <Suspense fallback={<SkeletonLoader />}>
         <AITopperChatScreen />
       </Suspense>
     </AppLayout>

@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import AuthScreen from './sign-up-login-screen/components/AuthScreen';
 import { createClient } from '@/lib/supabase/client';
 
+import SkeletonLoader from '@/components/SkeletonLoader';
+
 export default function RootHomePage() {
   const router = useRouter();
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
@@ -53,14 +55,7 @@ export default function RootHomePage() {
   }, [router]);
 
   if (isCheckingAuth) {
-    return (
-      <div className="flex h-screen w-screen items-center justify-center bg-zinc-950 text-xs text-zinc-400">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-          <span>Loading e-Mate AI...</span>
-        </div>
-      </div>
-    );
+    return <SkeletonLoader />;
   }
 
   if (shouldShowAuth) {
