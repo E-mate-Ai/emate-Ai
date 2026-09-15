@@ -56,7 +56,9 @@ export async function updateSession(request: NextRequest) {
   const isApiRoute = request.nextUrl.pathname.startsWith('/api');
 
 
-  // Unauthenticated, non-guest user on /ai-topper-chat → back to landing
+  const isLandingPage = request.nextUrl.pathname.startsWith('/landing');
+
+  // Unauthenticated, non-guest user on /ai-topper-chat → back to root (login screen)
   // Guest users (is_guest_user cookie) are allowed through.
   if (!user && !isGuestMode && request.nextUrl.pathname === '/ai-topper-chat') {
     const url = request.nextUrl.clone();
@@ -67,6 +69,7 @@ export async function updateSession(request: NextRequest) {
   if (
     !user &&
     !isAuthPage &&
+    !isLandingPage &&
     !isGuestAccessibleRoute &&
     !isSandboxRoute &&
     !isApiRoute &&
@@ -77,10 +80,8 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirect authenticated users away from auth pages to chat.
-  // This also handles the post-OAuth redirect where the user lands
-  // on /auth/callback (or any /auth/* path) with a valid session.
-  if (user && isAuthPage) {
+  // Redirect authenticated users away from auth pages or root home to chat workspace.
+  if (user && (isAuthPage || request.nextUrl.pathname === '/')) {
     const url = request.nextUrl.clone();
     url.pathname = '/ai-topper-chat';
     return NextResponse.redirect(url);
