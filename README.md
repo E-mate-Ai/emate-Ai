@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="./assets/logo.png" alt="e-Mate AI Logo" width="120" />
+<img src="./public/asset/images/ematelogo.png" alt="e-Mate AI Logo" width="120" />
 
 # e-Mate AI
 
