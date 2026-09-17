@@ -37,7 +37,14 @@ import type { ChatMessage, SelectedContext, StudyMode } from './AITopperChatScre
 import { applyTheme } from '@/lib/theme';
 import { ModelSelector } from '@/components/ModelSelector';
 import { buildNotebookContext, appendToNotebook, addSubject, getSubjects, type Subject } from '@/lib/notebook';
-import { saveChatSession, saveChatTranscript } from '@/lib/chatHistory';
+import {
+  saveChatSession,
+  saveChatTranscript,
+  getChatHistory,
+  getChatTranscript,
+  formatChatTime,
+  type ChatHistoryItem,
+} from '@/lib/chatHistory';
 import { loadDemoNotebook } from '@/lib/demoNotebook';
 import {
   GUEST_LIMIT,
@@ -140,7 +147,26 @@ export default function ChatMainArea({
   const [guestCredits, setGuestCreditsState] = useState(GUEST_LIMIT);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [isSupabaseSignedUp, setIsSupabaseSignedUp] = useState(false);
+  const [notebookSessions, setNotebookSessions] = useState<ChatHistoryItem[]>([]);
   const popupRef = useRef<Window | null>(null);
+
+  // Keep notebook chat history in sync for the active subject
+  useEffect(() => {
+    const syncNotebookSessions = () => {
+      if (!selectedContext.subject) {
+        setNotebookSessions([]);
+        return;
+      }
+      const allHistory = getChatHistory();
+      const filtered = allHistory.filter(
+        (item) => item.subject && item.subject.toLowerCase() === selectedContext.subject.toLowerCase()
+      );
+      setNotebookSessions(filtered);
+    };
+    syncNotebookSessions();
+    window.addEventListener('nk-chat-history-change', syncNotebookSessions);
+    return () => window.removeEventListener('nk-chat-history-change', syncNotebookSessions);
+  }, [selectedContext.subject]);
 
   // Keep subjects list in sync — initial load + reactive updates.
   useEffect(() => {
@@ -1775,40 +1801,63 @@ export default function ChatMainArea({
               onImageGenToggle={!isGuest ? () => setImageGenMode((v) => !v) : undefined}
             />
 
-            {/* Quick Action Chips Grid — grid-cols-2 on mobile, flex-wrap on desktop */}
-            {isGuest ? (
-              <div className="w-full max-w-2xl grid grid-cols-2 sm:flex sm:flex-wrap items-center justify-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    loadDemoNotebook(selectedContext.subject);
-                    toast.success('Demo notebook loaded');
-                  }}
-                  className="w-full sm:w-auto px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors flex items-center justify-center sm:justify-start gap-2 shadow-2xs"
-                >
-                  <NotebookText size={14} strokeWidth={1.75} className="text-zinc-400 shrink-0" />
-                  <span>Try Demo Notebook</span>
-                </button>
-                {GUEST_QUICK_ACTIONS.map((action) => (
-                  <button
-                    key={action.label}
-                    type="button"
-                    onClick={() => {
-                      if (action.prompt) {
-                        setInputValue(action.prompt);
-                        setTimeout(() => centerInputRef.current?.focus(), 50);
-                      }
-                    }}
-                    className="w-full sm:w-auto px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors flex items-center justify-center sm:justify-start gap-2 shadow-2xs"
-                  >
-                    <action.icon size={14} strokeWidth={1.75} className="text-zinc-400 shrink-0" />
-                    <span>{action.label}</span>
-                  </button>
-                ))}
+            {/* Below PromptInput: Render Notebook Chat History when in notebook mode; render GENERAL_QUICK_ACTIONS when in standard chat mode */}
+            {selectedContext.subject ? (
+              /* Notebook Chat History Section — Left Aligned, Faded list on lower side */
+              <div className="w-full max-w-2xl mt-4 px-1 text-left">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 flex items-center gap-1.5">
+                    <MessageSquare size={13} strokeWidth={2} />
+                    <span>Chat history</span>
+                  </h3>
+                </div>
+
+                {notebookSessions.length === 0 ? (
+                  <div className="p-3.5 rounded-2xl border border-dashed border-zinc-200/80 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/30">
+                    <p className="text-xs text-zinc-400 dark:text-zinc-500 leading-relaxed">
+                      No chat history in this notebook yet. Chats you start here will be stored in <span className="font-semibold text-zinc-600 dark:text-zinc-300">{selectedContext.subject}</span>.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                    {notebookSessions.map((session) => (
+                      <button
+                        key={session.id}
+                        type="button"
+                        onClick={() => {
+                          const transcript = getChatTranscript(session.id);
+                          window.dispatchEvent(
+                            new CustomEvent('nk-chat-load', {
+                              detail: {
+                                id: session.id,
+                                subject: session.subject,
+                                unit: session.unit,
+                                mode: session.mode,
+                                messages: transcript,
+                              },
+                            })
+                          );
+                        }}
+                        className="w-full text-left p-3 rounded-2xl bg-zinc-100/60 dark:bg-zinc-900/50 hover:bg-zinc-200/70 dark:hover:bg-zinc-800/70 border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 transition-all flex items-center justify-between group cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0 pr-3">
+                          <MessageSquare size={14} className="text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300 shrink-0 transition-colors" />
+                          <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-100 truncate">
+                            {session.title || 'Untitled notebook chat'}
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-zinc-400 dark:text-zinc-500 shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
+                          {formatChatTime(session.timestamp)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : (
+              /* General Chat Quick Actions (when on basic screen) */
               <div className="w-full max-w-2xl grid grid-cols-2 sm:flex sm:flex-wrap items-center justify-center gap-2">
-                {(selectedContext.subject ? studyQuickActions : GENERAL_QUICK_ACTIONS).map((action) => (
+                {GENERAL_QUICK_ACTIONS.map((action) => (
                   <button
                     key={action.label}
                     type="button"
