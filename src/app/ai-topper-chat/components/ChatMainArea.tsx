@@ -971,10 +971,6 @@ export default function ChatMainArea({
       }
       guestCreditsSent = remainingBefore;
       // FIX 5: Credit deduction moved to occur ONLY on successful response generation
-    } else if (typeof window !== 'undefined' && authCreditsExhausted()) {
-      toast.info(
-        `You've used your ${DAILY_LIMIT} free daily credits — continuing on your connected OpenRouter key.`
-      );
     }
 
     const formatTimestamp = () => {
