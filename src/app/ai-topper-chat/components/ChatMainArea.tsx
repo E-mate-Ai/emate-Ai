@@ -1720,12 +1720,12 @@ export default function ChatMainArea({
 
             {/* Notebook Hero Header when a notebook is active */}
             {selectedContext.subject ? (
-              <div className="flex flex-col items-center text-center mb-6 w-full max-w-xl mx-auto">
-                <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/60 flex items-center justify-center text-amber-700 dark:text-amber-300 text-2xl mb-3 shadow-xs">
+              <div className="flex flex-col items-start w-full max-w-2xl mx-auto mb-6 px-2">
+                <div className="text-3xl mb-2 flex items-center justify-center">
                   📔
                 </div>
-                <div className="flex items-center justify-between w-full mb-4 px-2">
-                  <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 capitalize">
+                <div className="flex items-center justify-between w-full">
+                  <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100 capitalize">
                     {selectedContext.subject}
                   </h1>
                   <button
@@ -1734,7 +1734,7 @@ export default function ChatMainArea({
                       const evt = new CustomEvent('nk-open-sources-modal', { detail: { subject: selectedContext.subject } });
                       window.dispatchEvent(evt);
                     }}
-                    className="px-4 py-2 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-800/80 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 text-xs font-semibold transition-all cursor-pointer shadow-xs active:scale-95 flex items-center gap-1.5"
+                    className="px-4 py-2 rounded-full border border-zinc-200/80 dark:border-zinc-800/80 bg-zinc-100/90 dark:bg-zinc-800/90 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-semibold transition-all cursor-pointer shadow-2xs active:scale-95 flex items-center gap-1.5"
                   >
                     <span>Add sources</span>
                   </button>
