@@ -250,6 +250,26 @@ export function deleteSubject(subjectId: string): Subject[] {
     localStorage.setItem('nk-custom-subjects', JSON.stringify(updated));
     window.dispatchEvent(new Event('nk-subjects-changed'));
   }
+
+  // Sync subject deletion to Supabase for authenticated users
+  import('@/lib/supabase/client')
+    .then(({ createClient }) => {
+      const supabase = createClient();
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (!user) return;
+        supabase
+          .from('user_subjects')
+          .upsert({ user_id: user.id, subjects: updated, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+          .then();
+
+        if (subjectToDelete) {
+          const notebookId = `${user.id}-${subjectToDelete.name.toLowerCase().replace(/\s+/g, '-')}`;
+          supabase.from('user_notebooks').delete().eq('id', notebookId).then();
+        }
+      });
+    })
+    .catch(() => {});
+
   return updated;
 }
 
@@ -271,5 +291,20 @@ export function renameSubject(subjectId: string, newName: string): Subject[] {
     localStorage.setItem('nk-custom-subjects', JSON.stringify(updated));
     window.dispatchEvent(new Event('nk-subjects-changed'));
   }
+
+  // Sync rename to Supabase for authenticated users
+  import('@/lib/supabase/client')
+    .then(({ createClient }) => {
+      const supabase = createClient();
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (!user) return;
+        supabase
+          .from('user_subjects')
+          .upsert({ user_id: user.id, subjects: updated, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+          .then();
+      });
+    })
+    .catch(() => {});
+
   return updated;
 }
