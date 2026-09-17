@@ -104,3 +104,7 @@ create policy "Users can manage their own user_sessions"
   using (auth.uid() = user_id or auth.uid() is null)
   with check (auth.uid() = user_id or auth.uid() is null);
 
+-- Reload PostgREST schema cache
+NOTIFY pgrst, 'reload schema';
+
+
