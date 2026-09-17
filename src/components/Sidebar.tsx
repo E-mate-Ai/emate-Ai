@@ -324,9 +324,6 @@ export default function Sidebar({
     localStorage.setItem('nk-subject', subjName);
     if (firstUnit) localStorage.setItem('nk-unit', firstUnit);
     window.dispatchEvent(new Event('nk-context-change'));
-    if (onOpenNotebook) {
-      onOpenNotebook(subjName);
-    }
   };
 
   const [isGeneralWorkspaceActive, setIsGeneralWorkspaceActive] = useState(false);
