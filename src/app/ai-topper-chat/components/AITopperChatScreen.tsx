@@ -90,34 +90,48 @@ export default function AITopperChatScreen() {
   // Sync active session when URL searchParam `chatId` changes
   useEffect(() => {
     const urlChatId = searchParams.get('chatId');
-    if (urlChatId && urlChatId !== sessionId) {
-      const history = getChatHistory();
-      const chatItem = history.find((c) => c.id === urlChatId);
-      const localTranscript = getChatTranscript(urlChatId);
+    if (!urlChatId) return;
 
-      setSessionId(urlChatId);
-      if (localTranscript && localTranscript.length > 0) {
-        setMessages(localTranscript);
-      } else {
-        import('@/lib/supabase/notebookAndHistory').then(({ fetchChatTranscript }) => {
-          fetchChatTranscript(urlChatId).then((dbMessages) => {
-            if (dbMessages && dbMessages.length > 0) {
-              setMessages(dbMessages);
-            }
-          });
-        });
-      }
+    setSessionId(urlChatId);
 
-      if (chatItem) {
-        if (chatItem.mode) setMode(chatItem.mode);
-        if (chatItem.subject && chatItem.unit) {
-          setSelectedContext({ subject: chatItem.subject, unit: chatItem.unit });
-          localStorage.setItem('nk-subject', chatItem.subject);
-          localStorage.setItem('nk-unit', chatItem.unit);
+    async function loadSessionAndTranscript() {
+      try {
+        const { fetchChatTranscript, fetchChatSessions } = await import('@/lib/supabase/notebookAndHistory');
+        
+        // Load transcript
+        const localTranscript = getChatTranscript(urlChatId);
+        if (localTranscript && localTranscript.length > 0) {
+          setMessages(localTranscript);
+        } else {
+          const dbMessages = await fetchChatTranscript(urlChatId);
+          if (dbMessages && dbMessages.length > 0) {
+            setMessages(dbMessages);
+          }
         }
+
+        // Load session metadata if needed
+        const history = getChatHistory();
+        let chatItem = history.find((c) => c.id === urlChatId);
+        if (!chatItem) {
+          const remoteSessions = await fetchChatSessions();
+          chatItem = remoteSessions.find((c) => c.id === urlChatId);
+        }
+
+        if (chatItem) {
+          if (chatItem.mode) setMode(chatItem.mode);
+          if (chatItem.subject && chatItem.unit) {
+            setSelectedContext({ subject: chatItem.subject, unit: chatItem.unit });
+            localStorage.setItem('nk-subject', chatItem.subject);
+            localStorage.setItem('nk-unit', chatItem.unit);
+          }
+        }
+      } catch (err) {
+        console.error('Error loading chat session from Supabase:', err);
       }
     }
-  }, [searchParams, sessionId]);
+
+    loadSessionAndTranscript();
+  }, [searchParams]);
 
   // Onboarding Guide State
   const [showGuide, setShowGuide] = useState(false);
