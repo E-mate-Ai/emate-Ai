@@ -1030,22 +1030,20 @@ export default function ChatMainArea({
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, 50);
 
-    // Persist to recent chats + transcript only for signed-in users
-    if (!isGuest) {
-      const existingHistory = typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('nk-chat-history') || '[]') as any[]) : [];
-      const existingItem = existingHistory.find((item) => item.id === targetChatId);
-      const sessionTitle = existingItem?.title || (content.length > 60 ? content.slice(0, 57) + '…' : content);
+    // Persist session metadata and transcript
+    const existingHistory = typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('nk-chat-history') || '[]') as any[]) : [];
+    const existingItem = existingHistory.find((item) => item.id === targetChatId);
+    const sessionTitle = existingItem?.title || (content.length > 60 ? content.slice(0, 57) + '…' : content);
 
-      saveChatSession({
-        id: targetChatId,
-        title: sessionTitle,
-        subject: selectedContext.subject,
-        unit: selectedContext.unit,
-        mode,
-        timestamp: Date.now(),
-      });
-      saveChatTranscript(targetChatId, newMessages);
-    }
+    saveChatSession({
+      id: targetChatId,
+      title: sessionTitle,
+      subject: selectedContext.subject,
+      unit: selectedContext.unit,
+      mode,
+      timestamp: Date.now(),
+    });
+    saveChatTranscript(targetChatId, newMessages);
 
     // FIX 5: Track credit deduction so it only occurs once on successful generation
     let creditDeducted = false;
@@ -1155,29 +1153,26 @@ export default function ChatMainArea({
         }
       }
 
-      // Persist the completed transcript (assistant content is final after the
-      // stream loop) — signed-in users only; guest chats are ephemeral.
-      if (!isGuest) {
-        saveChatTranscript(sessionIdRef.current, [
-          ...messages,
-          userMsg,
-          {
-            id: assistantMsgId,
-            role: 'assistant',
-            content: accumulatedText,
-            mode,
-            timestamp: formatTimestamp(),
-            subject: selectedContext.subject,
-            isGeneralChat: !isStudyMode,
-          },
-        ]);
-      }
+      // Persist the completed transcript
+      saveChatTranscript(sessionIdRef.current, [
+        ...messages,
+        userMsg,
+        {
+          id: assistantMsgId,
+          role: 'assistant',
+          content: accumulatedText,
+          mode,
+          timestamp: formatTimestamp(),
+          subject: selectedContext.subject,
+          isGeneralChat: !isStudyMode,
+        },
+      ]);
 
-      if (isStudyMode && accumulatedText) {
+      if (selectedContext.subject && accumulatedText) {
         appendToNotebook(
           selectedContext.subject,
-          `Struggling/Interested in: ${content.slice(0, 150)}${content.length > 150 ? '...' : ''}`,
-          'user'
+          `Q: ${content.slice(0, 200)}${content.length > 200 ? '...' : ''}\nA: ${accumulatedText.slice(0, 300)}${accumulatedText.length > 300 ? '...' : ''}`,
+          'ai'
         );
       }
     } catch (err: any) {

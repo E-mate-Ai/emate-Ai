@@ -83,7 +83,7 @@ export function isGuestSession(): boolean {
 }
 
 export function getChatHistory(): ChatHistoryItem[] {
-  if (typeof window === 'undefined' || isGuestSession()) return [];
+  if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
@@ -97,7 +97,7 @@ export function getChatHistory(): ChatHistoryItem[] {
 
 /** Load the saved message transcript for a chat session (may be empty). */
 export function getChatTranscript(id: string): ChatMessage[] {
-  if (typeof window === 'undefined' || isGuestSession()) return [];
+  if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(TRANSCRIPT_KEY);
     if (!raw) return [];
@@ -111,17 +111,9 @@ export function getChatTranscript(id: string): ChatMessage[] {
 /**
  * Persist a chat session's full message transcript. Overwrites the latest
  * state so resuming a chat always shows the most recent conversation.
- *
- * Guest session chats are never saved to localStorage.
- */
-/**
- * Persist a chat session's full message transcript. Overwrites the latest
- * state so resuming a chat always shows the most recent conversation.
- *
- * Guest session chats are never saved.
  */
 export function saveChatTranscript(id: string, messages: ChatMessage[]): void {
-  if (typeof window === 'undefined' || isGuestSession()) return;
+  if (typeof window === 'undefined') return;
   const strippedMessages = messages.slice(-100).map(stripEphemeral);
   try {
     const raw = localStorage.getItem(TRANSCRIPT_KEY);
@@ -192,7 +184,7 @@ export function deleteChatTranscript(id: string): void {
  * it is prepended so the newest always comes first.
  */
 export function saveChatSession(item: ChatHistoryItem): void {
-  if (typeof window === 'undefined' || isGuestSession()) return;
+  if (typeof window === 'undefined') return;
   try {
     const list = getChatHistory();
     const existingIdx = list.findIndex((c) => c.id === item.id);

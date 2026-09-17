@@ -159,10 +159,10 @@ export function buildNotebookContext(subject: string): string {
   const nb = getNotebook(subject);
   if (!nb.entries.length) return '';
   const lines = nb.entries
-    .slice(-10) // only last 10 entries for token efficiency
-    .map((e) => `- ${e.content}`)
+    .slice(-30)
+    .map((e) => `- [${e.type ? e.type.toUpperCase() : e.source}]: ${e.title ? e.title + ' — ' : ''}${e.content}`)
     .join('\n');
-  return `\n\n## ${subject} — Your Personal Notebook (use this to personalise answers):\n${lines}`;
+  return `\n\n## ${subject} — Full Notebook Knowledge Base & Chat History (Use this complete memory of all past discussions and uploaded sources to answer accurately):\n${lines}`;
 }
 
 export interface Subject {
