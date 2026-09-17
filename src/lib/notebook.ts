@@ -102,7 +102,9 @@ export function saveNotebook(subject: string, notebook: SubjectNotebook): void {
             },
             { onConflict: 'id' }
           )
-          .then();
+          .then(({ error }) => {
+            if (error) console.error('Supabase Notebook Write Error:', error.message, error.details);
+          });
       });
     })
     .catch(() => {});

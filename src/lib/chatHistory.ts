@@ -142,7 +142,9 @@ export function saveChatTranscript(id: string, messages: ChatMessage[]): void {
             },
             { onConflict: 'id' }
           )
-          .then();
+          .then(({ error }) => {
+            if (error) console.error('Supabase Chat Transcript Write Error:', error.message, error.details);
+          });
       });
     })
     .catch(() => {});
