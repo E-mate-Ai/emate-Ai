@@ -52,14 +52,27 @@ function dispatch() {
 }
 
 export function isGuestSession(): boolean {
-  if (typeof document === 'undefined') return false;
-  const cookies = document.cookie;
-  const hasAuthCookie =
-    cookies.includes('sb-access-token') ||
-    cookies.includes('next-auth.session-token') ||
-    cookies.includes('__Secure-next-auth.session-token');
-  const isGuestCookie = cookies.includes('is_guest_user=true');
-  return isGuestCookie && !hasAuthCookie;
+  if (typeof window === 'undefined') return false;
+
+  // Check if guest mode is explicitly enabled via the app
+  const guestModeFlag = window.localStorage.getItem('guest_mode') === 'true';
+  if (guestModeFlag) return true;
+
+  // Check cookie-based guest flag
+  if (typeof document !== 'undefined') {
+    const cookies = document.cookie;
+    const hasAuthCookie =
+      cookies.includes('sb-access-token') ||
+      cookies.includes('next-auth.session-token') ||
+      cookies.includes('__Secure-next-auth.session-token');
+    const isGuestCookie = cookies.includes('is_guest_user=true');
+    if (isGuestCookie && !hasAuthCookie) return true;
+
+    // No auth cookies at all means not signed in
+    if (!hasAuthCookie) return true;
+  }
+
+  return false;
 }
 
 export function getChatHistory(): ChatHistoryItem[] {

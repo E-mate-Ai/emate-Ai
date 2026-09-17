@@ -2,6 +2,7 @@
  * Per-subject notebook utility.
  * Each subject gets its own localStorage key so context is always isolated.
  */
+import { isGuestSession } from './chatHistory';
 
 export interface NotebookEntry {
   id: string;
@@ -38,7 +39,7 @@ export function getNotebook(subject: string): SubjectNotebook {
  * Save (overwrite) the entire notebook for a subject.
  */
 export function saveNotebook(subject: string, notebook: SubjectNotebook): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || isGuestSession()) return;
   try {
     localStorage.setItem(
       storageKey(subject),
@@ -124,6 +125,7 @@ export function getSubjects(): Subject[] {
 }
 
 export function addSubject(name: string): Subject[] {
+  if (typeof window === 'undefined' || isGuestSession()) return getSubjects();
   const list = getSubjects();
   if (list.some((s) => s.name.toLowerCase() === name.toLowerCase())) return list;
   const newSubj: Subject = {

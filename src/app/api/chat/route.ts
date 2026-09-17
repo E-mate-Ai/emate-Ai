@@ -49,12 +49,11 @@ export async function POST(req: Request) {
     // Best-effort guest credit guard. The client is the source of truth for the
     // localStorage trial allowance; this rejects with 402 when a guest (no BYOK
     // key cookie) has spent their trial and the UI was somehow bypassed.
-    const isGuest = !userKey;
     if (isGuest && typeof credits === 'number' && credits <= 0) {
       return new Response(
         JSON.stringify({
           error:
-            "You've reached your 20 free searches. Connect your OpenRouter account to unlock unlimited access.",
+            'Oops ! no credits left sign up and connect your key',
           code: 'trial_exhausted',
         }),
         { status: 402, headers: { 'Content-Type': 'application/json' } }

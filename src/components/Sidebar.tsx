@@ -735,30 +735,53 @@ export default function Sidebar({
               </button>
             </div>
           ) : (
-            <button
-              onClick={() => window.dispatchEvent(new Event('nk-open-signup-popup'))}
-              className="flex items-center justify-between w-full rounded-2xl px-2.5 py-2 transition hover:bg-black/5 dark:hover:bg-white/5"
-              style={{
-                background: theme === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
-                border:
-                  theme === 'dark'
-                    ? '1px solid rgba(255,255,255,0.06)'
-                    : '1px solid rgba(0,0,0,0.06)',
-              }}
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-500/10 text-teal-600 dark:text-teal-400">
-                  <User size={15} />
+            <div>
+              <div
+                className="flex items-center justify-between rounded-2xl px-2.5 py-2 transition group"
+                style={{
+                  background: theme === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                  border:
+                    theme === 'dark'
+                      ? '1px solid rgba(255,255,255,0.06)'
+                      : '1px solid rgba(0,0,0,0.06)',
+                }}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className="relative w-9 h-9 shrink-0 rounded-full overflow-hidden flex items-center justify-center font-semibold text-sm border"
+                    style={{
+                      background: theme === 'dark' ? '#1c3a3a' : '#ccfbf1',
+                      borderColor: theme === 'dark' ? 'rgba(94,234,212,0.3)' : 'rgba(20,184,166,0.3)',
+                      color: theme === 'dark' ? '#5eead4' : '#0d9488',
+                    }}
+                  >
+                    G
+                  </div>
+                  <div className="flex flex-col min-w-0 leading-tight">
+                    <span
+                      className="truncate text-xs font-semibold"
+                      style={{ color: theme === 'dark' ? '#ffffff' : '#09090b' }}
+                    >
+                      Guest
+                    </span>
+                    <span className="truncate text-[11px] text-zinc-500 dark:text-zinc-400">
+                      Guest mode
+                    </span>
+                  </div>
                 </div>
-                <span
-                  className="text-xs font-semibold"
-                  style={{ color: theme === 'dark' ? '#ffffff' : '#09090b' }}
+                <button
+                  onClick={() => window.dispatchEvent(new Event('nk-open-signup-popup'))}
+                  className="text-[10px] font-semibold px-2.5 py-1 rounded-lg transition-all hover:opacity-90"
+                  style={{
+                    background: theme === 'dark' ? 'rgba(138,162,255,0.15)' : 'rgba(31,81,255,0.1)',
+                    color: theme === 'dark' ? '#8aa2ff' : '#1f51ff',
+                  }}
+                  title="Sign in to your account"
                 >
                   Sign In
-                </span>
+                </button>
               </div>
-              <ChevronRight size={14} className="text-zinc-400" />
-            </button>
+            </div>
           )}
         </div>
       </aside>

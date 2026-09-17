@@ -31,7 +31,6 @@ export interface SelectedContext {
 export default function AITopperChatScreen() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [showExitNotification, setShowExitNotification] = useState(false);
   const [mode, setMode] = useState<StudyMode>('sprint');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [selectedContext, setSelectedContext] = useState<SelectedContext>({
@@ -48,47 +47,6 @@ export default function AITopperChatScreen() {
     setSessionId((prev) => (prev === 'chat-new' ? `chat-${Date.now()}` : prev));
   }, []);
 
-  // Exit trigger listeners for beforeunload and mouseleave exit intent (GUESTS ONLY)
-  useEffect(() => {
-    // DO NOT show banner for authenticated users (Supabase, NextAuth, or OpenRouter connected)
-    const isAuthUser =
-      typeof document !== 'undefined' &&
-      (document.cookie.includes('sb-access-token') ||
-        document.cookie.includes('next-auth.session-token') ||
-        document.cookie.includes('__Secure-next-auth.session-token') ||
-        document.cookie.includes('user_openrouter_key') ||
-        !!localStorage.getItem('user_openrouter_key'));
-
-    // A guest is someone who has neither an auth cookie nor an OpenRouter key
-    const isGuest = !isAuthUser;
-
-    if (!isGuest) return;
-
-    // Delay the banner appearance by ~1000ms after page mount so it doesn't appear immediately
-    const mountTimer = setTimeout(() => {
-      setShowExitNotification(true);
-    }, 1000);
-
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = 'Guest session history will be deleted. Sign up to save your progress!';
-    };
-
-    const handleMouseLeave = (e: MouseEvent) => {
-      if (e.clientY <= 0) {
-        setShowExitNotification(true);
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    document.addEventListener('mouseleave', handleMouseLeave);
-
-    return () => {
-      clearTimeout(mountTimer);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      document.removeEventListener('mouseleave', handleMouseLeave);
-    };
-  }, []);
 
   // Sync active session when URL searchParam `chatId` changes
   useEffect(() => {
@@ -249,44 +207,6 @@ export default function AITopperChatScreen() {
 
   return (
     <div className="relative flex h-screen min-h-screen overflow-hidden">
-      {/* Leave Notification Banner */}
-      {showExitNotification && (
-        <div className="fixed bottom-4 right-4 z-[300] max-w-md w-full px-4 sm:px-0">
-          <Alert
-            layout="complex"
-            isNotification
-            size="lg"
-            className="bg-card/95 border-border shadow-2xl backdrop-blur-md rounded-xl p-4 pr-12 relative animate-in fade-in slide-in-from-bottom-3 duration-400 ease-out"
-          >
-            <div className="space-y-1">
-              <AlertTitle className="text-sm font-semibold">
-                Sign up to save your progress!
-              </AlertTitle>
-              <AlertDescription className="text-xs">
-                Guest chats are non-persistent and will be cleared when you leave.
-              </AlertDescription>
-            </div>
-            <div className="flex items-center gap-2 mt-3 sm:mt-0 shrink-0">
-              <Button
-                onClick={() => router.push('/sign-up-login-screen')}
-                size="sm"
-                className="font-medium text-xs px-3.5 py-1.5 h-auto rounded-lg"
-              >
-                Sign Up
-              </Button>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setShowExitNotification(false)}
-              className="absolute top-3 right-3 text-text-muted hover:text-text-primary hover:bg-card-hover h-8 w-8 rounded-lg transition-colors flex items-center justify-center cursor-pointer"
-              aria-label="Dismiss notification"
-            >
-              <X size={15} strokeWidth={1.75} />
-            </Button>
-          </Alert>
-        </div>
-      )}
 
       <div className="flex-1 overflow-hidden">
         <div className="flex h-full flex-col overflow-hidden">

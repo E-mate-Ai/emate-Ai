@@ -23,6 +23,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [activeModalView, setActiveModalView] = useState<'none' | 'settings' | 'notebook'>('none');
   const [activeNotebookId, setActiveNotebookId] = useState<string | null>(null);
   const [showSignUpPopup, setShowSignUpPopup] = useState(false);
+  const [popupTitle, setPopupTitle] = useState('Login or sign up for free');
+  const [popupSubtitle, setPopupSubtitle] = useState('Save and sync your searches');
 
   const pathname = usePathname();
 
@@ -35,6 +37,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
           data: { user },
         } = await supabase.auth.getUser();
         if (!user) {
+          const { getGuestCredits } = await import('@/lib/credits');
+          const remaining = getGuestCredits();
+          if (remaining <= 0) {
+            setPopupTitle('Sign up to use');
+            setPopupSubtitle('You have used all 50 free credits. Create a free account to continue.');
+          }
           setShowSignUpPopup(true);
         }
       } catch {
@@ -43,7 +51,20 @@ export default function AppLayout({ children }: AppLayoutProps) {
     }
     checkAuthForPopup();
 
-    const handleOpenPopup = () => setShowSignUpPopup(true);
+    const handleOpenPopup = async () => {
+      try {
+        const { getGuestCredits } = await import('@/lib/credits');
+        const remaining = getGuestCredits();
+        if (remaining <= 0) {
+          setPopupTitle('Sign up to use');
+          setPopupSubtitle('You have used all 50 free credits. Create a free account to continue.');
+        } else {
+          setPopupTitle('Login or sign up for free');
+          setPopupSubtitle('Save and sync your searches');
+        }
+      } catch {}
+      setShowSignUpPopup(true);
+    };
     window.addEventListener('nk-open-signup-popup', handleOpenPopup);
     return () => window.removeEventListener('nk-open-signup-popup', handleOpenPopup);
   }, []);
@@ -246,6 +267,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
         isOpen={showSignUpPopup}
         onClose={() => setShowSignUpPopup(false)}
         onOpenFullAuth={() => router.push('/sign-up-login-screen')}
+        title={popupTitle}
+        subtitle={popupSubtitle}
       />
     </div>
   );

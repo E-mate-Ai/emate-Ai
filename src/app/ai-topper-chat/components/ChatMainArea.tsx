@@ -138,6 +138,7 @@ export default function ChatMainArea({
   const [showToast, setShowToast] = useState(false);
   const [guestCredits, setGuestCreditsState] = useState(GUEST_LIMIT);
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [isSupabaseSignedUp, setIsSupabaseSignedUp] = useState(false);
   const popupRef = useRef<Window | null>(null);
 
   // Keep subjects list in sync — initial load + reactive updates.
@@ -146,6 +147,25 @@ export default function ChatMainArea({
     const sync = () => setSubjects(getSubjects());
     window.addEventListener('nk-subjects-changed', sync);
     return () => window.removeEventListener('nk-subjects-changed', sync);
+  }, []);
+
+  // Track Supabase auth state — Connect button only shown to signed-up users.
+  useEffect(() => {
+    let authSub: { unsubscribe: () => void } | null = null;
+    const checkSupabase = async () => {
+      try {
+        const { createClient } = await import('@/lib/supabase/client');
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        setIsSupabaseSignedUp(!!user);
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+          setIsSupabaseSignedUp(!!session?.user);
+        });
+        authSub = subscription;
+      } catch { setIsSupabaseSignedUp(false); }
+    };
+    checkSupabase();
+    return () => { authSub?.unsubscribe(); };
   }, []);
 
   // Identity: guests have no connected OpenRouter key; connected users are the
@@ -925,7 +945,24 @@ export default function ChatMainArea({
     if (isGuest) {
       const remainingBefore = getGuestCredits();
       if (remainingBefore <= 0) {
-        setShowConnectModal(true);
+        // Instead of opening a modal, reply with a default assistant message
+        const noCreditsMsg: ChatMessage = {
+          id: `msg-${Date.now()}-nocredits`,
+          role: 'assistant',
+          content: 'Oops! No credits left 😔 Sign up and connect your key to continue using e-Mate AI.',
+          mode,
+          timestamp: new Date().toISOString(),
+          subject: selectedContext.subject,
+        };
+        const userMsg2: ChatMessage = {
+          id: `msg-${Date.now()}-user`,
+          role: 'user',
+          content,
+          mode,
+          timestamp: new Date().toISOString(),
+          subject: selectedContext.subject,
+        };
+        setMessages((prev) => [...prev, userMsg2, noCreditsMsg]);
         return;
       }
       guestCreditsSent = remainingBefore;
@@ -1386,7 +1423,7 @@ export default function ChatMainArea({
                 Pro
               </span>
             </Link>
-          ) : (
+          ) : isSupabaseSignedUp ? (
             <button
               onClick={handleOpenRouterConnect}
               className="h-8 flex items-center gap-1 px-3 rounded-full bg-[#1f51ff] dark:bg-[#8aa2ff] text-white dark:text-[#0b0b0d] text-[11px] font-medium hover:opacity-90 transition-opacity shadow-sm"
@@ -1394,7 +1431,7 @@ export default function ChatMainArea({
               <Key size={11} />
               Connect
             </button>
-          )}
+          ) : null}
         </div>
       </header>
 

@@ -621,16 +621,16 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                 </p>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 pt-1 text-xs">
                   <a
-                    href="mailto:support@emate.ai"
+                    href="mailto:isachinbisht@gmail.com"
                     className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-600/10 text-blue-600 dark:text-blue-400 font-medium hover:bg-blue-600/20 transition-colors min-h-[44px]"
                   >
-                    <Mail size={14} /> support@emate.ai
+                    <Mail size={14} /> isachinbisht@gmail.com
                   </a>
                   <a
-                    href="tel:+1234567890"
+                    href="tel:+918860911070"
                     className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 font-medium hover:bg-zinc-500/20 transition-colors min-h-[44px]"
                   >
-                    <Phone size={14} /> +1 (234) 567-890
+                    <Phone size={14} /> +91 8860911070
                   </a>
                 </div>
               </div>

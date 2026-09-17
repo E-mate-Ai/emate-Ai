@@ -9,9 +9,17 @@ interface SignUpPopupProps {
   isOpen: boolean;
   onClose: () => void;
   onOpenFullAuth?: () => void;
+  title?: string;
+  subtitle?: string;
 }
 
-export default function SignUpPopup({ isOpen, onClose, onOpenFullAuth }: SignUpPopupProps) {
+export default function SignUpPopup({
+  isOpen,
+  onClose,
+  onOpenFullAuth,
+  title = 'Login or sign up for free',
+  subtitle = 'Save and sync your searches',
+}: SignUpPopupProps) {
   const [email, setEmail] = useState('');
   const [googleLoading, setGoogleLoading] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
@@ -141,13 +149,13 @@ export default function SignUpPopup({ isOpen, onClose, onOpenFullAuth }: SignUpP
           className="text-base font-bold tracking-tight mb-1"
           style={{ color: isDark ? '#ffffff' : '#09090b' }}
         >
-          Login or sign up for free
+          {title}
         </h3>
         <p
           className="text-xs font-medium mb-5"
           style={{ color: isDark ? '#a1a1aa' : '#71717a' }}
         >
-          Save and sync your searches
+          {subtitle}
         </p>
       </div>
 
@@ -242,14 +250,19 @@ export default function SignUpPopup({ isOpen, onClose, onOpenFullAuth }: SignUpP
         {/* Footer text */}
         <div className="pt-2 text-center">
           <button
-            onClick={() => {
-              if (onOpenFullAuth) onOpenFullAuth();
-              else window.location.assign('/sign-up-login-screen');
+            onClick={(e) => {
+              e.stopPropagation();
+              // Enable guest mode so sidebar profile shows "Guest"
+              import('@/lib/guest-mode').then(({ setGuestModeEnabled }) => {
+                setGuestModeEnabled(true);
+                window.dispatchEvent(new Event('storage'));
+              });
+              onClose();
             }}
             type="button"
-            className="text-[11px] font-medium text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors"
+            className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 transition-all hover:text-zinc-800 dark:hover:text-zinc-200 hover:underline hover:font-bold"
           >
-            Single sign-on (SSO)
+            Continue as guest
           </button>
         </div>
       </div>

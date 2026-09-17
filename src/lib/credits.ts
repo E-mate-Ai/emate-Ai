@@ -9,7 +9,7 @@
  * be imported safely from server route handlers without touching localStorage.
  */
 
-export const GUEST_LIMIT = 20;
+export const GUEST_LIMIT = 50;
 export const DAILY_LIMIT = 5;
 
 const GUEST_KEY = 'nk-guest-credits';
@@ -20,8 +20,18 @@ const AUTH_KEY = 'nk-auth-credits';
 /** Remaining guest credits; initializes to GUEST_LIMIT on first visit. */
 export function getGuestCredits(): number {
   if (typeof window === 'undefined') return GUEST_LIMIT;
-  const saved = parseInt(localStorage.getItem(GUEST_KEY) || '', 10);
+  const raw = localStorage.getItem(GUEST_KEY);
+  if (!raw) {
+    localStorage.setItem(GUEST_KEY, String(GUEST_LIMIT));
+    return GUEST_LIMIT;
+  }
+  const saved = parseInt(raw, 10);
   if (Number.isNaN(saved)) {
+    localStorage.setItem(GUEST_KEY, String(GUEST_LIMIT));
+    return GUEST_LIMIT;
+  }
+  // Upgrade users who had the old 20 limit to the 50 free credits limit
+  if (saved === 20) {
     localStorage.setItem(GUEST_KEY, String(GUEST_LIMIT));
     return GUEST_LIMIT;
   }

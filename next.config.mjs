@@ -1,11 +1,6 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
-import withBundleAnalyzer from '@next/bundle-analyzer';
 import { imageHosts } from './image-hosts.config.mjs';
-
-const withBundleAnalyzerConfig = withBundleAnalyzer({
-    enabled: process.env.ANALYZE === 'true',
-});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -85,4 +80,6 @@ const nextConfig = {
     },
 };
 
-export default withBundleAnalyzerConfig(nextConfig);
+export default process.env.ANALYZE === 'true'
+    ? (await import('@next/bundle-analyzer')).default({ enabled: true })(nextConfig)
+    : nextConfig;
