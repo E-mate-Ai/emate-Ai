@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import ChatMainArea from './ChatMainArea';
-import { getChatHistory, getChatTranscript, type ChatMessage } from '@/lib/chatHistory';
+import { getChatHistory, getChatTranscript, saveChatSession, saveChatTranscript, type ChatMessage } from '@/lib/chatHistory';
 import {
   Sparkles,
   BookOpen,
@@ -33,18 +33,28 @@ export default function AITopperChatScreen() {
   const router = useRouter();
   const [mode, setMode] = useState<StudyMode>('sprint');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // Refs so event-handler closures always see the latest values without
+  // needing to be re-registered on every state change.
+  const messagesRef = useRef<ChatMessage[]>([]);
+  const contextRef = useRef<SelectedContext>({ subject: '', unit: '' });
+  const sessionIdRef = useRef('chat-new');
+
   const [selectedContext, setSelectedContext] = useState<SelectedContext>({
     subject: '',
     unit: '',
   });
   const [selectedModel, setSelectedModel] = useState('openrouter/auto');
-  // Active chat session id (drives transcript persistence/loading). Starts with
-  // a stable SSR-safe default; replaced with a real timestamp id on the client
-  // via useEffect to avoid a hydration mismatch from Date.now() differing
-  // between the server render and the client hydration pass.
   const [sessionId, setSessionId] = useState('chat-new');
+
+  // Keep refs in sync with state so event-handler closures always see fresh values
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+  useEffect(() => { contextRef.current = selectedContext; }, [selectedContext]);
+  useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
+
   useEffect(() => {
-    setSessionId((prev) => (prev === 'chat-new' ? `chat-${Date.now()}` : prev));
+    const id = `chat-${Date.now()}`;
+    setSessionId(id);
+    sessionIdRef.current = id;
   }, []);
 
   // Hydrate user notebooks, subjects, and chat history from Supabase on mount
@@ -154,21 +164,54 @@ export default function AITopperChatScreen() {
 
   useEffect(() => {
     const syncContext = () => {
-      const savedSubject = localStorage.getItem('nk-subject') || '';
-      const savedUnit = localStorage.getItem('nk-unit') || '';
-      setSelectedContext({ subject: savedSubject, unit: savedUnit });
+      const newSubject = localStorage.getItem('nk-subject') || '';
+      const newUnit   = localStorage.getItem('nk-unit')    || '';
+
+      const prevSubject = contextRef.current.subject;
+      const prevUnit    = contextRef.current.unit;
+      const currentMsgs = messagesRef.current;
+
+      // Notebook switched while a chat is in progress → save & reset
+      if (newSubject && newSubject !== prevSubject && currentMsgs.length > 0) {
+        const savedId = sessionIdRef.current || `chat-${Date.now() - 1}`;
+        const firstUserMsg = currentMsgs.find((m) => m.role === 'user');
+        const title = firstUserMsg
+          ? firstUserMsg.content.slice(0, 60) + (firstUserMsg.content.length > 60 ? '\u2026' : '')
+          : 'Untitled chat';
+
+        // Persist the old session
+        saveChatSession({
+          id: savedId,
+          title,
+          subject: prevSubject,
+          unit: prevUnit,
+          mode: 'sprint',
+          timestamp: Date.now(),
+        });
+        saveChatTranscript(savedId, currentMsgs);
+
+        // Open a clean session for the new notebook
+        const freshId = `chat-${Date.now()}`;
+        sessionIdRef.current = freshId;
+        setSessionId(freshId);
+        setMessages([]);
+        messagesRef.current = [];
+      }
+
+      // Always update context
+      contextRef.current = { subject: newSubject, unit: newUnit };
+      setSelectedContext({ subject: newSubject, unit: newUnit });
     };
+
     syncContext();
     window.addEventListener('nk-context-change', syncContext);
 
-    // Listen to theme changes for dynamic guide themes
     const syncTheme = () => {
       const savedTheme = localStorage.getItem('nk-theme');
       setTheme(savedTheme === 'dark' ? 'dark' : 'light');
     };
     window.addEventListener('storage', syncTheme);
 
-    // Support launching guide anytime
     const handleLaunchGuide = () => {
       setCurrentStep(0);
       setShowGuide(true);
@@ -181,6 +224,7 @@ export default function AITopperChatScreen() {
       window.removeEventListener('nk-launch-guide', handleLaunchGuide);
     };
   }, []);
+  // ↑ empty deps — safe because we read from refs, not from stale closure state
 
   // Resume a chat session chosen from the sidebar Search / recent list.
   useEffect(() => {
@@ -193,19 +237,29 @@ export default function AITopperChatScreen() {
         messages: ChatMessage[];
       };
       if (!detail?.id) return;
+      sessionIdRef.current = detail.id;
       setSessionId(detail.id);
-      setMessages(detail.messages ?? []);
+      const msgs = detail.messages ?? [];
+      messagesRef.current = msgs;
+      setMessages(msgs);
       setMode(detail.mode);
-      setSelectedContext({ subject: detail.subject, unit: detail.unit });
+      const ctx = { subject: detail.subject, unit: detail.unit };
+      contextRef.current = ctx;
+      setSelectedContext(ctx);
       // Keep localStorage context in sync so notebooks / ChatMainArea follow.
       localStorage.setItem('nk-subject', detail.subject);
       localStorage.setItem('nk-unit', detail.unit);
     };
 
     const handleNewChat = () => {
-      setSessionId(`chat-${Date.now()}`);
+      const freshId = `chat-${Date.now()}`;
+      sessionIdRef.current = freshId;
+      setSessionId(freshId);
+      messagesRef.current = [];
       setMessages([]);
-      setSelectedContext({ subject: '', unit: '' });
+      const ctx = { subject: '', unit: '' };
+      contextRef.current = ctx;
+      setSelectedContext(ctx);
       localStorage.setItem('nk-subject', '');
       localStorage.setItem('nk-unit', '');
     };
