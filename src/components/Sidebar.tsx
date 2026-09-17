@@ -147,8 +147,17 @@ export default function Sidebar({
     const handleSubjectsChanged = () => {
       setSubjects(getSubjects());
     };
+    const syncSelectedSubject = () => {
+      const saved = localStorage.getItem('nk-subject') || '';
+      setSelectedSubject(saved);
+    };
+    syncSelectedSubject();
     window.addEventListener('nk-subjects-changed', handleSubjectsChanged);
-    return () => window.removeEventListener('nk-subjects-changed', handleSubjectsChanged);
+    window.addEventListener('nk-context-change', syncSelectedSubject);
+    return () => {
+      window.removeEventListener('nk-subjects-changed', handleSubjectsChanged);
+      window.removeEventListener('nk-context-change', syncSelectedSubject);
+    };
   }, []);
 
   // Allow any component to open the Create Notebook modal via a custom event.
@@ -410,23 +419,35 @@ export default function Sidebar({
           <nav className="space-y-1">
             <a
               href="/ai-topper-chat"
-              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold transition-colors"
+              onClick={(e) => {
+                e.preventDefault();
+                localStorage.setItem('nk-subject', '');
+                localStorage.setItem('nk-unit', '');
+                setSelectedSubject('');
+                setSelectedUnit('');
+                window.dispatchEvent(new Event('nk-context-change'));
+                window.dispatchEvent(new CustomEvent('nk-new-chat'));
+                if (pathname !== '/ai-topper-chat') {
+                  router.push('/ai-topper-chat');
+                }
+              }}
+              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold transition-colors cursor-pointer"
               style={{
-                background: isGeneralWorkspaceActive
+                background: !selectedSubject
                   ? theme === 'dark'
                     ? 'rgba(255,255,255,0.12)'
                     : 'rgba(0,0,0,0.08)'
                   : theme === 'dark'
                     ? 'rgba(255,255,255,0.08)'
                     : 'rgba(0,0,0,0.06)',
-                color: isGeneralWorkspaceActive
+                color: !selectedSubject
                   ? theme === 'dark'
                     ? '#ffffff'
                     : '#000000'
                   : theme === 'dark'
                     ? '#f4f4f5'
                     : '#09090b',
-                border: isGeneralWorkspaceActive
+                border: !selectedSubject
                   ? theme === 'dark'
                     ? '1px solid rgba(255,255,255,0.18)'
                     : '1px solid rgba(0,0,0,0.12)'
@@ -434,7 +455,7 @@ export default function Sidebar({
               }}
             >
               <PenSquare size={14} />
-              <span>{isGeneralWorkspaceActive ? 'General Workspace' : 'New chat'}</span>
+              <span>{!selectedSubject ? 'General Workspace' : 'New chat'}</span>
             </a>
 
             <button

@@ -1719,7 +1719,7 @@ export default function ChatMainArea({
             />
 
             {/* Notebook Hero Header when a notebook is active */}
-            {isStudyMode && selectedContext.subject ? (
+            {selectedContext.subject ? (
               <div className="flex flex-col items-center text-center mb-6 w-full max-w-xl mx-auto">
                 <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/60 flex items-center justify-center text-amber-700 dark:text-amber-300 text-2xl mb-3 shadow-xs">
                   📔
@@ -1741,39 +1741,14 @@ export default function ChatMainArea({
                 </div>
               </div>
             ) : (
-              /* Heading & Subheading */
-              <div className="text-center mb-4 max-w-xl mx-auto">
+              /* Basic Chat Screen Heading & Subheading */
+              <div className="text-center mb-6 max-w-xl mx-auto">
                 <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100 text-center mb-2">
-                  {isStudyMode ? 'Master your subjects with e-Mate' : 'What are you studying today?'}
+                  What are you studying today?
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 text-center max-w-md mx-auto leading-relaxed">
-                  {isStudyMode
-                    ? 'Upload lecture notes, run rapid-fire practice quizzes, or deep-dive into complex concepts.'
-                    : 'Ask questions, analyze study notes, debug code, or create visual diagrams.'}
+                  Ask questions, analyze study notes, debug code, or create visual diagrams.
                 </p>
-              </div>
-            )}
-
-            {/* Empty State UI Card when no subject notebooks exist */}
-            {isStudyMode && subjects.length === 0 && (
-              <div className="w-full max-w-lg p-4 mb-4 rounded-xl border border-brand/20 bg-brand/5 text-center flex flex-col items-center gap-2 backdrop-blur-sm shadow-glow-subtle">
-                <div className="w-9 h-9 rounded-xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand mb-0.5">
-                  <BookOpen size={16} strokeWidth={1.75} />
-                </div>
-                <h3 className="text-xs font-semibold font-display text-text-primary">
-                  No active subject notebook
-                </h3>
-                <p className="text-xs text-text-secondary max-w-sm leading-relaxed">
-                  Create a dedicated notebook for your syllabus or lecture notes to unlock automated flashcards, practice quizzes, and exam-focused revision.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => window.dispatchEvent(new Event('nk-create-notebook'))}
-                  className="mt-1 px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-brand hover:bg-brand-hover text-brand-foreground transition-all cursor-pointer inline-flex items-center gap-2 shadow-glow-subtle active:scale-95"
-                >
-                  <Plus size={14} strokeWidth={1.75} />
-                  Create Subject Notebook
-                </button>
               </div>
             )}
 
@@ -1833,7 +1808,7 @@ export default function ChatMainArea({
               </div>
             ) : (
               <div className="w-full max-w-2xl grid grid-cols-2 sm:flex sm:flex-wrap items-center justify-center gap-2">
-                {(isStudyMode ? studyQuickActions : GENERAL_QUICK_ACTIONS).map((action) => (
+                {(selectedContext.subject ? studyQuickActions : GENERAL_QUICK_ACTIONS).map((action) => (
                   <button
                     key={action.label}
                     type="button"

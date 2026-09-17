@@ -201,8 +201,21 @@ export default function AITopperChatScreen() {
       localStorage.setItem('nk-subject', detail.subject);
       localStorage.setItem('nk-unit', detail.unit);
     };
+
+    const handleNewChat = () => {
+      setSessionId(`chat-${Date.now()}`);
+      setMessages([]);
+      setSelectedContext({ subject: '', unit: '' });
+      localStorage.setItem('nk-subject', '');
+      localStorage.setItem('nk-unit', '');
+    };
+
     window.addEventListener('nk-chat-load', handleChatLoad);
-    return () => window.removeEventListener('nk-chat-load', handleChatLoad);
+    window.addEventListener('nk-new-chat', handleNewChat);
+    return () => {
+      window.removeEventListener('nk-chat-load', handleChatLoad);
+      window.removeEventListener('nk-new-chat', handleNewChat);
+    };
   }, []);
 
   const handleNext = () => {
