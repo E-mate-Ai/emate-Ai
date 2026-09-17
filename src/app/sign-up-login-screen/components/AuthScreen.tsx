@@ -46,18 +46,29 @@ export default function AuthScreen() {
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     setError(null);
-    const supabase = createClient();
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: getRedirectUrl() },
-    });
-    if (error) {
-      setError(error.message);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: getRedirectUrl(),
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      });
+      if (error) {
+        setError(error.message);
+        setGoogleLoading(false);
+        return;
+      }
+      if (data?.url) {
+        window.location.href = data.url;
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Google sign-in failed');
       setGoogleLoading(false);
-      return;
-    }
-    if (data?.url) {
-      window.location.assign(data.url);
     }
   };
 

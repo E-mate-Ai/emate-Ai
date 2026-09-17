@@ -57,7 +57,13 @@ export default function SignUpPopup({
       const supabase = createClient();
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: getRedirectUrl() },
+        options: {
+          redirectTo: getRedirectUrl(),
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
       });
       if (error) {
         toast.error(error.message);
@@ -65,10 +71,10 @@ export default function SignUpPopup({
         return;
       }
       if (data?.url) {
-        window.location.assign(data.url);
+        window.location.href = data.url;
       }
-    } catch (err) {
-      toast.error('Google sign-in failed');
+    } catch (err: any) {
+      toast.error(err?.message || 'Google sign-in failed');
       setGoogleLoading(false);
     }
   };
