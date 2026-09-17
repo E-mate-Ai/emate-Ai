@@ -107,16 +107,45 @@ export function getChatTranscript(id: string): ChatMessage[] {
  *
  * Guest session chats are never saved to localStorage.
  */
+/**
+ * Persist a chat session's full message transcript. Overwrites the latest
+ * state so resuming a chat always shows the most recent conversation.
+ *
+ * Guest session chats are never saved.
+ */
 export function saveChatTranscript(id: string, messages: ChatMessage[]): void {
   if (typeof window === 'undefined' || isGuestSession()) return;
+  const strippedMessages = messages.slice(-100).map(stripEphemeral);
   try {
     const raw = localStorage.getItem(TRANSCRIPT_KEY);
     const map = raw ? (JSON.parse(raw) as Record<string, ChatMessage[]>) : {};
-    map[id] = messages.slice(-100).map(stripEphemeral); // bound + strip ephemeral fields
+    map[id] = strippedMessages;
     localStorage.setItem(TRANSCRIPT_KEY, JSON.stringify(map));
   } catch {
     // quota exceeded – silently ignore
   }
+
+  // Sync to Supabase in background for authenticated users
+  import('@/lib/supabase/client')
+    .then(({ createClient }) => {
+      const supabase = createClient();
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (!user) return;
+        supabase
+          .from('chat_transcripts')
+          .upsert(
+            {
+              id,
+              user_id: user.id,
+              messages: strippedMessages,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'id' }
+          )
+          .then();
+      });
+    })
+    .catch(() => {});
 }
 
 /** Drop ephemeral fields (images, analyzerReport) from a message before persisting. */
@@ -139,6 +168,13 @@ export function deleteChatTranscript(id: string): void {
   } catch {
     /* empty */
   }
+
+  import('@/lib/supabase/client')
+    .then(({ createClient }) => {
+      const supabase = createClient();
+      supabase.from('chat_transcripts').delete().eq('id', id).then();
+    })
+    .catch(() => {});
 }
 
 /**
@@ -165,6 +201,32 @@ export function saveChatSession(item: ChatHistoryItem): void {
   } catch {
     // quota exceeded – silently ignore
   }
+
+  // Sync session metadata to Supabase
+  import('@/lib/supabase/client')
+    .then(({ createClient }) => {
+      const supabase = createClient();
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (!user) return;
+        supabase
+          .from('chat_sessions')
+          .upsert(
+            {
+              id: item.id,
+              user_id: user.id,
+              title: item.title,
+              subject: item.subject,
+              unit: item.unit,
+              mode: item.mode,
+              timestamp: item.timestamp,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'id' }
+          )
+          .then();
+      });
+    })
+    .catch(() => {});
 }
 
 export function deleteChatSession(id: string): void {
@@ -177,6 +239,13 @@ export function deleteChatSession(id: string): void {
   } catch {
     /* empty */
   }
+
+  import('@/lib/supabase/client')
+    .then(({ createClient }) => {
+      const supabase = createClient();
+      supabase.from('chat_sessions').delete().eq('id', id).then();
+    })
+    .catch(() => {});
 }
 
 export function clearChatHistory(): void {

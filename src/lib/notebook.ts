@@ -83,6 +83,29 @@ export function saveNotebook(subject: string, notebook: SubjectNotebook): void {
   } catch {
     // storage quota exceeded — silently ignore
   }
+
+  // Sync notebook entries to Supabase for signed-in users
+  import('@/lib/supabase/client')
+    .then(({ createClient }) => {
+      const supabase = createClient();
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (!user) return;
+        supabase
+          .from('user_notebooks')
+          .upsert(
+            {
+              id: `${user.id}-${subject.toLowerCase().replace(/\s+/g, '-')}`,
+              user_id: user.id,
+              subject,
+              notebook_data: updatedNotebook,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'id' }
+          )
+          .then();
+      });
+    })
+    .catch(() => {});
 }
 
 /**
@@ -176,6 +199,28 @@ export function addSubject(name: string): Subject[] {
   }
   localStorage.setItem('nk-custom-subjects', JSON.stringify(updated));
   window.dispatchEvent(new Event('nk-subjects-changed'));
+
+  // Sync custom subjects list to Supabase for signed-in users
+  import('@/lib/supabase/client')
+    .then(({ createClient }) => {
+      const supabase = createClient();
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (!user) return;
+        supabase
+          .from('user_subjects')
+          .upsert(
+            {
+              user_id: user.id,
+              subjects: updated,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'user_id' }
+          )
+          .then();
+      });
+    })
+    .catch(() => {});
+
   return updated;
 }
 

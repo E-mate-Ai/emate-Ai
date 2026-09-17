@@ -150,17 +150,21 @@ export default function ChatMainArea({
     return () => window.removeEventListener('nk-subjects-changed', sync);
   }, []);
 
-  // Track Supabase auth state — Connect button only shown to signed-up users.
+  // Track Supabase auth state & unique session ID
   useEffect(() => {
     let authSub: { unsubscribe: () => void } | null = null;
     const checkSupabase = async () => {
       try {
+        const { trackUserSession } = await import('@/lib/session');
+        await trackUserSession();
+
         const { createClient } = await import('@/lib/supabase/client');
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         setIsSupabaseSignedUp(!!user);
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
           setIsSupabaseSignedUp(!!session?.user);
+          trackUserSession();
         });
         authSub = subscription;
       } catch { setIsSupabaseSignedUp(false); }
