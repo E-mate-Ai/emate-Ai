@@ -9,6 +9,10 @@ export interface NotebookEntry {
   content: string;
   timestamp: string;
   source: 'ai' | 'user';
+  type?: 'file' | 'drive' | 'website' | 'text';
+  title?: string;
+  url?: string;
+  size?: string;
 }
 
 export interface SubjectNotebook {
