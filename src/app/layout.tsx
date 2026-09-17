@@ -1,10 +1,11 @@
 import React from 'react';
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
-import { Outfit, Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google';
+import { Outfit, Plus_Jakarta_Sans, JetBrains_Mono, Geist } from 'next/font/google';
 import { Toaster } from 'sonner';
 import '../styles/tailwind.css';
 import RouteTracker from '@/components/RouteTracker';
+import { cn } from "@/lib/utils";
 
 const outfit = Outfit({
   subsets: ['latin'],
@@ -13,12 +14,7 @@ const outfit = Outfit({
   display: 'swap',
 });
 
-const plusJakarta = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-sans',
-  display: 'swap',
-});
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
@@ -86,7 +82,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className="overflow-x-hidden w-full max-w-[100vw]" suppressHydrationWarning>
+    <html lang="en" className={cn("overflow-x-hidden w-full max-w-[100vw]", "font-sans", geist.variable)} suppressHydrationWarning>
       <head>
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -103,7 +99,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body
         suppressHydrationWarning={true}
-        className={`${plusJakarta.className} ${plusJakarta.variable} ${outfit.variable} ${jetbrainsMono.variable} overflow-x-hidden w-full max-w-[100vw] antialiased min-h-screen bg-background text-foreground`}
+        className={`${geist.className} ${geist.variable} ${outfit.variable} ${jetbrainsMono.variable} overflow-x-hidden w-full max-w-[100vw] antialiased min-h-screen bg-background text-foreground`}
       >
         <RouteTracker />
         {children}

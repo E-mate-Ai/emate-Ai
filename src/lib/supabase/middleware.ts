@@ -1,74 +1,69 @@
-import { createServerClient } from '@supabase/ssr';
-import { NextResponse, type NextRequest } from 'next/server';
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
-  });
+  })
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
-    return supabaseResponse;
-  }
-
-  const supabase = createServerClient(supabaseUrl, supabaseKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
+  // With Fluid compute, don't put this client in a global environment
+  // variable. Always create a new one on each request.
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+          supabaseResponse = NextResponse.next({
+            request,
+          })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          )
+        },
       },
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        supabaseResponse = NextResponse.next({
-          request,
-        });
-        cookiesToSet.forEach(({ name, value, options }) =>
-          supabaseResponse.cookies.set(name, value, options)
-        );
-      },
-    },
-  });
+    }
+  )
 
-  // IMPORTANT: Do NOT add any logic between createServerClient and
-  // supabase.auth.getUser(). A simple mistake could make it very hard to debug
+  // Do not run code between createServerClient and
+  // supabase.auth.getClaims(). A simple mistake could make it very hard to debug
   // issues with users being randomly logged out.
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // IMPORTANT: If you remove getClaims() and you use server-side rendering
+  // with the Supabase client, your users may be randomly logged out.
+  const { data } = await supabase.auth.getClaims()
+  const user = data?.claims
 
-  const isAuthPage =
-    request.nextUrl.pathname.startsWith('/sign-up-login-screen') ||
-    request.nextUrl.pathname.startsWith('/auth');
-  const isGuestMode =
-    request.cookies.get('guest_mode')?.value === 'true' ||
-    request.cookies.get('is_guest_user')?.value === 'true';
-  const isGuestAccessibleRoute = request.nextUrl.pathname.startsWith('/ai-topper-chat');
-  const isSandboxRoute = request.nextUrl.pathname.startsWith('/sandbox');
-
-  if (isSandboxRoute && isGuestMode) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/ai-topper-chat';
-    return NextResponse.redirect(url);
+  if (
+    !user &&
+    !request.nextUrl.pathname.startsWith('/login') &&
+    !request.nextUrl.pathname.startsWith('/auth') &&
+    // the OAuth consent route sends unauthenticated visitors to the login page
+    // itself, so that it can preserve the authorization in the `next` parameter
+    request.nextUrl.pathname !== '/oauth/consent'
+  ) {
+    // no user, potentially respond by redirecting the user to the login page
+    const url = request.nextUrl.clone()
+    url.pathname = '/auth/login'
+    return NextResponse.redirect(url)
   }
 
-  const isApiRoute = request.nextUrl.pathname.startsWith('/api');
+  // IMPORTANT: You *must* return the supabaseResponse object as it is.
+  // If you're creating a new response object with NextResponse.next() make sure to:
+  // 1. Pass the request in it, like so:
+  //    const myNewResponse = NextResponse.next({ request })
+  // 2. Copy over the cookies, like so:
+  //    myNewResponse.cookies.setAll(supabaseResponse.cookies.getAll())
+  // 3. Change the myNewResponse object to fit your needs, but avoid changing
+  //    the cookies!
+  // 4. Finally:
+  //    return myNewResponse
+  // If this is not done, you may be causing the browser and server to go out
+  // of sync and terminate the user's session prematurely!
 
-
-  const isLandingPage = request.nextUrl.pathname.startsWith('/landing');
-
-  // Redirect authenticated users away from auth pages to home chat workspace.
-  if (user && isAuthPage) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/';
-    return NextResponse.redirect(url);
-  }
-
-  // Safety net: if the user IS authenticated and lands on an unexpected
-  // protected page, let them through — never bounce authenticated users
-  // back to the login screen.  (The earlier guard already handles the
-  // unauthenticated → login redirect, so reaching here means the user
-  // has a valid session.)
-  return supabaseResponse;
+  return supabaseResponse
 }

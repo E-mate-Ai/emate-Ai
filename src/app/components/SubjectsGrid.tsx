@@ -116,7 +116,7 @@ export default function SubjectsGrid() {
               </div>
             </Link>
           );
-        })}
+        }))}
       </div>
     </section>
   );
