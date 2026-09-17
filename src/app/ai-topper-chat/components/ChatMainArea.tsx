@@ -1321,23 +1321,24 @@ export default function ChatMainArea({
       >
         {/* Left Group: Toggle + Mode Switcher compact segmented pill */}
         <div className="flex items-center gap-3">
-          {!isSidebarOpen && (
-            <button
-              onClick={() => {
-                localStorage.setItem('nk-sidebar-open', 'true');
-                window.dispatchEvent(new Event('nk-sidebar-change'));
-              }}
-              className="p-1.5 rounded-xl border hover:bg-gray-500/10 dark:hover:bg-zinc-800/80 transition-colors"
-              style={{
-                borderColor: theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-                background: theme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
-                color: theme === 'dark' ? '#ffffff' : '#000000',
-              }}
-              title="Open sidebar"
-            >
-              <Menu size={16} />
-            </button>
-          )}
+          <button
+            onClick={() => {
+              const current = localStorage.getItem('nk-sidebar-open') === 'true';
+              const next = !current;
+              localStorage.setItem('nk-sidebar-open', String(next));
+              window.dispatchEvent(new Event('nk-sidebar-change'));
+            }}
+            className="p-2 rounded-xl border hover:bg-gray-500/10 dark:hover:bg-zinc-800/80 transition-all cursor-pointer flex items-center justify-center"
+            style={{
+              borderColor: theme === 'dark' ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)',
+              background: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+              color: theme === 'dark' ? '#ffffff' : '#000000',
+            }}
+            title={isSidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+            aria-label={isSidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+          >
+            <Menu size={18} />
+          </button>
 
           <div className="inline-flex p-1 rounded-full bg-white/80 dark:bg-zinc-800/80 backdrop-blur-md border border-gray-200/60 dark:border-zinc-700/60 items-center gap-0.5 shadow-sm">
             <button
