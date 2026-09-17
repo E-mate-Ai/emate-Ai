@@ -62,6 +62,9 @@ import {
   Sun,
   Moon,
   Hammer,
+  NotebookText,
+  ArrowRight,
+  GraduationCap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -797,193 +800,92 @@ export default function Sidebar({
           <>
             {/* Create Notebook Modal */}
             {showCreateModal && (
-              <div className="fixed inset-0 z-[999] flex items-center justify-center w-screen h-screen bg-black/60 backdrop-blur-md p-4 sm:p-6">
-                <div className="relative w-full max-w-4xl h-[90vh] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-                  {/* Top Header Bar */}
-                  <div className="flex items-center justify-between px-8 py-5 border-b border-zinc-100 dark:border-zinc-800">
-                    <div>
-                      <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
-                        Create New Notebook
-                      </h2>
-                      <p className="text-xs text-zinc-500">
-                        Set up a personalized study workspace with custom icons and categories.
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => setShowCreateModal(false)}
-                      className="p-2 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
+              <div className="fixed inset-0 z-[999] flex items-center justify-center w-screen h-screen bg-black/50 backdrop-blur-md p-4 sm:p-6">
+                <div className="relative w-full max-w-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl p-8 flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
+                  <button
+                    onClick={() => setShowCreateModal(false)}
+                    className="absolute top-5 right-5 p-2 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+
+                  {/* Top Icon */}
+                  <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-4 text-zinc-700 dark:text-zinc-300">
+                    <NotebookText className="w-6 h-6" strokeWidth={1.75} />
                   </div>
 
-                  {/* Scrollable Form Content */}
-                  <div className="flex-1 overflow-y-auto p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* Left Column: Icon & Subject Name Form Controls */}
-                    <div className="flex flex-col gap-6">
-                      {/* Subject Name Input */}
-                      <div>
-                        <label htmlFor="new-subject-name" className="text-xs font-semibold uppercase tracking-wider mb-2 block text-zinc-550 dark:text-zinc-400">
-                          Subject Name
-                        </label>
-                        <input
-                          id="new-subject-name"
-                          name="newSubjectName"
-                          autoFocus
-                          type="text"
-                          placeholder="e.g. Discrete Mathematics, Machine Learning…"
-                          value={newSubjectName}
-                          onChange={(e) => setNewSubjectName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleConfirmCreate();
-                          }}
-                          className="w-full h-11 rounded-xl border px-4 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400/30 focus:border-zinc-400 transition-all"
-                          style={{
-                            background:
-                              theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
-                            borderColor:
-                              theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-                            color: theme === 'dark' ? '#ffffff' : '#111111',
-                          }}
-                        />
-                      </div>
+                  {/* Title */}
+                  <h2 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 mb-6">
+                    What are you working on?
+                  </h2>
 
-                      {/* Icon Picker Grid */}
-                      <div>
-                        <label className="text-xs font-semibold uppercase tracking-wider mb-2 block text-zinc-500 dark:text-zinc-400">
-                          Pick an Icon
-                        </label>
-                        <div className="grid grid-cols-6 gap-2">
-                          {ICON_PICKS.map((item) => {
-                            const IconComponent = item.icon;
-                            const isSelected = newSubjectIcon === item.id;
-                            return (
-                              <button
-                                key={item.id}
-                                type="button"
-                                onClick={() => setNewSubjectIcon(item.id)}
-                                title={item.label}
-                                aria-label={item.label}
-                                className={`h-11 rounded-xl flex items-center justify-center transition-all duration-150 border cursor-pointer ${
-                                  isSelected
-                                    ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 ring-1 ring-blue-600/30 dark:ring-blue-500/30'
-                                    : 'bg-zinc-100/80 dark:bg-zinc-800/50 border-zinc-200/80 dark:border-zinc-700/50 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-200'
-                                }`}
-                              >
-                                <IconComponent size={18} strokeWidth={2} />
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Right Column: Category Selection & Preview Card */}
-                    <div className="flex flex-col gap-6">
-                      {/* Subject Category Selectors */}
-                      <div>
-                        <label className="text-xs font-semibold uppercase tracking-wider mb-2 block text-zinc-500 dark:text-zinc-400">
-                          Subject Category
-                        </label>
-                        <div className="grid grid-cols-2 gap-2">
-                          {SUBJECT_TYPES.map((type) => {
-                            const CategoryIcon = type.icon;
-                            const isSelected = newSubjectType === type.label;
-                            return (
-                              <button
-                                key={type.label}
-                                type="button"
-                                onClick={() => setNewSubjectType(type.label)}
-                                className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-medium border transition-all duration-150 cursor-pointer ${
-                                  isSelected
-                                    ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 font-semibold ring-1 ring-blue-600/30 dark:ring-blue-500/30'
-                                    : 'bg-zinc-100/80 dark:bg-zinc-800/50 border-zinc-200/80 dark:border-zinc-700/50 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200/60 dark:hover:bg-zinc-800'
-                                }`}
-                              >
-                                <CategoryIcon
-                                  size={15}
-                                  strokeWidth={2}
-                                  className={
-                                    isSelected
-                                      ? 'text-blue-600 dark:text-blue-400 shrink-0'
-                                      : 'text-zinc-500 dark:text-zinc-400 shrink-0'
-                                  }
-                                />
-                                <span>{type.label}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Preview card */}
-                      {newSubjectName.trim() && (
-                        <div
-                          className="rounded-2xl p-4 border mt-auto"
-                          style={{
-                            background:
-                              theme === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
-                            borderColor:
-                              theme === 'dark' ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)',
-                          }}
-                        >
-                          <div className="flex items-center gap-3">
-                            {(() => {
-                              const PreviewIcon =
-                                ICON_PICKS.find((p) => p.id === newSubjectIcon)?.icon || BookOpen;
-                              return (
-                                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-50 dark:bg-blue-950/40 border border-blue-600/30 dark:border-blue-500/30 text-blue-600 dark:text-blue-400 shrink-0">
-                                  <PreviewIcon size={20} strokeWidth={2} />
-                                </div>
-                              );
-                            })()}
-                            <div>
-                              <p
-                                className="font-bold text-sm"
-                                style={{ color: theme === 'dark' ? '#ffffff' : '#111111' }}
-                              >
-                                {newSubjectName}
-                              </p>
-                              <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                                {newSubjectType || 'General'} Notebook · AI-personalised
-                              </p>
-                            </div>
-                            <div className="ml-auto">
-                              <span
-                                className="text-[10px] font-semibold uppercase tracking-widest px-2.5 py-1 rounded-full"
-                                style={{
-                                  background:
-                                    theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
-                                  color: theme === 'dark' ? '#ffffff' : '#000000',
-                                }}
-                              >
-                                New
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Bottom Action Footer */}
-                  <div className="flex items-center justify-end gap-3 px-8 py-4 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
-                    <button
-                      onClick={() => setShowCreateModal(false)}
-                      className="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-650 dark:text-zinc-400 hover:bg-zinc-200/60 transition-colors"
-                    >
-                      Cancel
-                    </button>
+                  {/* Inline Prompt Title Input with Action Button */}
+                  <div className="w-full relative flex items-center mb-8">
+                    <input
+                      id="new-subject-name"
+                      name="newSubjectName"
+                      autoFocus
+                      type="text"
+                      placeholder="Weekly meal prep, project x..."
+                      value={newSubjectName}
+                      onChange={(e) => setNewSubjectName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleConfirmCreate();
+                      }}
+                      className="w-full text-2xl sm:text-3xl font-medium bg-transparent border-b-2 border-zinc-200 dark:border-zinc-800 pb-3 pr-14 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-300 dark:placeholder:text-zinc-600 focus:outline-none focus:border-blue-500 transition-all"
+                    />
                     <button
                       onClick={handleConfirmCreate}
                       disabled={!newSubjectName.trim()}
-                      className="px-5 py-2 rounded-xl text-xs font-semibold shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                      style={{
-                        background: theme === 'dark' ? '#ffffff' : '#000000',
-                        color: theme === 'dark' ? '#000000' : '#ffffff',
-                      }}
+                      className="absolute right-0 bottom-3 w-10 h-10 rounded-full bg-blue-500 hover:bg-blue-600 disabled:opacity-30 disabled:hover:bg-blue-500 text-white flex items-center justify-center transition-all shadow-md active:scale-95 cursor-pointer"
+                      title="Create Notebook"
                     >
-                      Save & Launch Notebook
+                      <ArrowRight className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* Purpose Selector Cards */}
+                  <div className="grid grid-cols-2 gap-4 w-full">
+                    <button
+                      type="button"
+                      onClick={() => setNewSubjectType('Organize your ideas')}
+                      className={`p-5 rounded-2xl text-left border transition-all duration-200 cursor-pointer flex flex-col justify-between h-32 ${
+                        newSubjectType === 'Organize your ideas' || !newSubjectType
+                          ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-300 dark:border-blue-800 ring-2 ring-blue-500/20'
+                          : 'bg-zinc-50 dark:bg-zinc-800/40 border-zinc-200/80 dark:border-zinc-800 hover:bg-zinc-100/60'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <Lightbulb className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        {(newSubjectType === 'Organize your ideas' || !newSubjectType) && (
+                          <div className="w-4 h-4 rounded-full bg-blue-500 text-white flex items-center justify-center text-[10px]">✓</div>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Organize your ideas</p>
+                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">Group chats by topic and ground on your sources.</p>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setNewSubjectType('Study and learn')}
+                      className={`p-5 rounded-2xl text-left border transition-all duration-200 cursor-pointer flex flex-col justify-between h-32 ${
+                        newSubjectType === 'Study and learn'
+                          ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-300 dark:border-blue-800 ring-2 ring-blue-500/20'
+                          : 'bg-zinc-50 dark:bg-zinc-800/40 border-zinc-200/80 dark:border-zinc-800 hover:bg-zinc-100/60'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <GraduationCap className="w-5 h-5 text-zinc-600 dark:text-zinc-400" />
+                        {newSubjectType === 'Study and learn' && (
+                          <div className="w-4 h-4 rounded-full bg-blue-500 text-white flex items-center justify-center text-[10px]">✓</div>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Study and learn</p>
+                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">Automated flashcards, quizzes & exam prep.</p>
+                      </div>
                     </button>
                   </div>
                 </div>
