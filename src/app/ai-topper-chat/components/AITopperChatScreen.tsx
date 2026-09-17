@@ -47,6 +47,45 @@ export default function AITopperChatScreen() {
     setSessionId((prev) => (prev === 'chat-new' ? `chat-${Date.now()}` : prev));
   }, []);
 
+  // Hydrate user notebooks, subjects, and chat history from Supabase on mount
+  useEffect(() => {
+    async function hydrateFromSupabase() {
+      try {
+        const { fetchUserNotebooks, fetchUserSubjects, fetchChatSessions } = await import('@/lib/supabase/notebookAndHistory');
+        
+        // Hydrate custom subjects
+        const remoteSubjects = await fetchUserSubjects();
+        if (remoteSubjects && remoteSubjects.length > 0) {
+          localStorage.setItem('nk-custom-subjects', JSON.stringify(remoteSubjects));
+          window.dispatchEvent(new Event('nk-subjects-changed'));
+        }
+
+        // Hydrate notebooks
+        const remoteNotebooks = await fetchUserNotebooks();
+        if (remoteNotebooks && remoteNotebooks.length > 0) {
+          remoteNotebooks.forEach((nb) => {
+            if (nb.subject) {
+              const key = `nk-notebook-${nb.subject.toLowerCase().replace(/\s+/g, '-')}`;
+              localStorage.setItem(key, JSON.stringify(nb));
+            }
+          });
+          window.dispatchEvent(new CustomEvent('nk-notebook-change', { detail: { subject: remoteNotebooks[0].subject } }));
+        }
+
+        // Hydrate chat sessions
+        const remoteSessions = await fetchChatSessions();
+        if (remoteSessions && remoteSessions.length > 0) {
+          localStorage.setItem('nk-chat-history', JSON.stringify(remoteSessions));
+          window.dispatchEvent(new Event('nk-chat-history-change'));
+        }
+      } catch (err) {
+        console.error('Error hydrating data from Supabase:', err);
+      }
+    }
+
+    hydrateFromSupabase();
+  }, []);
+
 
   // Sync active session when URL searchParam `chatId` changes
   useEffect(() => {
