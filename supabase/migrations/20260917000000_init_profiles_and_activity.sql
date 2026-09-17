@@ -24,6 +24,9 @@ alter table public.profiles enable row level security;
 alter table public.user_activity enable row level security;
 
 -- 4. RLS POLICIES (Users can only read and write their own data)
+drop policy if exists "Users can view and update their own profile" on public.profiles;
+drop policy if exists "Users can view and log their own activity" on public.user_activity;
+
 create policy "Users can view and update their own profile" 
   on public.profiles for all 
   using (auth.uid() = id);
