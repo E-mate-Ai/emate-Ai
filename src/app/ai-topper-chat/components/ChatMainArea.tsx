@@ -1010,9 +1010,13 @@ export default function ChatMainArea({
 
     // Persist to recent chats + transcript only for signed-in users
     if (!isGuest) {
+      const existingHistory = typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('nk-chat-history') || '[]') as any[]) : [];
+      const existingItem = existingHistory.find((item) => item.id === targetChatId);
+      const sessionTitle = existingItem?.title || (content.length > 60 ? content.slice(0, 57) + '…' : content);
+
       saveChatSession({
         id: targetChatId,
-        title: content.length > 60 ? content.slice(0, 57) + '…' : content,
+        title: sessionTitle,
         subject: selectedContext.subject,
         unit: selectedContext.unit,
         mode,
