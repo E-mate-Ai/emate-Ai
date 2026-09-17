@@ -5,6 +5,7 @@ import { Outfit, Plus_Jakarta_Sans, JetBrains_Mono, Geist } from 'next/font/goog
 import { Toaster } from 'sonner';
 import '../styles/tailwind.css';
 import RouteTracker from '@/components/RouteTracker';
+import { AuthListener } from '@/components/AuthListener';
 import { cn } from "@/lib/utils";
 
 const outfit = Outfit({
@@ -101,6 +102,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         suppressHydrationWarning={true}
         className={`${geist.className} ${geist.variable} ${outfit.variable} ${jetbrainsMono.variable} overflow-x-hidden w-full max-w-[100vw] antialiased min-h-screen bg-background text-foreground`}
       >
+        <AuthListener />
         <RouteTracker />
         {children}
         <Toaster
