@@ -139,3 +139,82 @@ export async function fetchChatTranscript(sessionId: string): Promise<ChatMessag
 
   return (data?.messages as ChatMessage[]) || [];
 }
+
+/**
+ * Save / Upsert a chat session metadata to Supabase
+ */
+export async function saveChatSession(session: ChatHistoryItem) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from('chat_sessions')
+    .upsert(
+      {
+        id: session.id,
+        user_id: user.id,
+        title: session.title,
+        subject: session.subject || null,
+        unit: session.unit || null,
+        mode: session.mode || 'sprint',
+        timestamp: session.timestamp,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'id' }
+    );
+
+  if (error) console.error('Error saving chat session:', error);
+  return data;
+}
+
+/**
+ * Save / Upsert chat messages transcript to Supabase
+ */
+export async function saveChatTranscript(sessionId: string, messages: ChatMessage[]) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from('chat_transcripts')
+    .upsert(
+      {
+        id: sessionId,
+        user_id: user.id,
+        messages,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'id' }
+    );
+
+  if (error) console.error('Error saving chat transcript:', error);
+  return data;
+}
+
+/**
+ * Delete a chat session and its transcript from Supabase
+ */
+export async function deleteChatSession(sessionId: string) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { error: sessionErr } = await supabase
+    .from('chat_sessions')
+    .delete()
+    .eq('id', sessionId)
+    .eq('user_id', user.id);
+
+  const { error: transcriptErr } = await supabase
+    .from('chat_transcripts')
+    .delete()
+    .eq('id', sessionId)
+    .eq('user_id', user.id);
+
+  if (sessionErr) console.error('Error deleting chat session:', sessionErr);
+  if (transcriptErr) console.error('Error deleting chat transcript:', transcriptErr);
+
+  return !sessionErr && !transcriptErr;
+}
+
