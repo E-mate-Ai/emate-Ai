@@ -1718,19 +1718,43 @@ export default function ChatMainArea({
               }}
             />
 
-            {/* Heading & Subheading */}
-            <div className="text-center mb-4 max-w-xl mx-auto">
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100 text-center mb-2">
-                {isStudyMode ? 'Master your subjects with e-Mate' : 'What are you studying today?'}
-              </h1>
-              <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 text-center max-w-md mx-auto leading-relaxed">
-                {isStudyMode
-                  ? 'Upload lecture notes, run rapid-fire practice quizzes, or deep-dive into complex concepts.'
-                  : 'Ask questions, analyze study notes, debug code, or create visual diagrams.'}
-              </p>
-            </div>
+            {/* Notebook Hero Header when a notebook is active */}
+            {isStudyMode && selectedContext.subject ? (
+              <div className="flex flex-col items-center text-center mb-6 w-full max-w-xl mx-auto">
+                <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/60 flex items-center justify-center text-amber-700 dark:text-amber-300 text-2xl mb-3 shadow-xs">
+                  📔
+                </div>
+                <div className="flex items-center justify-between w-full mb-4 px-2">
+                  <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 capitalize">
+                    {selectedContext.subject}
+                  </h1>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const evt = new CustomEvent('nk-open-notebook', { detail: { subject: selectedContext.subject } });
+                      window.dispatchEvent(evt);
+                    }}
+                    className="px-4 py-2 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-800/80 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 text-xs font-semibold transition-all cursor-pointer shadow-xs active:scale-95"
+                  >
+                    Add sources
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Heading & Subheading */
+              <div className="text-center mb-4 max-w-xl mx-auto">
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100 text-center mb-2">
+                  {isStudyMode ? 'Master your subjects with e-Mate' : 'What are you studying today?'}
+                </h1>
+                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 text-center max-w-md mx-auto leading-relaxed">
+                  {isStudyMode
+                    ? 'Upload lecture notes, run rapid-fire practice quizzes, or deep-dive into complex concepts.'
+                    : 'Ask questions, analyze study notes, debug code, or create visual diagrams.'}
+                </p>
+              </div>
+            )}
 
-            {/* Empty State UI Card — intentional designed moment when no subject notebooks exist */}
+            {/* Empty State UI Card when no subject notebooks exist */}
             {isStudyMode && subjects.length === 0 && (
               <div className="w-full max-w-lg p-4 mb-4 rounded-xl border border-brand/20 bg-brand/5 text-center flex flex-col items-center gap-2 backdrop-blur-sm shadow-glow-subtle">
                 <div className="w-9 h-9 rounded-xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand mb-0.5">
