@@ -54,10 +54,21 @@ export default function AITopperChatScreen() {
     if (urlChatId && urlChatId !== sessionId) {
       const history = getChatHistory();
       const chatItem = history.find((c) => c.id === urlChatId);
-      const transcript = getChatTranscript(urlChatId);
+      const localTranscript = getChatTranscript(urlChatId);
 
       setSessionId(urlChatId);
-      setMessages(transcript);
+      if (localTranscript && localTranscript.length > 0) {
+        setMessages(localTranscript);
+      } else {
+        import('@/lib/supabase/notebookAndHistory').then(({ fetchChatTranscript }) => {
+          fetchChatTranscript(urlChatId).then((dbMessages) => {
+            if (dbMessages && dbMessages.length > 0) {
+              setMessages(dbMessages);
+            }
+          });
+        });
+      }
+
       if (chatItem) {
         if (chatItem.mode) setMode(chatItem.mode);
         if (chatItem.subject && chatItem.unit) {
