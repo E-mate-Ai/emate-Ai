@@ -31,6 +31,7 @@ export function setGuestModeEnabled(enabled: boolean) {
     window.localStorage.removeItem(GUEST_MODE_KEY);
     document.cookie = `${GUEST_MODE_COOKIE}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
   }
+  window.dispatchEvent(new Event('nk-guest-mode-change'));
 }
 
 export function clearGuestModeEnabled() {

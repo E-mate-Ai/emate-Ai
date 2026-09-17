@@ -294,10 +294,12 @@ export default function Sidebar({
       .catch(() => {});
 
     window.addEventListener('storage', syncProfileState);
+    window.addEventListener('nk-guest-mode-change', syncProfileState);
 
     return () => {
       authSubscription?.unsubscribe();
       window.removeEventListener('storage', syncProfileState);
+      window.removeEventListener('nk-guest-mode-change', syncProfileState);
     };
   }, []);
 
