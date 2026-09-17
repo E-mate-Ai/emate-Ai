@@ -39,7 +39,7 @@ export default function AuthScreen() {
       typeof window !== 'undefined'
         ? window.location.origin
         : process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:4028';
-    return `${base}/auth/callback?next=/ai-topper-chat`;
+    return `${base}/auth/callback?next=/`;
   };
 
   /* ── Google OAuth ── */
@@ -82,7 +82,7 @@ export default function AuthScreen() {
   const handleGuestContinue = async () => {
     setGuestModeEnabled(true);
 
-    // Set guest cookie so middleware allows access to /ai-topper-chat
+    // Set guest cookie so middleware allows access
     document.cookie = 'is_guest_user=true; path=/; max-age=86400; SameSite=Lax';
     localStorage.setItem('guest_session', 'true');
 
@@ -94,7 +94,7 @@ export default function AuthScreen() {
     }
 
     toast.success('Continuing as guest');
-    router.push('/ai-topper-chat');
+    router.push('/');
   };
 
   /* ── Password / signup step ── */
@@ -130,6 +130,23 @@ export default function AuthScreen() {
         return;
       }
 
+      // Sync user profile to Supabase profiles table
+      if (data.user) {
+        try {
+          await supabase.from('profiles').upsert(
+            {
+              id: data.user.id,
+              email: data.user.email,
+              full_name: name || email.split('@')[0],
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'id' }
+          );
+        } catch (err) {
+          console.error('Failed to sync profile to Supabase:', err);
+        }
+      }
+
       // Email confirmation required
       if (data.user && !data.session) {
         setStep('confirm');
@@ -137,10 +154,10 @@ export default function AuthScreen() {
         return;
       }
 
-      // Auto-confirm is ON (rare in free tier)
+      // Auto-confirm is ON
       clearGuestModeEnabled();
       toast.success('Account created! Welcome to e-Mate.');
-      router.push('/ai-topper-chat');
+      router.push('/');
     } else {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
@@ -160,7 +177,7 @@ export default function AuthScreen() {
       if (data.session) {
         clearGuestModeEnabled();
         toast.success('Welcome back!');
-        router.push('/ai-topper-chat');
+        router.push('/');
       }
     }
   };

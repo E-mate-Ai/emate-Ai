@@ -23,8 +23,13 @@ export async function POST(req: NextRequest) {
 
     const body = razorpay_order_id + '|' + razorpay_payment_id;
 
+    const secret = process.env.RAZORPAY_KEY_SECRET;
+    if (!secret) {
+      return NextResponse.json({ success: false, error: 'Razorpay secret key not configured' }, { status: 500 });
+    }
+
     const expectedSignature = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
+      .createHmac('sha256', secret)
       .update(body)
       .digest('hex');
 

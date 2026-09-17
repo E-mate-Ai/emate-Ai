@@ -643,7 +643,7 @@ export default function Sidebar({
                 <div className="h-2.5 bg-zinc-200 dark:bg-zinc-800 rounded w-32" />
               </div>
             </div>
-          ) : (
+          ) : !isGuest && profileSubtitle.includes('@') ? (
             <div
               className="flex items-center justify-between rounded-2xl px-2.5 py-2 transition group"
               style={{
@@ -656,7 +656,8 @@ export default function Sidebar({
             >
               <div className="flex items-center gap-3 min-w-0">
                 {/* Avatar: image or letter fallback */}
-                <div className="relative w-9 h-9 shrink-0 rounded-full overflow-hidden flex items-center justify-center font-semibold text-sm border border-zinc-300 dark:border-zinc-600"
+                <div
+                  className="relative w-9 h-9 shrink-0 rounded-full overflow-hidden flex items-center justify-center font-semibold text-sm border border-zinc-300 dark:border-zinc-600"
                   style={{
                     background: theme === 'dark' ? '#52525b' : '#d4d4d8',
                     color: theme === 'dark' ? '#ffffff' : '#000000',
@@ -672,9 +673,7 @@ export default function Sidebar({
                       }}
                     />
                   ) : null}
-                  {avatarUrl ? null : (
-                    <span className="relative z-10">{avatarLabel}</span>
-                  )}
+                  {avatarUrl ? null : <span className="relative z-10">{avatarLabel}</span>}
                 </div>
                 <div className="flex flex-col min-w-0 leading-tight">
                   <span
@@ -696,6 +695,31 @@ export default function Sidebar({
                 <LogOut size={14} />
               </button>
             </div>
+          ) : (
+            <button
+              onClick={() => window.dispatchEvent(new Event('nk-open-signup-popup'))}
+              className="flex items-center justify-between w-full rounded-2xl px-2.5 py-2 transition hover:bg-black/5 dark:hover:bg-white/5"
+              style={{
+                background: theme === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                border:
+                  theme === 'dark'
+                    ? '1px solid rgba(255,255,255,0.06)'
+                    : '1px solid rgba(0,0,0,0.06)',
+              }}
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-500/10 text-teal-600 dark:text-teal-400">
+                  <User size={15} />
+                </div>
+                <span
+                  className="text-xs font-semibold"
+                  style={{ color: theme === 'dark' ? '#ffffff' : '#09090b' }}
+                >
+                  Sign In
+                </span>
+              </div>
+              <ChevronRight size={14} className="text-zinc-400" />
+            </button>
           )}
         </div>
       </aside>

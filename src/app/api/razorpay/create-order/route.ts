@@ -4,7 +4,7 @@ import Razorpay from 'razorpay';
 export const dynamic = 'force-dynamic';
 
 const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID || 'rzp_placeholder',
+  key_id: process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_placeholder',
   key_secret: process.env.RAZORPAY_KEY_SECRET || 'placeholder',
 });
 

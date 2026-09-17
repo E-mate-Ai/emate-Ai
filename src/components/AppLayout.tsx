@@ -1,16 +1,19 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Sidebar from './Sidebar';
 import SettingsPage from './SettingsPage';
 import NotebookOverlay from './NotebookOverlay';
+import SignUpPopup from './SignUpPopup';
+import { createClient } from '@/lib/supabase/client';
 
 interface AppLayoutProps {
   children: React.ReactNode;
 }
 
 export default function AppLayout({ children }: AppLayoutProps) {
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(248);
   const [isResizing, setIsResizing] = useState(false);
@@ -18,8 +21,28 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [isMobile, setIsMobile] = useState(false);
   const [activeModalView, setActiveModalView] = useState<'none' | 'settings' | 'notebook'>('none');
   const [activeNotebookId, setActiveNotebookId] = useState<string | null>(null);
+  const [showSignUpPopup, setShowSignUpPopup] = useState(false);
 
   const pathname = usePathname();
+
+  useEffect(() => {
+    async function checkAuthForPopup() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setShowSignUpPopup(true);
+        }
+      } catch {
+        setShowSignUpPopup(true);
+      }
+    }
+    checkAuthForPopup();
+
+    const handleOpenPopup = () => setShowSignUpPopup(true);
+    window.addEventListener('nk-open-signup-popup', handleOpenPopup);
+    return () => window.removeEventListener('nk-open-signup-popup', handleOpenPopup);
+  }, []);
 
   useEffect(() => {
     // Detect mobile viewport size
@@ -213,6 +236,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
           theme={theme}
         />
       )}
+
+      {/* ── Removable Sign Up Popup ─────────────────────────────────────── */}
+      <SignUpPopup
+        isOpen={showSignUpPopup}
+        onClose={() => setShowSignUpPopup(false)}
+        onOpenFullAuth={() => router.push('/sign-up-login-screen')}
+      />
     </div>
   );
 }

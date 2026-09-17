@@ -58,32 +58,10 @@ export async function updateSession(request: NextRequest) {
 
   const isLandingPage = request.nextUrl.pathname.startsWith('/landing');
 
-  // Unauthenticated, non-guest user on /ai-topper-chat → back to root (login screen)
-  // Guest users (is_guest_user cookie) are allowed through.
-  if (!user && !isGuestMode && request.nextUrl.pathname === '/ai-topper-chat') {
+  // Redirect authenticated users away from auth pages to home chat workspace.
+  if (user && isAuthPage) {
     const url = request.nextUrl.clone();
     url.pathname = '/';
-    return NextResponse.redirect(url);
-  }
-
-  if (
-    !user &&
-    !isAuthPage &&
-    !isLandingPage &&
-    !isGuestAccessibleRoute &&
-    !isSandboxRoute &&
-    !isApiRoute &&
-    request.nextUrl.pathname !== '/'
-  ) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/sign-up-login-screen';
-    return NextResponse.redirect(url);
-  }
-
-  // Redirect authenticated users away from auth pages or root home to chat workspace.
-  if (user && (isAuthPage || request.nextUrl.pathname === '/')) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/ai-topper-chat';
     return NextResponse.redirect(url);
   }
 
