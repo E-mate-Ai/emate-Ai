@@ -1731,12 +1731,12 @@ export default function ChatMainArea({
                   <button
                     type="button"
                     onClick={() => {
-                      const evt = new CustomEvent('nk-open-notebook', { detail: { subject: selectedContext.subject } });
+                      const evt = new CustomEvent('nk-open-sources-modal', { detail: { subject: selectedContext.subject } });
                       window.dispatchEvent(evt);
                     }}
-                    className="px-4 py-2 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-800/80 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 text-xs font-semibold transition-all cursor-pointer shadow-xs active:scale-95"
+                    className="px-4 py-2 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-800/80 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 text-xs font-semibold transition-all cursor-pointer shadow-xs active:scale-95 flex items-center gap-1.5"
                   >
-                    Add sources
+                    <span>Add sources</span>
                   </button>
                 </div>
               </div>

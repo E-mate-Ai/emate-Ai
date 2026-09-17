@@ -8,6 +8,7 @@ const Sidebar = dynamic(() => import('./Sidebar'), { ssr: false });
 const SettingsPage = dynamic(() => import('./SettingsPage'), { ssr: false });
 const NotebookOverlay = dynamic(() => import('./NotebookOverlay'), { ssr: false });
 const SignUpPopup = dynamic(() => import('./SignUpPopup'), { ssr: false });
+const AddSourcesModal = dynamic(() => import('./AddSourcesModal'), { ssr: false });
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -22,6 +23,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [isMobile, setIsMobile] = useState(false);
   const [activeModalView, setActiveModalView] = useState<'none' | 'settings' | 'notebook'>('none');
   const [activeNotebookId, setActiveNotebookId] = useState<string | null>(null);
+  const [isSourcesModalOpen, setIsSourcesModalOpen] = useState(false);
+  const [sourcesSubject, setSourcesSubject] = useState('');
   const [showSignUpPopup, setShowSignUpPopup] = useState(false);
   const [popupTitle, setPopupTitle] = useState('Login or sign up for free');
   const [popupSubtitle, setPopupSubtitle] = useState('Save and sync your searches');
@@ -96,17 +99,20 @@ export default function AppLayout({ children }: AppLayoutProps) {
       const saved = localStorage.getItem('nk-sidebar-open');
       if (saved !== null) setSidebarOpen(saved === 'true');
     };
-    const handleOpenNotebookEvent = (e: any) => {
-      if (e.detail?.subject) {
-        setActiveNotebookId(e.detail.subject);
-        setActiveModalView('notebook');
+    const handleOpenSourcesEvent = (e: any) => {
+      const subj = e.detail?.subject || localStorage.getItem('nk-subject') || '';
+      if (subj) {
+        setSourcesSubject(subj);
+        setIsSourcesModalOpen(true);
       }
     };
     window.addEventListener('nk-sidebar-change', handleSidebarEvent);
-    window.addEventListener('nk-open-notebook', handleOpenNotebookEvent);
+    window.addEventListener('nk-open-notebook', handleOpenSourcesEvent);
+    window.addEventListener('nk-open-sources-modal', handleOpenSourcesEvent);
     return () => {
       window.removeEventListener('nk-sidebar-change', handleSidebarEvent);
-      window.removeEventListener('nk-open-notebook', handleOpenNotebookEvent);
+      window.removeEventListener('nk-open-notebook', handleOpenSourcesEvent);
+      window.removeEventListener('nk-open-sources-modal', handleOpenSourcesEvent);
     };
   }, []);
 
@@ -261,6 +267,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
           theme={theme}
         />
       )}
+
+      {/* ── Gemini-style Sources Modal Popup ────────────────────────────── */}
+      <AddSourcesModal
+        isOpen={isSourcesModalOpen}
+        onClose={() => setIsSourcesModalOpen(false)}
+        subject={sourcesSubject}
+      />
 
       {/* ── Removable Sign Up Popup ─────────────────────────────────────── */}
       <SignUpPopup
