@@ -242,6 +242,9 @@ export default function Sidebar({
         } = await supabase.auth.getUser();
 
         if (user) {
+          // User is authenticated — ensure guest mode is cleared so they get full access!
+          clearGuestModeEnabled();
+
           const fullName =
             user.user_metadata?.full_name ||
             user.user_metadata?.name ||

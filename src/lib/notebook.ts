@@ -19,12 +19,43 @@ export interface SubjectNotebook {
 
 const storageKey = (subject: string) => `nk-notebook-${subject.toLowerCase().replace(/\s+/g, '-')}`;
 
+// In-memory fallback cache for guests so they can create and access notebooks during active session
+const guestNotebooksMemory = new Map<string, SubjectNotebook>();
+let guestSubjectsMemory: Subject[] = [];
+
+if (typeof window !== 'undefined') {
+  // Clear guest data when page unloads or session leaves
+  window.addEventListener('beforeunload', () => {
+    if (isGuestSession()) {
+      guestNotebooksMemory.clear();
+      guestSubjectsMemory = [];
+      // Also clean up any lingering local storage guest notebooks
+      try {
+        Object.keys(localStorage).forEach((key) => {
+          if (key.startsWith('nk-notebook-') || key === 'nk-custom-subjects') {
+            localStorage.removeItem(key);
+          }
+        });
+      } catch {}
+    }
+  });
+}
+
 /**
- * Load the notebook for a given subject from localStorage.
+ * Load the notebook for a given subject.
  */
 export function getNotebook(subject: string): SubjectNotebook {
   if (typeof window === 'undefined') {
     return { subject, entries: [], updatedAt: new Date().toISOString() };
+  }
+  if (isGuestSession()) {
+    return (
+      guestNotebooksMemory.get(subject.toLowerCase()) || {
+        subject,
+        entries: [],
+        updatedAt: new Date().toISOString(),
+      }
+    );
   }
   try {
     const raw = localStorage.getItem(storageKey(subject));
@@ -39,12 +70,15 @@ export function getNotebook(subject: string): SubjectNotebook {
  * Save (overwrite) the entire notebook for a subject.
  */
 export function saveNotebook(subject: string, notebook: SubjectNotebook): void {
-  if (typeof window === 'undefined' || isGuestSession()) return;
+  if (typeof window === 'undefined') return;
+  const updatedNotebook = { ...notebook, updatedAt: new Date().toISOString() };
+  if (isGuestSession()) {
+    guestNotebooksMemory.set(subject.toLowerCase(), updatedNotebook);
+    window.dispatchEvent(new CustomEvent('nk-notebook-change', { detail: { subject } }));
+    return;
+  }
   try {
-    localStorage.setItem(
-      storageKey(subject),
-      JSON.stringify({ ...notebook, updatedAt: new Date().toISOString() })
-    );
+    localStorage.setItem(storageKey(subject), JSON.stringify(updatedNotebook));
     window.dispatchEvent(new CustomEvent('nk-notebook-change', { detail: { subject } }));
   } catch {
     // storage quota exceeded — silently ignore
@@ -112,6 +146,7 @@ const STATIC_SUBJECTS: Subject[] = [];
 
 export function getSubjects(): Subject[] {
   if (typeof window === 'undefined') return STATIC_SUBJECTS;
+  if (isGuestSession()) return guestSubjectsMemory;
   try {
     const raw = localStorage.getItem('nk-custom-subjects');
     if (!raw) {
@@ -125,7 +160,7 @@ export function getSubjects(): Subject[] {
 }
 
 export function addSubject(name: string): Subject[] {
-  if (typeof window === 'undefined' || isGuestSession()) return getSubjects();
+  if (typeof window === 'undefined') return getSubjects();
   const list = getSubjects();
   if (list.some((s) => s.name.toLowerCase() === name.toLowerCase())) return list;
   const newSubj: Subject = {
@@ -134,6 +169,11 @@ export function addSubject(name: string): Subject[] {
     units: [{ id: `unit-${Date.now()}-1`, name: 'Introduction & Context Setup' }],
   };
   const updated = [...list, newSubj];
+  if (isGuestSession()) {
+    guestSubjectsMemory = updated;
+    window.dispatchEvent(new Event('nk-subjects-changed'));
+    return updated;
+  }
   localStorage.setItem('nk-custom-subjects', JSON.stringify(updated));
   window.dispatchEvent(new Event('nk-subjects-changed'));
   return updated;
@@ -146,11 +186,19 @@ export function deleteSubject(subjectId: string): Subject[] {
   const list = getSubjects();
   const subjectToDelete = list.find((s) => s.id === subjectId);
   if (subjectToDelete) {
-    // Also clear notes stored for this subject
-    const key = `nk-notebook-${subjectToDelete.name.toLowerCase().replace(/\s+/g, '-')}`;
-    if (typeof window !== 'undefined') localStorage.removeItem(key);
+    if (isGuestSession()) {
+      guestNotebooksMemory.delete(subjectToDelete.name.toLowerCase());
+    } else {
+      const key = `nk-notebook-${subjectToDelete.name.toLowerCase().replace(/\s+/g, '-')}`;
+      if (typeof window !== 'undefined') localStorage.removeItem(key);
+    }
   }
   const updated = list.filter((s) => s.id !== subjectId);
+  if (isGuestSession()) {
+    guestSubjectsMemory = updated;
+    window.dispatchEvent(new Event('nk-subjects-changed'));
+    return updated;
+  }
   if (typeof window !== 'undefined') {
     localStorage.setItem('nk-custom-subjects', JSON.stringify(updated));
     window.dispatchEvent(new Event('nk-subjects-changed'));
@@ -167,6 +215,11 @@ export function renameSubject(subjectId: string, newName: string): Subject[] {
     return list; // name collision
   }
   const updated = list.map((s) => (s.id === subjectId ? { ...s, name: newName } : s));
+  if (isGuestSession()) {
+    guestSubjectsMemory = updated;
+    window.dispatchEvent(new Event('nk-subjects-changed'));
+    return updated;
+  }
   if (typeof window !== 'undefined') {
     localStorage.setItem('nk-custom-subjects', JSON.stringify(updated));
     window.dispatchEvent(new Event('nk-subjects-changed'));

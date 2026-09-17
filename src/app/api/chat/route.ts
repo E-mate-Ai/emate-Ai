@@ -46,6 +46,8 @@ export async function POST(req: Request) {
       );
     }
 
+    const isGuest = !userKey;
+
     // Best-effort guest credit guard. The client is the source of truth for the
     // localStorage trial allowance; this rejects with 402 when a guest (no BYOK
     // key cookie) has spent their trial and the UI was somehow bypassed.

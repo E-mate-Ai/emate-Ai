@@ -54,6 +54,7 @@ const MCQAssessmentContainer = dynamic(() => import('@/components/MCQAssessmentC
   ssr: false,
 });
 import type { MCQQuiz, MCQSubmission } from '@/lib/agents/types';
+import { generateAnalyzerReport } from '@/lib/agents/studyAnalyzer';
 
 // Study quick actions are built dynamically inside the component from selectedContext.
 
@@ -168,9 +169,8 @@ export default function ChatMainArea({
     return () => { authSub?.unsubscribe(); };
   }, []);
 
-  // Identity: guests have no connected OpenRouter key; connected users are the
-  // "authenticated" (unlocked) tier.
-  const isAuthenticated = isOpenRouterConnected;
+  // Identity: signed-up users (Supabase) OR connected OpenRouter users get full unlocked access!
+  const isAuthenticated = isSupabaseSignedUp || isOpenRouterConnected;
   const isGuest = !isAuthenticated;
 
   // Guests are locked to the fast free model.
@@ -1699,7 +1699,7 @@ export default function ChatMainArea({
       {/* Messages area — no pt-20 needed since header is no longer absolute */}
       <div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
         {!hasMessages ? (
-          <div className="flex flex-col items-center justify-start pt-20 sm:pt-28 pb-16 px-4 w-full max-w-3xl mx-auto">
+          <div className="flex-1 flex flex-col items-center justify-center px-6 py-6 max-w-4xl mx-auto w-full h-full">
             {/* Hidden File Input */}
             <input
               type="file"
@@ -1714,11 +1714,11 @@ export default function ChatMainArea({
             />
 
             {/* Heading & Subheading */}
-            <div className="text-center mb-6 max-w-xl mx-auto">
-              <h1 className="font-display text-3xl sm:text-4xl font-extrabold tracking-tightest text-text-primary mb-2.5">
+            <div className="text-center mb-4 max-w-xl mx-auto">
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100 text-center mb-2">
                 {isStudyMode ? 'Master your subjects with e-Mate' : 'What are you studying today?'}
               </h1>
-              <p className="text-sm text-text-secondary leading-relaxed max-w-md mx-auto">
+              <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 text-center max-w-md mx-auto leading-relaxed">
                 {isStudyMode
                   ? 'Upload lecture notes, run rapid-fire practice quizzes, or deep-dive into complex concepts.'
                   : 'Ask questions, analyze study notes, debug code, or create visual diagrams.'}
@@ -1727,11 +1727,11 @@ export default function ChatMainArea({
 
             {/* Empty State UI Card — intentional designed moment when no subject notebooks exist */}
             {isStudyMode && subjects.length === 0 && (
-              <div className="w-full max-w-lg p-5 mb-6 rounded-2xl border border-brand/20 bg-brand/5 text-center flex flex-col items-center gap-2.5 backdrop-blur-sm shadow-glow-subtle">
-                <div className="w-10 h-10 rounded-xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand mb-0.5">
-                  <BookOpen size={18} strokeWidth={1.75} />
+              <div className="w-full max-w-lg p-4 mb-4 rounded-xl border border-brand/20 bg-brand/5 text-center flex flex-col items-center gap-2 backdrop-blur-sm shadow-glow-subtle">
+                <div className="w-9 h-9 rounded-xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand mb-0.5">
+                  <BookOpen size={16} strokeWidth={1.75} />
                 </div>
-                <h3 className="text-sm font-semibold font-display text-text-primary">
+                <h3 className="text-xs font-semibold font-display text-text-primary">
                   No active subject notebook
                 </h3>
                 <p className="text-xs text-text-secondary max-w-sm leading-relaxed">
@@ -1740,7 +1740,7 @@ export default function ChatMainArea({
                 <button
                   type="button"
                   onClick={() => window.dispatchEvent(new Event('nk-create-notebook'))}
-                  className="mt-1 px-4 py-2 text-xs font-semibold rounded-xl bg-brand hover:bg-brand-hover text-brand-foreground transition-all cursor-pointer min-h-[40px] inline-flex items-center gap-2 shadow-glow-subtle active:scale-95"
+                  className="mt-1 px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-brand hover:bg-brand-hover text-brand-foreground transition-all cursor-pointer inline-flex items-center gap-2 shadow-glow-subtle active:scale-95"
                 >
                   <Plus size={14} strokeWidth={1.75} />
                   Create Subject Notebook
@@ -1766,27 +1766,24 @@ export default function ChatMainArea({
               efforts={['Quick', 'Balanced', 'Deep']}
               allowAttachments={!isGuest}
               placeholder="Ask e-Mate a question, paste notes, or type / for commands..."
-              className="mx-auto w-full max-w-2xl mb-2"
+              className="mx-auto w-full max-w-2xl mb-4"
               imageGenMode={imageGenMode}
               onImageGenToggle={!isGuest ? () => setImageGenMode((v) => !v) : undefined}
             />
 
-            {/* Prompt chips. For guests: a "Try Demo Notebook" button that
-                preloads sample OS notes in place of file uploads, plus only the
-                Explain + Summarize quick actions. Authenticated users get the
-                full mode-specific action sets. */}
+            {/* Quick Action Chips Grid — grid-cols-2 on mobile, flex-wrap on desktop */}
             {isGuest ? (
-              <div className="flex flex-wrap items-center justify-center gap-2 mt-6 max-w-xl mx-auto">
+              <div className="w-full max-w-2xl grid grid-cols-2 sm:flex sm:flex-wrap items-center justify-center gap-2">
                 <button
                   type="button"
                   onClick={() => {
                     loadDemoNotebook(selectedContext.subject);
                     toast.success('Demo notebook loaded');
                   }}
-                  className="px-3.5 py-1.5 rounded-full border border-border bg-card/80 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-card-hover transition-colors cursor-pointer flex items-center gap-1.5 backdrop-blur-xs"
+                  className="w-full sm:w-auto px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors flex items-center justify-center sm:justify-start gap-2 shadow-2xs"
                 >
-                  <NotebookText size={14} strokeWidth={1.75} className="text-text-muted shrink-0" />
-                  Try Demo Notebook
+                  <NotebookText size={14} strokeWidth={1.75} className="text-zinc-400 shrink-0" />
+                  <span>Try Demo Notebook</span>
                 </button>
                 {GUEST_QUICK_ACTIONS.map((action) => (
                   <button
@@ -1798,15 +1795,15 @@ export default function ChatMainArea({
                         setTimeout(() => centerInputRef.current?.focus(), 50);
                       }
                     }}
-                    className="px-3.5 py-1.5 rounded-full border border-border bg-card/80 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-card-hover transition-colors cursor-pointer flex items-center gap-1.5 backdrop-blur-xs"
+                    className="w-full sm:w-auto px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors flex items-center justify-center sm:justify-start gap-2 shadow-2xs"
                   >
-                    <action.icon size={14} strokeWidth={1.75} className="text-text-muted shrink-0" />
-                    {action.label}
+                    <action.icon size={14} strokeWidth={1.75} className="text-zinc-400 shrink-0" />
+                    <span>{action.label}</span>
                   </button>
                 ))}
               </div>
             ) : (
-              <div className="flex flex-wrap items-center justify-center gap-2 mt-6 max-w-xl mx-auto">
+              <div className="w-full max-w-2xl grid grid-cols-2 sm:flex sm:flex-wrap items-center justify-center gap-2">
                 {(isStudyMode ? studyQuickActions : GENERAL_QUICK_ACTIONS).map((action) => (
                   <button
                     key={action.label}
@@ -1817,10 +1814,10 @@ export default function ChatMainArea({
                         setTimeout(() => centerInputRef.current?.focus(), 50);
                       }
                     }}
-                    className="px-3.5 py-1.5 rounded-full border border-border bg-card/80 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-card-hover transition-colors cursor-pointer flex items-center gap-1.5 backdrop-blur-xs"
+                    className="w-full sm:w-auto px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors flex items-center justify-center sm:justify-start gap-2 shadow-2xs"
                   >
-                    <action.icon size={14} strokeWidth={1.75} className="text-text-muted shrink-0" />
-                    {action.label}
+                    <action.icon size={14} strokeWidth={1.75} className="text-zinc-400 shrink-0" />
+                    <span>{action.label}</span>
                   </button>
                 ))}
               </div>
