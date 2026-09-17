@@ -58,18 +58,25 @@ export function isGuestSession(): boolean {
   const guestModeFlag = window.localStorage.getItem('guest_mode') === 'true';
   if (guestModeFlag) return true;
 
-  // Check cookie-based guest flag
+  // Check cookie-based guest flag & Supabase auth tokens
   if (typeof document !== 'undefined') {
     const cookies = document.cookie;
     const hasAuthCookie =
+      cookies.includes('sb-') ||
       cookies.includes('sb-access-token') ||
+      cookies.includes('sb-refresh-token') ||
       cookies.includes('next-auth.session-token') ||
       cookies.includes('__Secure-next-auth.session-token');
-    const isGuestCookie = cookies.includes('is_guest_user=true');
-    if (isGuestCookie && !hasAuthCookie) return true;
 
-    // No auth cookies at all means not signed in
-    if (!hasAuthCookie) return true;
+    // Also check localStorage for Supabase auth tokens
+    const hasLocalAuth = Object.keys(localStorage).some(
+      (key) => key.startsWith('sb-') && key.endsWith('-auth-token')
+    );
+
+    if (hasAuthCookie || hasLocalAuth) return false;
+
+    const isGuestCookie = cookies.includes('is_guest_user=true');
+    if (isGuestCookie) return true;
   }
 
   return false;
