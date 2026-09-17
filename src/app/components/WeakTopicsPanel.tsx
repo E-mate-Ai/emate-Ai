@@ -52,9 +52,12 @@ export default function WeakTopicsPanel() {
 
       <div className="flex-1 space-y-3 overflow-y-auto">
         {WEAK_TOPICS.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center py-8 text-center">
-            <AlertTriangle size={20} className="text-text-muted mb-2 opacity-40" />
-            <p className="text-xs text-text-muted">No weak topics identified yet. Complete a quiz to see your results here.</p>
+          <div className="flex-1 flex flex-col items-center justify-center py-8 text-center px-3">
+            <div className="w-9 h-9 rounded-xl bg-card-hover text-text-muted flex items-center justify-center mb-2">
+              <AlertTriangle size={16} strokeWidth={1.75} />
+            </div>
+            <p className="text-xs font-medium text-text-secondary">No weak topics identified yet</p>
+            <p className="text-[11px] text-text-muted mt-0.5">Complete a practice quiz to generate performance diagnostics.</p>
           </div>
         ) : WEAK_TOPICS.map((topic) => (
           <div

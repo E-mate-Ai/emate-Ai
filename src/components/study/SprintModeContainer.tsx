@@ -9,6 +9,7 @@ import {
   XCircle,
   Trophy,
   Sparkles,
+  Lightbulb,
 } from 'lucide-react';
 import type { MCQQuestion } from '@/lib/agents/types';
 import { cn } from '@/lib/utils';
@@ -210,7 +211,11 @@ function MCQCard({
           )}
         >
           <div className="flex items-start gap-2.5">
-            <span className="mt-0.5 text-base shrink-0">{isCorrect ? '✅' : '💡'}</span>
+            {isCorrect ? (
+              <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            ) : (
+              <Lightbulb className="w-4 h-4 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+            )}
             <div>
               <span className="font-semibold">
                 {isCorrect ? 'Correct!' : 'Not quite — here\'s why:'}

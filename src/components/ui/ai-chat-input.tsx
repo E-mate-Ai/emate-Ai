@@ -31,11 +31,11 @@ interface SlashCommand {
 }
 
 const SLASH_COMMANDS: SlashCommand[] = [
-  { label: 'Generate Image', command: '/image', description: 'Create diagrams, mind maps, or visual notes', icon: Sparkles },
-  { label: 'MCQ Practice', command: '/mcq', description: 'Generate interactive multiple-choice questions', icon: HelpCircle },
-  { label: 'Flashcards', command: '/flashcard', description: 'Create concept revision flip cards', icon: Layers },
-  { label: 'Summary', command: '/summary', description: 'Summarize active study notes', icon: BookOpen },
-  { label: 'Sprint Mode', command: '/sprint', description: 'Fast-paced exam cram module', icon: Zap },
+  { label: 'Generate Visual', command: '/image', description: 'Create study diagrams, flowcharts, or visual notes', icon: Sparkles },
+  { label: 'Practice Quiz', command: '/mcq', description: 'Generate interactive multiple-choice questions', icon: HelpCircle },
+  { label: 'Concept Flashcards', command: '/flashcard', description: 'Create active recall revision flip cards', icon: Layers },
+  { label: 'High-Yield Summary', command: '/summary', description: 'Summarize syllabus concepts and lecture notes', icon: BookOpen },
+  { label: 'Sprint Mode', command: '/sprint', description: 'Rapid-fire exam cram and formula sprint', icon: Zap },
 ];
 
 // ----------------------------------------------------------------------
@@ -461,7 +461,7 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
   (
     {
       onSubmit,
-      placeholder = 'Ask anything or type / for commands...',
+      placeholder = 'Ask e-Mate a question, paste notes, or type / for commands...',
       className,
       models = ['Gemini 2.0 Flash', 'Gemini 2.5 Flash', 'GPT-4o Mini', 'Claude 3.5 Sonnet'],
       efforts = ['Quick', 'Balanced', 'Deep'],
@@ -1091,9 +1091,9 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
           )}
 
           {/* Bottom Row: Toolbar Controls */}
-          <div className="flex items-center justify-between pt-1 w-full">
+          <div className="flex items-center justify-between pt-2.5 mt-2 border-t border-zinc-100 dark:border-zinc-800/60 w-full">
             {/* Left Side: Attach menu + Model & effort (always visible) */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               {/* Attach drop-up trigger */}
               {allowAttachments && (
                 <div className="relative" ref={attachMenuRef}>
@@ -1308,8 +1308,8 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
               </button>
             </div>
 
-            {/* Right Side: Action Icons (+ and Mic) */}
-            <div className="flex items-center gap-2">
+            {/* Right Side: Action Icons (Send, Mic, Stop) */}
+            <div className="flex items-center gap-1.5">
               {/* Audio Wave Visualizer during voice recording */}
               {isRecording && (
                 <div className="flex h-8 items-center gap-[3px] px-1">
@@ -1343,49 +1343,58 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
                 </button>
               )}
 
-              {showMic && (
+              {/* Voice Input button (when not recording) */}
+              {!isRecording && (
                 <button
                   type="button"
                   onMouseDown={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                   }}
-                  onClick={onActionButtonClick}
+                  onClick={startRecording}
                   aria-label="Use voice input"
                   title="Voice input"
-                  className="h-8 w-8 rounded-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center shadow-sm transition-transform active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 cursor-pointer"
+                  className="h-8 w-8 rounded-full bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 flex items-center justify-center shadow-xs transition-colors outline-none cursor-pointer"
                 >
-                  <Mic className="w-4 h-4 text-white" />
+                  <Mic className="w-4 h-4" />
                 </button>
               )}
 
-              {showArrow && (
+              {/* Send Prompt button (always visible when not recording) */}
+              {!isRecording && (
                 <button
                   type="button"
+                  disabled={!hasValue}
                   onMouseDown={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                   }}
-                  onClick={onActionButtonClick}
+                  onClick={handleSubmit}
                   aria-label="Send prompt"
                   title="Send"
-                  className="h-8 w-8 rounded-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 flex items-center justify-center shadow-sm transition-transform active:scale-95 hover:opacity-90 outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 cursor-pointer"
+                  className={cn(
+                    "h-8 w-8 rounded-full flex items-center justify-center shadow-xs transition-all outline-none cursor-pointer",
+                    hasValue
+                      ? "bg-brand hover:bg-brand-hover text-brand-foreground active:scale-95 shadow-glow-subtle"
+                      : "bg-surface text-text-muted cursor-not-allowed opacity-50"
+                  )}
                 >
                   <ArrowUpIcon />
                 </button>
               )}
 
-              {showStop && (
+              {/* Stop Recording button */}
+              {isRecording && (
                 <button
                   type="button"
                   onMouseDown={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                   }}
-                  onClick={onActionButtonClick}
+                  onClick={stopRecording}
                   aria-label="Stop recording"
                   title="Stop recording"
-                  className="h-8 w-8 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow-sm transition-transform active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-red-400 cursor-pointer"
+                  className="h-8 w-8 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow-sm transition-transform active:scale-95 outline-none cursor-pointer"
                 >
                   <StopIcon />
                 </button>

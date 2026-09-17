@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import Sidebar from './Sidebar';
-import SettingsPage from './SettingsPage';
-import NotebookOverlay from './NotebookOverlay';
-import SignUpPopup from './SignUpPopup';
-import { createClient } from '@/lib/supabase/client';
+import dynamic from 'next/dynamic';
+
+const Sidebar = dynamic(() => import('./Sidebar'), { ssr: false });
+const SettingsPage = dynamic(() => import('./SettingsPage'), { ssr: false });
+const NotebookOverlay = dynamic(() => import('./NotebookOverlay'), { ssr: false });
+const SignUpPopup = dynamic(() => import('./SignUpPopup'), { ssr: false });
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -28,8 +29,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
   useEffect(() => {
     async function checkAuthForPopup() {
       try {
+        const { createClient } = await import('@/lib/supabase/client');
         const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
         if (!user) {
           setShowSignUpPopup(true);
         }

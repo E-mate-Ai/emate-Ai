@@ -58,9 +58,12 @@ export default function ScoreTrendChartInner() {
       </div>
 
       {SCORE_DATA.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <TrendingUp size={20} className="text-text-muted mb-2 opacity-40" />
-          <p className="text-xs text-text-muted">No quiz data yet. Complete a quiz to see your score trend here.</p>
+        <div className="flex flex-col items-center justify-center py-10 text-center px-4">
+          <div className="w-10 h-10 rounded-xl bg-card-hover text-text-muted flex items-center justify-center mb-2">
+            <TrendingUp size={18} strokeWidth={1.75} />
+          </div>
+          <p className="text-xs font-semibold font-display text-text-primary">No quiz trend data yet</p>
+          <p className="text-[11px] text-text-muted mt-0.5">Complete quizzes across your subjects to map your mastery trajectory over time.</p>
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={200}>

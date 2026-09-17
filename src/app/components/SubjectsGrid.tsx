@@ -38,10 +38,14 @@ export default function SubjectsGrid() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-3 gap-4">
         {SUBJECTS.length === 0 ? (
           <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
-            <BookOpen size={24} className="text-text-muted mb-2 opacity-40" />
-            <p className="text-sm text-text-muted">No subjects yet. Create a notebook to get started.</p>
+            <div className="w-11 h-11 rounded-2xl bg-brand/10 border border-brand/20 text-brand flex items-center justify-center mb-2.5 shadow-glow-subtle">
+              <BookOpen size={20} strokeWidth={1.75} />
+            </div>
+            <h4 className="text-sm font-semibold font-display text-text-primary">No subjects added yet</h4>
+            <p className="text-xs text-text-secondary mt-1">Create a subject notebook to track your syllabus units and exam readiness.</p>
           </div>
-        ) : SUBJECTS.map((subject) => {
+        ) : (
+          SUBJECTS.map((subject) => {
           const coverPct = Math.round((subject.covered / subject.units) * 100);
           return (
             <Link

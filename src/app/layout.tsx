@@ -1,21 +1,29 @@
 import React from 'react';
 import type { Metadata, Viewport } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import Script from 'next/script';
+import { Outfit, Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google';
 import { Toaster } from 'sonner';
 import '../styles/tailwind.css';
 import RouteTracker from '@/components/RouteTracker';
 
-const geist = Geist({
+const outfit = Outfit({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-geist',
+  weight: ['500', '600', '700', '800'],
+  variable: '--font-display',
   display: 'swap',
 });
 
-const geistMono = Geist_Mono({
+const plusJakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
-  weight: ['400', '500'],
-  variable: '--font-geist-mono',
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-sans',
+  display: 'swap',
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--font-mono',
   display: 'swap',
 });
 
@@ -93,12 +101,19 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           }}
         />
       </head>
-      <body className={`${geist.className} ${geist.variable} ${geistMono.variable} overflow-x-hidden w-full max-w-[100vw] antialiased min-h-screen`}>
+      <body
+        suppressHydrationWarning={true}
+        className={`${plusJakarta.className} ${plusJakarta.variable} ${outfit.variable} ${jetbrainsMono.variable} overflow-x-hidden w-full max-w-[100vw] antialiased min-h-screen bg-background text-foreground`}
+      >
         <RouteTracker />
         {children}
         <Toaster
           position="bottom-right"
+          theme="system"
+          closeButton
+          richColors
           toastOptions={{
+            className: 'font-sans text-sm rounded-xl backdrop-blur-md border shadow-xl',
             style: {
               background: 'var(--bg-card)',
               border: '1px solid var(--border)',
@@ -109,12 +124,14 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           }}
         />
 
-        <script
-          type="module"
-          async
+        <Script
           src="https://static.rocket.new/rocket-web.js?_cfg=https%3A%2F%2Femate9631back.builtwithrocket.new&_be=https%3A%2F%2Fappanalytics.rocket.new&_v=0.1.20"
+          strategy="lazyOnload"
         />
-        <script type="module" defer src="https://static.rocket.new/rocket-shot.js?v=0.0.2" />
+        <Script
+          src="https://static.rocket.new/rocket-shot.js?v=0.0.2"
+          strategy="lazyOnload"
+        />
       </body>
     </html>
   );

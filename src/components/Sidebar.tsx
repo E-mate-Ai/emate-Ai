@@ -5,7 +5,6 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { isGuestModeEnabled, clearGuestModeEnabled } from '@/lib/guest-mode';
-import { createClient } from '@/lib/supabase/client';
 import { applyTheme } from '@/lib/theme';
 import {
   getSubjects,
@@ -24,7 +23,9 @@ import {
   type ChatHistoryItem,
   type ChatMessage,
 } from '@/lib/chatHistory';
-import ChatSearchModal from './ChatSearchModal';
+import dynamic from 'next/dynamic';
+
+const ChatSearchModal = dynamic(() => import('./ChatSearchModal'), { ssr: false });
 import {
   Search,
   Image,
@@ -45,6 +46,12 @@ import {
   Calculator,
   Globe,
   Atom,
+  Brain,
+  BarChart3,
+  Target,
+  Trophy,
+  Lightbulb,
+  PenLine,
   Edit2,
   Check,
   MoreHorizontal,
@@ -87,7 +94,7 @@ export default function Sidebar({
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState('');
-  const [newSubjectEmoji, setNewSubjectEmoji] = useState('📚');
+  const [newSubjectIcon, setNewSubjectIcon] = useState('book');
   const [newSubjectType, setNewSubjectType] = useState('');
   const [portalMounted, setPortalMounted] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -109,15 +116,28 @@ export default function Sidebar({
   }, []);
 
   const SUBJECT_TYPES = [
-    { label: 'Science', emoji: '🔬', icon: FlaskConical },
-    { label: 'Technology', emoji: '💻', icon: Code2 },
-    { label: 'Math', emoji: '📐', icon: Calculator },
-    { label: 'Language', emoji: '🌐', icon: Globe },
-    { label: 'Physics', emoji: '⚛️', icon: Atom },
-    { label: 'General', emoji: '✨', icon: Sparkles },
+    { label: 'Science', icon: FlaskConical },
+    { label: 'Technology', icon: Code2 },
+    { label: 'Mathematics', icon: Calculator },
+    { label: 'Language', icon: Globe },
+    { label: 'Physics', icon: Atom },
+    { label: 'General', icon: Sparkles },
   ];
 
-  const EMOJI_PICKS = ['📚', '🔬', '💻', '📐', '🌐', '⚛️', '🧠', '📊', '🎯', '🏆', '💡', '🖊️'];
+  const ICON_PICKS = [
+    { id: 'book', label: 'Books & Notes', icon: BookOpen },
+    { id: 'science', label: 'Science & Lab', icon: FlaskConical },
+    { id: 'tech', label: 'Technology & Code', icon: Code2 },
+    { id: 'math', label: 'Mathematics', icon: Calculator },
+    { id: 'language', label: 'Language & Global', icon: Globe },
+    { id: 'physics', label: 'Physics & Atoms', icon: Atom },
+    { id: 'brain', label: 'Cognition & Brainstorm', icon: Brain },
+    { id: 'chart', label: 'Analytics & Charts', icon: BarChart3 },
+    { id: 'target', label: 'Goals & Targets', icon: Target },
+    { id: 'trophy', label: 'Achievements', icon: Trophy },
+    { id: 'idea', label: 'Ideas & Concepts', icon: Lightbulb },
+    { id: 'pencil', label: 'Writing & Drafts', icon: PenLine },
+  ];
 
   useEffect(() => {
     setSubjects(getSubjects());
@@ -153,7 +173,7 @@ export default function Sidebar({
 
   const handleCreateNotebook = () => {
     setNewSubjectName('');
-    setNewSubjectEmoji('📚');
+    setNewSubjectIcon('book');
     setNewSubjectType('');
     setShowCreateModal(true);
   };
@@ -210,30 +230,35 @@ export default function Sidebar({
   }, []);
 
   useEffect(() => {
+    let authSubscription: { unsubscribe: () => void } | null = null;
+
     const syncProfileState = async () => {
       setProfileLoading(true);
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      try {
+        const { createClient } = await import('@/lib/supabase/client');
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-      if (user) {
-        const fullName =
-          user.user_metadata?.full_name ||
-          user.user_metadata?.name ||
-          user.email?.split('@')[0] ||
-          'User';
-        const displayName = String(fullName).trim() || 'User';
-        const avatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || '';
+        if (user) {
+          const fullName =
+            user.user_metadata?.full_name ||
+            user.user_metadata?.name ||
+            user.email?.split('@')[0] ||
+            'User';
+          const displayName = String(fullName).trim() || 'User';
+          const avatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || '';
 
-        setIsGuest(false);
-        setProfileName(displayName);
-        setProfileSubtitle(user.email || 'Signed in');
-        setAvatarLabel(displayName.charAt(0).toUpperCase());
-        setAvatarUrl(avatar);
-        setProfileLoading(false);
-        return;
-      }
+          setIsGuest(false);
+          setProfileName(displayName);
+          setProfileSubtitle(user.email || 'Signed in');
+          setAvatarLabel(displayName.charAt(0).toUpperCase());
+          setAvatarUrl(avatar);
+          setProfileLoading(false);
+          return;
+        }
+      } catch (_) {}
 
       const guestEnabled = isGuestModeEnabled();
       setIsGuest(guestEnabled);
@@ -253,25 +278,33 @@ export default function Sidebar({
 
     syncProfileState();
 
-    const supabase = createClient();
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      syncProfileState();
-    });
+    import('@/lib/supabase/client')
+      .then(({ createClient }) => {
+        const supabase = createClient();
+        const {
+          data: { subscription },
+        } = supabase.auth.onAuthStateChange(() => {
+          syncProfileState();
+        });
+        authSubscription = subscription;
+      })
+      .catch(() => {});
 
     window.addEventListener('storage', syncProfileState);
 
     return () => {
-      subscription.unsubscribe();
+      authSubscription?.unsubscribe();
       window.removeEventListener('storage', syncProfileState);
     };
   }, []);
 
   const handleSignOut = async () => {
     clearGuestModeEnabled();
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    try {
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    } catch (_) {}
     router.push('/sign-up-login-screen');
   };
 
@@ -462,38 +495,41 @@ export default function Sidebar({
                 <p className="text-[10px] tracking-wider font-bold text-gray-400 uppercase">
                   NOTEBOOKS
                 </p>
-                <button
-                  onClick={() => setShowManageModal(true)}
-                  className="text-[10px] font-medium px-2 py-0.5 rounded-md transition hover:opacity-80"
-                  style={{
-                    color: theme === 'dark' ? '#71717a' : '#71717a',
-                    background: theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
-                  }}
-                >
-                  Manage
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={handleCreateNotebook}
+                    title="Create notebook"
+                    aria-label="Create notebook"
+                    className="p-1 rounded-md text-zinc-400 hover:text-zinc-200 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors"
+                  >
+                    <Plus size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowManageModal(true)}
+                    className="text-[10px] font-medium px-2 py-0.5 rounded-md transition hover:opacity-80"
+                    style={{
+                      color: theme === 'dark' ? '#71717a' : '#71717a',
+                      background: theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
+                    }}
+                  >
+                    Manage
+                  </button>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={handleCreateNotebook}
-                className="flex items-center gap-2.5 w-full rounded-lg px-3 py-2 text-xs font-medium transition-colors mb-2"
-                style={{
-                  color: theme === 'dark' ? '#71717a' : '#52525b',
-                  border:
-                    theme === 'dark'
-                      ? '1px dashed rgba(255,255,255,0.08)'
-                      : '1px dashed rgba(0,0,0,0.1)',
-                }}
-              >
-                <Plus size={13} />
-                <span>New notebook</span>
-              </button>
 
               <div className="space-y-1">
                 {subjects.length === 0 ? (
-                  <div className="px-3 py-3 text-center rounded-lg border border-dashed border-zinc-200/50 dark:border-zinc-800/40 bg-zinc-50/30 dark:bg-zinc-900/10">
-                    <p className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500">
+                  <div className="px-3 py-3.5 text-center rounded-xl border border-dashed border-border bg-card/40 flex flex-col items-center gap-1">
+                    <div className="w-6 h-6 rounded-lg bg-brand/10 text-brand flex items-center justify-center mb-0.5">
+                      <BookOpen size={13} strokeWidth={1.75} />
+                    </div>
+                    <p className="text-[11px] font-medium text-text-primary">
                       No notebooks yet
+                    </p>
+                    <p className="text-[10px] text-text-muted leading-tight">
+                      Add a subject to organize your notes & quizzes
                     </p>
                   </div>
                 ) : (
@@ -559,12 +595,15 @@ export default function Sidebar({
                 )}
               </div>
               {chatHistory.length === 0 ? (
-                <div className="text-center py-6">
-                  <p className="text-xs" style={{ color: '#a1a1aa' }}>
-                    No recent chats yet.
+                <div className="text-center py-5 px-3 flex flex-col items-center gap-1">
+                  <div className="w-6 h-6 rounded-lg bg-card-hover text-text-muted flex items-center justify-center mb-0.5">
+                    <Clock size={13} strokeWidth={1.75} />
+                  </div>
+                  <p className="text-xs font-medium text-text-secondary">
+                    No recent chats
                   </p>
-                  <p className="text-[11px] mt-1" style={{ color: '#71717a' }}>
-                    Start a conversation to see it here.
+                  <p className="text-[10px] text-text-muted">
+                    Your study conversations and quizzes will appear here.
                   </p>
                 </div>
               ) : (
@@ -781,50 +820,30 @@ export default function Sidebar({
 
                       {/* Icon Picker Grid */}
                       <div>
-                        <label className="text-xs font-semibold uppercase tracking-wider mb-2 block text-zinc-550 dark:text-zinc-400">
+                        <label className="text-xs font-semibold uppercase tracking-wider mb-2 block text-zinc-500 dark:text-zinc-400">
                           Pick an Icon
                         </label>
                         <div className="grid grid-cols-6 gap-2">
-                          {[
-                            '📚',
-                            '🔬',
-                            '💻',
-                            '📐',
-                            '🌐',
-                            '⚛️',
-                            '🧠',
-                            '📊',
-                            '🎯',
-                            '🏆',
-                            '💡',
-                            '🖊️',
-                          ].map((em) => (
-                            <button
-                              key={em}
-                              onClick={() => setNewSubjectEmoji(em)}
-                              className="h-12 rounded-xl text-2xl flex items-center justify-center border transition hover:scale-110"
-                              style={{
-                                background:
-                                  newSubjectEmoji === em
-                                    ? theme === 'dark'
-                                      ? 'rgba(255,255,255,0.15)'
-                                      : 'rgba(0,0,0,0.08)'
-                                    : theme === 'dark'
-                                      ? 'rgba(255,255,255,0.04)'
-                                      : 'rgba(0,0,0,0.03)',
-                                borderColor:
-                                  newSubjectEmoji === em
-                                    ? theme === 'dark'
-                                      ? '#ffffff'
-                                      : '#000000'
-                                    : theme === 'dark'
-                                      ? 'rgba(255,255,255,0.08)'
-                                      : 'rgba(0,0,0,0.08)',
-                              }}
-                            >
-                              {em}
-                            </button>
-                          ))}
+                          {ICON_PICKS.map((item) => {
+                            const IconComponent = item.icon;
+                            const isSelected = newSubjectIcon === item.id;
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => setNewSubjectIcon(item.id)}
+                                title={item.label}
+                                aria-label={item.label}
+                                className={`h-11 rounded-xl flex items-center justify-center transition-all duration-150 border cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 ring-1 ring-blue-600/30 dark:ring-blue-500/30'
+                                    : 'bg-zinc-100/80 dark:bg-zinc-800/50 border-zinc-200/80 dark:border-zinc-700/50 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-200'
+                                }`}
+                              >
+                                <IconComponent size={18} strokeWidth={2} />
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     </div>
@@ -833,53 +852,37 @@ export default function Sidebar({
                     <div className="flex flex-col gap-6">
                       {/* Subject Category Selectors */}
                       <div>
-                        <label className="text-xs font-semibold uppercase tracking-wider mb-2 block text-zinc-550 dark:text-zinc-400">
+                        <label className="text-xs font-semibold uppercase tracking-wider mb-2 block text-zinc-500 dark:text-zinc-400">
                           Subject Category
                         </label>
                         <div className="grid grid-cols-2 gap-2">
-                          {[
-                            { label: 'Science', emoji: '🔬' },
-                            { label: 'Technology', emoji: '💻' },
-                            { label: 'Mathematics', emoji: '📐' },
-                            { label: 'Language', emoji: '🌐' },
-                            { label: 'Physics', emoji: '⚛️' },
-                            { label: 'General', emoji: '✨' },
-                          ].map((type) => (
-                            <button
-                              key={type.label}
-                              onClick={() => setNewSubjectType(type.label)}
-                              className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold border transition hover:bg-zinc-50 dark:hover:bg-zinc-800"
-                              style={{
-                                background:
-                                  newSubjectType === type.label
-                                    ? theme === 'dark'
-                                      ? '#ffffff'
-                                      : '#000000'
-                                    : theme === 'dark'
-                                      ? 'rgba(255,255,255,0.05)'
-                                      : 'rgba(0,0,0,0.04)',
-                                borderColor:
-                                  newSubjectType === type.label
-                                    ? theme === 'dark'
-                                      ? '#ffffff'
-                                      : '#000000'
-                                    : theme === 'dark'
-                                      ? 'rgba(255,255,255,0.1)'
-                                      : 'rgba(0,0,0,0.08)',
-                                color:
-                                  newSubjectType === type.label
-                                    ? theme === 'dark'
-                                      ? '#000000'
-                                      : '#ffffff'
-                                    : theme === 'dark'
-                                      ? '#d4d4d8'
-                                      : '#3f3f46',
-                              }}
-                            >
-                              <span>{type.emoji}</span>
-                              <span>{type.label}</span>
-                            </button>
-                          ))}
+                          {SUBJECT_TYPES.map((type) => {
+                            const CategoryIcon = type.icon;
+                            const isSelected = newSubjectType === type.label;
+                            return (
+                              <button
+                                key={type.label}
+                                type="button"
+                                onClick={() => setNewSubjectType(type.label)}
+                                className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-medium border transition-all duration-150 cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 font-semibold ring-1 ring-blue-600/30 dark:ring-blue-500/30'
+                                    : 'bg-zinc-100/80 dark:bg-zinc-800/50 border-zinc-200/80 dark:border-zinc-700/50 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200/60 dark:hover:bg-zinc-800'
+                                }`}
+                              >
+                                <CategoryIcon
+                                  size={15}
+                                  strokeWidth={2}
+                                  className={
+                                    isSelected
+                                      ? 'text-blue-600 dark:text-blue-400 shrink-0'
+                                      : 'text-zinc-500 dark:text-zinc-400 shrink-0'
+                                  }
+                                />
+                                <span>{type.label}</span>
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
 
@@ -895,7 +898,15 @@ export default function Sidebar({
                           }}
                         >
                           <div className="flex items-center gap-3">
-                            <span className="text-3xl">{newSubjectEmoji}</span>
+                            {(() => {
+                              const PreviewIcon =
+                                ICON_PICKS.find((p) => p.id === newSubjectIcon)?.icon || BookOpen;
+                              return (
+                                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-50 dark:bg-blue-950/40 border border-blue-600/30 dark:border-blue-500/30 text-blue-600 dark:text-blue-400 shrink-0">
+                                  <PreviewIcon size={20} strokeWidth={2} />
+                                </div>
+                              );
+                            })()}
                             <div>
                               <p
                                 className="font-bold text-sm"
@@ -903,8 +914,8 @@ export default function Sidebar({
                               >
                                 {newSubjectName}
                               </p>
-                              <p className="text-xs text-zinc-500">
-                                {newSubjectType || 'Study'} Notebook · AI-personalised
+                              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                                {newSubjectType || 'General'} Notebook · AI-personalised
                               </p>
                             </div>
                             <div className="ml-auto">
@@ -1021,14 +1032,15 @@ export default function Sidebar({
                   {/* Notebook list */}
                   <div className="px-5 py-4 space-y-2 max-h-[420px] overflow-y-auto">
                     {subjects.length === 0 && (
-                      <div className="text-center py-10">
-                        <BookOpen
-                          size={32}
-                          className="mx-auto mb-3 opacity-30"
-                          style={{ color: '#a1a1aa' }}
-                        />
-                        <p className="text-sm" style={{ color: '#a1a1aa' }}>
-                          No notebooks yet. Create one to get started.
+                      <div className="text-center py-8 px-4 flex flex-col items-center justify-center">
+                        <div className="w-11 h-11 rounded-2xl bg-brand/10 border border-brand/20 text-brand flex items-center justify-center mb-2.5 shadow-glow-subtle">
+                          <BookOpen size={20} strokeWidth={1.75} />
+                        </div>
+                        <h4 className="text-sm font-semibold font-display text-text-primary">
+                          No notebooks created yet
+                        </h4>
+                        <p className="text-xs text-text-secondary mt-1 max-w-xs leading-relaxed">
+                          Create your first subject notebook to store lecture notes, flashcards, and quiz results.
                         </p>
                       </div>
                     )}
@@ -1050,8 +1062,23 @@ export default function Sidebar({
                                 : 'rgba(0,0,0,0.02)',
                         }}
                       >
-                        {/* Emoji */}
-                        <span className="text-2xl shrink-0">📚</span>
+                        {/* Subject Icon */}
+                        <div
+                          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border"
+                          style={{
+                            background:
+                              theme === 'dark'
+                                ? 'rgba(255,255,255,0.06)'
+                                : 'rgba(0,0,0,0.04)',
+                            borderColor:
+                              theme === 'dark'
+                                ? 'rgba(255,255,255,0.1)'
+                                : 'rgba(0,0,0,0.08)',
+                            color: theme === 'dark' ? '#d4d4d8' : '#52525b',
+                          }}
+                        >
+                          <BookOpen size={18} strokeWidth={2} />
+                        </div>
 
                         {/* Name / Edit input */}
                         <div className="flex-1 min-w-0">

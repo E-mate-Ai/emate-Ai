@@ -5,9 +5,16 @@ import { Copy, Check, RotateCcw, BookMarked, Sparkles, Loader2, ChevronRight } f
 import type { ChatMessage } from './AITopperChatScreen';
 import { appendToNotebook } from '@/lib/notebook';
 import { toast } from 'sonner';
-import GeneratedImageCard from '@/components/GeneratedImageCard';
-import StudyAnalyzerReport from '@/components/StudyAnalyzerReport';
+import dynamic from 'next/dynamic';
 import type { MCQSubmission } from '@/lib/agents/types';
+
+const GeneratedImageCard = dynamic(() => import('@/components/GeneratedImageCard'), {
+  ssr: false,
+});
+
+const StudyAnalyzerReport = dynamic(() => import('@/components/StudyAnalyzerReport'), {
+  ssr: false,
+});
 
 // ─── Process step definitions ────────────────────────────────────────────────
 const PROCESS_STEPS = [
@@ -579,7 +586,7 @@ export default function ChatMessageBubble({
   if (isUser) {
     return (
       <div className="flex justify-end w-full fade-in-up">
-        <div className="bg-[#1f51ff] dark:bg-[#8aa2ff] text-white dark:text-[#0b0b0d] px-4 py-2.5 rounded-2xl rounded-br-md max-w-[80%] ml-auto text-sm leading-relaxed shadow-[0_4px_16px_-6px_rgba(31,81,255,0.30)] font-medium">
+        <div className="bg-brand text-brand-foreground px-4 py-2.5 rounded-2xl rounded-br-md max-w-[80%] ml-auto text-sm leading-relaxed shadow-glow-subtle font-medium">
           {message.content}
         </div>
       </div>
@@ -593,22 +600,22 @@ export default function ChatMessageBubble({
       {/* Header Row — only in Study Copilot mode */}
       {!message.isGeneralChat && (
         <div className="flex items-center gap-2 mb-2">
-          <div className="bg-[#1f51ff] dark:bg-[#8aa2ff] text-white dark:text-[#0b0b0d] w-6 h-6 rounded-md flex items-center justify-center shrink-0">
-            <Sparkles size={12} />
+          <div className="bg-brand text-brand-foreground w-6 h-6 rounded-md flex items-center justify-center shrink-0 shadow-xs">
+            <Sparkles size={13} strokeWidth={1.75} />
           </div>
-          <span className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          <span className="font-display text-xs sm:text-sm font-semibold tracking-tight text-text-primary">
             Assistant
           </span>
           {message.mode === 'sprint' ? (
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900/60">
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20">
               Sprint
             </span>
           ) : (
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#eef1ff] dark:bg-[#232a55]/60 text-[#1f51ff] dark:text-[#a8b8ff] border border-[#dbe3ff] dark:border-[#232a55]">
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-brand/10 text-brand border border-brand/20">
               Deep Dive
             </span>
           )}
-          <span className="text-[11px] text-zinc-400 font-normal ml-auto">{message.timestamp}</span>
+          <span className="text-[11px] text-text-muted font-normal ml-auto">{message.timestamp}</span>
         </div>
       )}
 
@@ -625,6 +632,20 @@ export default function ChatMessageBubble({
       >
         {renderMarkdown(message.content, theme)}
       </div>
+
+      {/* Interactive OpenRouter Connect CTA button for error messages (FIX 4) */}
+      {message.content.toLowerCase().includes('openrouter') && (
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new Event('nk-open-openrouter-modal'))}
+            className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold inline-flex items-center gap-2 transition-all cursor-pointer shadow-sm active:scale-95"
+          >
+            <Sparkles size={14} />
+            <span>Connect OpenRouter Account</span>
+          </button>
+        </div>
+      )}
 
       {/* Generated image cards (in-memory — only present in live state) */}
       {message.images && message.images.length > 0 && (

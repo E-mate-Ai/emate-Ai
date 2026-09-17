@@ -14,6 +14,8 @@ import {
   ChevronLeft,
   X,
 } from 'lucide-react';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 
 export type StudyMode = 'deep-dive' | 'sprint';
 
@@ -62,6 +64,11 @@ export default function AITopperChatScreen() {
 
     if (!isGuest) return;
 
+    // Delay the banner appearance by ~1000ms after page mount so it doesn't appear immediately
+    const mountTimer = setTimeout(() => {
+      setShowExitNotification(true);
+    }, 1000);
+
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = 'Guest session history will be deleted. Sign up to save your progress!';
@@ -77,6 +84,7 @@ export default function AITopperChatScreen() {
     document.addEventListener('mouseleave', handleMouseLeave);
 
     return () => {
+      clearTimeout(mountTimer);
       window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('mouseleave', handleMouseLeave);
     };
@@ -198,42 +206,42 @@ export default function AITopperChatScreen() {
     {
       title: 'Welcome to e-Mate AI',
       description:
-        'Your advanced AI Academic Copilot. e-Mate is designed to customize its explanations based on your active syllabus subject, context unit, and notes.',
+        'Your intelligent academic copilot. e-Mate adapts its explanations, practice quizzes, and revision summaries to your exact syllabus notes and course topics.',
       icon: Sparkles,
-      color: '#1f51ff',
+      color: 'var(--primary)',
       badge: 'Getting Started',
     },
     {
-      title: 'Dynamic Subject Notebooks',
+      title: 'Subject Notebooks',
       description:
-        "Each subject gets an isolated notebook. e-Mate automatically remembers key points from your chat history to personalize answers. Manage your notebooks from the sidebar using '+ New notebook' and the 'Manage' panel.",
+        'Organize notes by course or subject. e-Mate automatically captures key concepts, formulas, and quiz results to personalize your future study sessions.',
       icon: BookOpen,
-      color: '#365aff',
+      color: 'var(--primary)',
       badge: 'Personalization',
     },
     {
-      title: 'Real-time Resizable Sidebar',
+      title: 'Adaptive Workspace',
       description:
-        'Need more screen space? Drag the divider line on the right side of the sidebar to dynamically resize it to your perfect working width.',
+        'Need more breathing room for proofs and diagrams? Drag the divider line on the sidebar to resize your workspace to your ideal width.',
       icon: PanelLeft,
-      color: '#5470ff',
-      badge: 'Interface',
+      color: 'var(--accent)',
+      badge: 'Workspace',
     },
     {
-      title: 'Locked Study Context',
+      title: 'Syllabus Context Anchoring',
       description:
-        "Ensure precise replies by selecting your subject and unit from the 'Study Context' panel. e-Mate will base its knowledge on your syllabus constraints.",
+        'Anchor your study sessions to specific subjects and units for high-accuracy answers grounded directly in your syllabus.',
       icon: Compass,
-      color: '#6f86ff',
+      color: 'var(--primary)',
       badge: 'Exam Precision',
     },
     {
-      title: 'Real-time Recent Chats',
+      title: 'Study Session History',
       description:
-        'Your conversations are saved and synced in real-time in the sidebar, allowing you to instantly rename, delete, or resume previous chats.',
+        'Review past explanations, re-take quizzes, and resume previous learning flows seamlessly from your recent chats list.',
       icon: Clock,
-      color: '#8aa2ff',
-      badge: 'Productivity',
+      color: 'var(--accent)',
+      badge: 'Revision Flow',
     },
   ];
 
@@ -243,27 +251,40 @@ export default function AITopperChatScreen() {
     <div className="relative flex h-screen min-h-screen overflow-hidden">
       {/* Leave Notification Banner */}
       {showExitNotification && (
-        <div className="fixed top-4 right-4 z-[300] max-w-md p-4 rounded-xl bg-zinc-900 border border-zinc-800 text-white shadow-2xl flex items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
-          <div>
-            <p className="text-sm font-semibold">Sign up to save your progress!</p>
-            <p className="text-xs text-zinc-400">
-              Guest chats are non-persistent and will be cleared when you leave.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => router.push('/sign-up-login-screen')}
-              className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-500 transition-colors"
-            >
-              Sign Up
-            </button>
-            <button
+        <div className="fixed bottom-4 right-4 z-[300] max-w-md w-full px-4 sm:px-0">
+          <Alert
+            layout="complex"
+            isNotification
+            size="lg"
+            className="bg-card/95 border-border shadow-2xl backdrop-blur-md rounded-xl p-4 pr-12 relative animate-in fade-in slide-in-from-bottom-3 duration-400 ease-out"
+          >
+            <div className="space-y-1">
+              <AlertTitle className="text-sm font-semibold">
+                Sign up to save your progress!
+              </AlertTitle>
+              <AlertDescription className="text-xs">
+                Guest chats are non-persistent and will be cleared when you leave.
+              </AlertDescription>
+            </div>
+            <div className="flex items-center gap-2 mt-3 sm:mt-0 shrink-0">
+              <Button
+                onClick={() => router.push('/sign-up-login-screen')}
+                size="sm"
+                className="font-medium text-xs px-3.5 py-1.5 h-auto rounded-lg"
+              >
+                Sign Up
+              </Button>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => setShowExitNotification(false)}
-              className="text-zinc-400 text-xs hover:text-white"
+              className="absolute top-3 right-3 text-text-muted hover:text-text-primary hover:bg-card-hover h-8 w-8 rounded-lg transition-colors flex items-center justify-center cursor-pointer"
+              aria-label="Dismiss notification"
             >
-              Dismiss
-            </button>
-          </div>
+              <X size={15} strokeWidth={1.75} />
+            </Button>
+          </Alert>
         </div>
       )}
 

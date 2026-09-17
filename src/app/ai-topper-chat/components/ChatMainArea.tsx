@@ -48,8 +48,11 @@ import {
   authCreditsExhausted,
 } from '@/lib/credits';
 import { toast } from 'sonner';
-import MCQAssessmentContainer from '@/components/MCQAssessmentContainer';
-import { generateAnalyzerReport } from '@/lib/agents/studyAnalyzer';
+import dynamic from 'next/dynamic';
+
+const MCQAssessmentContainer = dynamic(() => import('@/components/MCQAssessmentContainer'), {
+  ssr: false,
+});
 import type { MCQQuiz, MCQSubmission } from '@/lib/agents/types';
 
 // Study quick actions are built dynamically inside the component from selectedContext.
@@ -57,37 +60,37 @@ import type { MCQQuiz, MCQSubmission } from '@/lib/agents/types';
 const GENERAL_QUICK_ACTIONS = [
   {
     icon: Code2,
-    label: 'Write & debug code',
-    prompt: 'Help me write and debug code for: ',
+    label: 'Code & algorithms',
+    prompt: 'Help me write, debug, or optimize code for: ',
   },
   {
     icon: PenLine,
-    label: 'Draft & edit text',
-    prompt: 'Help me draft and improve this text: ',
+    label: 'Refine notes & drafts',
+    prompt: 'Help me polish and structure this study draft: ',
   },
   {
     icon: Brain,
-    label: 'Brainstorm ideas',
-    prompt: 'Help me brainstorm ideas for: ',
+    label: 'Brainstorm study plan',
+    prompt: 'Help me design a high-efficiency study plan for: ',
   },
   {
     icon: Compass,
-    label: 'Explain a complex topic',
-    prompt: 'Explain this topic clearly and simply: ',
+    label: 'Step-by-step breakdown',
+    prompt: 'Break down this complex topic into clear, easy steps: ',
   },
 ];
 
-// Guests only get two quick actions: an explanation and a summary.
+// Guests get targeted study quick actions: step-by-step breakdown and high-yield summary.
 const GUEST_QUICK_ACTIONS = [
   {
     icon: Compass,
-    label: 'Explain',
-    prompt: 'Explain this clearly and simply, step by step: ',
+    label: 'Step-by-step breakdown',
+    prompt: 'Explain this topic step-by-step with exam-ready clarity: ',
   },
   {
     icon: Sparkles,
-    label: 'Summarize',
-    prompt: 'Summarize this concisely into easy to remember key points: ',
+    label: 'High-yield summary',
+    prompt: 'Summarize this into high-yield, exam-focused key points: ',
   },
 ];
 
@@ -162,23 +165,23 @@ export default function ChatMainArea({
     () => [
       {
         icon: BookOpen,
-        label: 'Generate exam questions',
-        prompt: `Generate 5 high-probability exam questions for ${selectedContext.subject} — ${selectedContext.unit} with model answers`,
+        label: 'Practice quiz questions',
+        prompt: `Generate 5 high-probability quiz questions for ${selectedContext.subject} — ${selectedContext.unit} with detailed model answers`,
       },
       {
         icon: Sparkles,
-        label: 'Last-minute revision',
-        prompt: `Give me a concise last-minute revision summary for ${selectedContext.subject} — ${selectedContext.unit}`,
+        label: 'High-yield summary',
+        prompt: `Provide a concise, high-yield study summary for ${selectedContext.subject} — ${selectedContext.unit}`,
       },
       {
         icon: Brain,
-        label: 'Step-by-step explanation',
-        prompt: `Explain ${selectedContext.unit} (${selectedContext.subject}) step-by-step with examples and exam tips`,
+        label: 'Concept deep-dive',
+        prompt: `Explain ${selectedContext.unit} (${selectedContext.subject}) from first principles with exam tips and intuitive examples`,
       },
       {
         icon: Compass,
-        label: 'Key formulas & rules',
-        prompt: `List all key formulas, rules, and definitions for ${selectedContext.subject} — ${selectedContext.unit} for my exam sprint`,
+        label: 'Formulas & cheat sheet',
+        prompt: `List all essential formulas, theorems, and definitions for ${selectedContext.subject} — ${selectedContext.unit}`,
       },
     ],
     [selectedContext.subject, selectedContext.unit]
@@ -926,14 +929,11 @@ export default function ChatMainArea({
         return;
       }
       guestCreditsSent = remainingBefore;
-      const remainingAfter = spendGuestCredit();
-      setGuestCreditsState(remainingAfter);
+      // FIX 5: Credit deduction moved to occur ONLY on successful response generation
     } else if (typeof window !== 'undefined' && authCreditsExhausted()) {
       toast.info(
         `You've used your ${DAILY_LIMIT} free daily credits — continuing on your connected OpenRouter key.`
       );
-    } else {
-      spendAuthCredit();
     }
 
     const formatTimestamp = () => {
@@ -980,6 +980,19 @@ export default function ChatMainArea({
       saveChatTranscript(targetChatId, newMessages);
     }
 
+    // FIX 5: Track credit deduction so it only occurs once on successful generation
+    let creditDeducted = false;
+    const deductCreditOnSuccess = () => {
+      if (creditDeducted) return;
+      creditDeducted = true;
+      if (isGuest) {
+        const remainingAfter = spendGuestCredit();
+        setGuestCreditsState(remainingAfter);
+      } else {
+        spendAuthCredit();
+      }
+    };
+
     try {
       const notebookContext = isStudyMode ? buildNotebookContext(selectedContext.subject) : '';
       // actualAttachments lets the PromptInput pass fresh attachments that haven't
@@ -1019,8 +1032,7 @@ export default function ChatMainArea({
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         const msg = data.error || `Request failed with status ${res.status}`;
-        // Task 4 — surface the granular OpenRouter error as a toast, not silently.
-        toast.error(msg);
+        // FIX 3: Do NOT fire toast.error(msg) to avoid duplicate notification surface; render inline in chat only
         throw new Error(msg);
       }
 
@@ -1060,6 +1072,8 @@ export default function ChatMainArea({
               // Server sends JSON-encoded string deltas: `data: "…"\n\n`
               const delta = JSON.parse(dataStr);
               if (typeof delta === 'string' && delta.length > 0) {
+                // FIX 5: Response generation was successful, now deduct credit
+                deductCreditOnSuccess();
                 accumulatedText += delta;
                 setMessages((prev) =>
                   prev.map((m) =>
@@ -1100,17 +1114,38 @@ export default function ChatMainArea({
         );
       }
     } catch (err: any) {
-      const errorMsg = `Error generating response: ${err.message || 'Failed to connect to server.'}`;
-      const assistantMsg: ChatMessage = {
-        id: `msg-${String(msgCounter++).padStart(3, '0')}`,
-        role: 'assistant',
-        content: errorMsg,
-        mode,
-        timestamp: formatTimestamp(),
-        subject: selectedContext.subject,
-        isGeneralChat: !isStudyMode,
-      };
-      setMessages((prev) => [...prev, assistantMsg]);
+      const rawMsg = err.message || 'Failed to connect to server.';
+
+      // FIX 6: If the chat history ALREADY contains an OpenRouter API key error,
+      // render a concise, non-disruptive 1-line note instead of repeating full error block.
+      const isOpenRouterError = rawMsg.toLowerCase().includes('openrouter');
+      const alreadyHasOpenRouterError = messages.some(
+        (m) => m.role === 'assistant' && m.content.toLowerCase().includes('openrouter')
+      );
+
+      const displayContent =
+        isOpenRouterError && alreadyHasOpenRouterError
+          ? '⚠️ OpenRouter account connection required to continue.'
+          : rawMsg;
+
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last && last.role === 'assistant' && last.content === displayContent) {
+          return prev;
+        }
+        return [
+          ...prev,
+          {
+            id: `msg-${String(msgCounter++).padStart(3, '0')}`,
+            role: 'assistant',
+            content: displayContent,
+            mode,
+            timestamp: formatTimestamp(),
+            subject: selectedContext.subject,
+            isGeneralChat: !isStudyMode,
+          },
+        ];
+      });
     } finally {
       setIsStreaming(false);
     }
@@ -1615,10 +1650,10 @@ export default function ChatMainArea({
 
       {/* Connection Toast — bottom-right removable */}
       {showToast && (
-        <div className="fixed bottom-5 right-5 z-50 flex items-center gap-3 px-4 py-2.5 bg-zinc-900 text-white rounded-2xl shadow-xl border border-zinc-800 animate-in fade-in slide-in-from-bottom-3 text-xs font-medium">
+        <div className="fixed bottom-5 right-5 z-50 flex items-center gap-3 px-4 py-2.5 bg-card/95 backdrop-blur-md text-text-primary rounded-xl shadow-xl border border-border animate-in fade-in slide-in-from-bottom-3 text-xs font-medium">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>Connected with OpenRouter</span>
-          <button onClick={() => setShowToast(false)} className="ml-2 text-zinc-400 hover:text-white">
+          <span>Connected to OpenRouter</span>
+          <button onClick={() => setShowToast(false)} className="ml-2 text-text-muted hover:text-text-primary">
             ✕
           </button>
         </div>
@@ -1627,7 +1662,7 @@ export default function ChatMainArea({
       {/* Messages area — no pt-20 needed since header is no longer absolute */}
       <div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
         {!hasMessages ? (
-          <div className="flex flex-col items-center justify-start pt-24 sm:pt-32 pb-16 px-4 w-full max-w-3xl mx-auto">
+          <div className="flex flex-col items-center justify-start pt-20 sm:pt-28 pb-16 px-4 w-full max-w-3xl mx-auto">
             {/* Hidden File Input */}
             <input
               type="file"
@@ -1641,44 +1676,42 @@ export default function ChatMainArea({
               }}
             />
 
-            {/* Heading */}
-            <h1
-              className="text-3xl font-bold tracking-tight text-center mb-2"
-              style={{ color: theme === 'dark' ? '#ffffff' : '#09090b' }}
-            >
-              {isStudyMode ? 'Level up your studying' : 'What can I help you with?'}
-            </h1>
-            <p
-              className="text-sm text-center mb-4 max-w-md leading-relaxed"
-              style={{ color: theme === 'dark' ? '#9ca0ab' : '#71717a' }}
-            >
-              {isStudyMode
-                ? 'Ask anything, paste notes, or trigger a study workflow below.'
-                : 'Ask anything — code, writing, analysis, or just a question.'}
-            </p>
+            {/* Heading & Subheading */}
+            <div className="text-center mb-6 max-w-xl mx-auto">
+              <h1 className="font-display text-3xl sm:text-4xl font-extrabold tracking-tightest text-text-primary mb-2.5">
+                {isStudyMode ? 'Master your subjects with e-Mate' : 'What are you studying today?'}
+              </h1>
+              <p className="text-sm text-text-secondary leading-relaxed max-w-md mx-auto">
+                {isStudyMode
+                  ? 'Upload lecture notes, run rapid-fire practice quizzes, or deep-dive into complex concepts.'
+                  : 'Ask questions, analyze study notes, debug code, or create visual diagrams.'}
+              </p>
+            </div>
 
-            {/* Empty State UI Card — only in study mode with no notebooks */}
+            {/* Empty State UI Card — intentional designed moment when no subject notebooks exist */}
             {isStudyMode && subjects.length === 0 && (
-              <div className="w-full max-w-md p-4 mb-4 rounded-2xl border border-blue-500/20 bg-blue-500/5 dark:bg-blue-500/10 text-center flex flex-col items-center gap-2">
-                <div className="flex items-center gap-2 text-xs font-semibold text-blue-600 dark:text-blue-400">
-                  <BookOpen size={16} />
-                  <span>No active study sets yet</span>
+              <div className="w-full max-w-lg p-5 mb-6 rounded-2xl border border-brand/20 bg-brand/5 text-center flex flex-col items-center gap-2.5 backdrop-blur-sm shadow-glow-subtle">
+                <div className="w-10 h-10 rounded-xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand mb-0.5">
+                  <BookOpen size={18} strokeWidth={1.75} />
                 </div>
-                <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                  Upload your syllabus, lecture notes, or PDF to generate automated flashcards &amp; revision loops.
+                <h3 className="text-sm font-semibold font-display text-text-primary">
+                  No active subject notebook
+                </h3>
+                <p className="text-xs text-text-secondary max-w-sm leading-relaxed">
+                  Create a dedicated notebook for your syllabus or lecture notes to unlock automated flashcards, practice quizzes, and exam-focused revision.
                 </p>
                 <button
                   type="button"
                   onClick={() => window.dispatchEvent(new Event('nk-create-notebook'))}
-                  className="mt-1 px-4 py-2 text-xs font-medium rounded-full bg-blue-600 hover:bg-blue-700 text-white transition-colors cursor-pointer min-h-[44px] inline-flex items-center gap-2 shadow-sm"
+                  className="mt-1 px-4 py-2 text-xs font-semibold rounded-xl bg-brand hover:bg-brand-hover text-brand-foreground transition-all cursor-pointer min-h-[40px] inline-flex items-center gap-2 shadow-glow-subtle active:scale-95"
                 >
-                  <Plus size={14} />
-                  Create New Notebook
+                  <Plus size={14} strokeWidth={1.75} />
+                  Create Subject Notebook
                 </button>
               </div>
             )}
 
-            {/* Elevated Command Input — new PromptInput composer */}
+            {/* Elevated Command Input — PromptInput composer */}
             <PromptInput
               value={inputValue}
               onChange={setInputValue}
@@ -1695,8 +1728,8 @@ export default function ChatMainArea({
               models={isGuest ? ['Gemini 2.0 Flash'] : MODELS.map((m) => m.name)}
               efforts={['Quick', 'Balanced', 'Deep']}
               allowAttachments={!isGuest}
-              placeholder="Ask anything or type / for commands..."
-              className="mx-auto w-full max-w-2xl mt-6 mb-2"
+              placeholder="Ask e-Mate a question, paste notes, or type / for commands..."
+              className="mx-auto w-full max-w-2xl mb-2"
               imageGenMode={imageGenMode}
               onImageGenToggle={!isGuest ? () => setImageGenMode((v) => !v) : undefined}
             />
@@ -1713,9 +1746,9 @@ export default function ChatMainArea({
                     loadDemoNotebook(selectedContext.subject);
                     toast.success('Demo notebook loaded');
                   }}
-                  className="px-3 py-1.5 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer flex items-center gap-1.5"
+                  className="px-3.5 py-1.5 rounded-full border border-border bg-card/80 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-card-hover transition-colors cursor-pointer flex items-center gap-1.5 backdrop-blur-xs"
                 >
-                  <NotebookText size={13} className="text-zinc-400 dark:text-zinc-500" />
+                  <NotebookText size={14} strokeWidth={1.75} className="text-text-muted shrink-0" />
                   Try Demo Notebook
                 </button>
                 {GUEST_QUICK_ACTIONS.map((action) => (
@@ -1728,9 +1761,9 @@ export default function ChatMainArea({
                         setTimeout(() => centerInputRef.current?.focus(), 50);
                       }
                     }}
-                    className="px-3 py-1.5 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer flex items-center gap-1.5"
+                    className="px-3.5 py-1.5 rounded-full border border-border bg-card/80 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-card-hover transition-colors cursor-pointer flex items-center gap-1.5 backdrop-blur-xs"
                   >
-                    <action.icon size={13} className="text-zinc-400 dark:text-zinc-500" />
+                    <action.icon size={14} strokeWidth={1.75} className="text-text-muted shrink-0" />
                     {action.label}
                   </button>
                 ))}
@@ -1747,9 +1780,9 @@ export default function ChatMainArea({
                         setTimeout(() => centerInputRef.current?.focus(), 50);
                       }
                     }}
-                    className="px-3 py-1.5 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer flex items-center gap-1.5"
+                    className="px-3.5 py-1.5 rounded-full border border-border bg-card/80 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-card-hover transition-colors cursor-pointer flex items-center gap-1.5 backdrop-blur-xs"
                   >
-                    <action.icon size={13} className="text-zinc-400 dark:text-zinc-500" />
+                    <action.icon size={14} strokeWidth={1.75} className="text-text-muted shrink-0" />
                     {action.label}
                   </button>
                 ))}
@@ -1805,20 +1838,19 @@ export default function ChatMainArea({
             allowAttachments={!isGuest}
             placeholder={
               !isStudyMode
-                ? 'Ask a question or request help...'
+                ? 'Ask e-Mate a question, debug code, or request help...'
                 : mode === 'sprint'
-                  ? 'Ask for a quick summary, formula, or cram tip...'
-                  : 'Ask for a full explanation, proof, or derivation...'
+                  ? 'Ask for a rapid summary, formula, or exam cram tip...'
+                  : 'Ask for a step-by-step explanation, proof, or derivation...'
             }
             className="mx-auto w-full max-w-3xl mt-3"
             imageGenMode={imageGenMode}
             onImageGenToggle={!isGuest ? () => setImageGenMode((v) => !v) : undefined}
           />
           <p
-            className="text-[11px] text-center mt-2"
-            style={{ color: theme === 'dark' ? '#71717a' : '#a1a1aa' }}
+            className="text-[11px] text-center mt-2 text-text-muted"
           >
-            e-Mate can make mistakes. Verify important exam answers.
+            e-Mate is an AI study copilot. Verify critical academic formulas and exam dates.
           </p>
         </div>
       )}

@@ -450,12 +450,17 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
               <div className="space-y-2">
                 {notebookNotes.length === 0 ? (
                   <div
-                    className="flex flex-col items-center justify-center py-16 rounded-2xl border border-dashed"
+                    className="flex flex-col items-center justify-center py-12 px-4 rounded-2xl border border-dashed text-center"
                     style={{ borderColor: bdr }}
                   >
-                    <BookOpen size={32} className="mb-3 opacity-30" />
-                    <p className="text-sm text-center px-4" style={{ color: textMuted }}>
-                      No notes yet. Notes are auto-saved when you chat.
+                    <div className="w-10 h-10 rounded-xl bg-brand/10 border border-brand/20 text-brand flex items-center justify-center mb-2.5 shadow-glow-subtle">
+                      <BookOpen size={18} strokeWidth={1.75} />
+                    </div>
+                    <h4 className="text-sm font-semibold font-display" style={{ color: textPrimary }}>
+                      No saved notes yet
+                    </h4>
+                    <p className="text-xs mt-1 max-w-xs leading-relaxed" style={{ color: textMuted }}>
+                      Key concepts, formulas, and definitions are automatically captured to this notebook during your study sessions.
                     </p>
                   </div>
                 ) : (

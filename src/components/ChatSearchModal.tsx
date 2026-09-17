@@ -245,14 +245,15 @@ export default function ChatSearchModal({ open, onClose, onSelect }: ChatSearchM
           )}
 
           {query.trim() && results.length === 0 && (
-            <div className="px-3 py-10 text-center">
-              <FileText
-                size={28}
-                className="mx-auto mb-3 opacity-40"
-                style={dark ? { color: '#71717a' } : { color: '#a1a1aa' }}
-              />
-              <p className="text-sm font-medium" style={{ color: dark ? '#a1a1aa' : '#52525b' }}>
-                No chat history matching “{query}”
+            <div className="px-4 py-10 text-center flex flex-col items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-brand/10 border border-brand/20 text-brand flex items-center justify-center mb-2.5 shadow-glow-subtle">
+                <FileText size={18} strokeWidth={1.75} />
+              </div>
+              <p className="text-sm font-semibold font-display" style={{ color: dark ? '#f8fafc' : '#0f172a' }}>
+                No chats matching “{query}”
+              </p>
+              <p className="text-xs mt-1" style={{ color: dark ? '#94a3b8' : '#64748b' }}>
+                Try searching for a subject name, formula, or study concept.
               </p>
             </div>
           )}

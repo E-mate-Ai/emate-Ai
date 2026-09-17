@@ -145,9 +145,12 @@ export default function QuizHistoryTable() {
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-4 py-12 text-center">
-                    <div className="flex flex-col items-center gap-2">
-                      <BookOpen size={24} className="text-text-muted" />
-                      <p className="text-sm text-text-muted">No quiz sessions match your search</p>
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <div className="w-10 h-10 rounded-xl bg-card-hover text-text-muted flex items-center justify-center mb-1">
+                        <BookOpen size={18} strokeWidth={1.75} />
+                      </div>
+                      <p className="text-sm font-semibold font-display text-text-primary">No quiz sessions found</p>
+                      <p className="text-xs text-text-muted">Start a practice quiz in study mode to track your session results.</p>
                     </div>
                   </td>
                 </tr>

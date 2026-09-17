@@ -311,7 +311,7 @@ export default function UpgradePage() {
             </span>
             <div>
               <p className="font-semibold text-zinc-900 dark:text-zinc-100">
-                🎓 Students get more with e-Mate AI
+                Students get more with e-Mate AI
               </p>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
                 Get a plan of e-Mate AI Pro with verified student status.
