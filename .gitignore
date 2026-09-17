@@ -25,6 +25,9 @@ Thumbs.db
 Icon?
 Icon*
 
+# External standalone tools
+gemini-web2api/
+
 # Vercel deployment
 .vercel/
 
