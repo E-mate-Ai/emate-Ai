@@ -29,7 +29,7 @@ export async function trackUserSession(): Promise<string> {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    await supabase.from('user_sessions').upsert(
+    const { error } = await supabase.from('user_sessions').upsert(
       {
         session_id: sessionId,
         user_id: user?.id || null,
@@ -39,6 +39,9 @@ export async function trackUserSession(): Promise<string> {
       },
       { onConflict: 'session_id' }
     );
+    if (error) {
+      // user_sessions table may not exist in user schema — log as debug and ignore
+    }
   } catch (err) {
     // Non-blocking background sync
   }
