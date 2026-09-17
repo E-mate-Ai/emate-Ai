@@ -823,10 +823,12 @@ export default function Sidebar({
                     <div className="flex flex-col gap-6">
                       {/* Subject Name Input */}
                       <div>
-                        <label className="text-xs font-semibold uppercase tracking-wider mb-2 block text-zinc-550 dark:text-zinc-400">
+                        <label htmlFor="new-subject-name" className="text-xs font-semibold uppercase tracking-wider mb-2 block text-zinc-550 dark:text-zinc-400">
                           Subject Name
                         </label>
                         <input
+                          id="new-subject-name"
+                          name="newSubjectName"
                           autoFocus
                           type="text"
                           placeholder="e.g. Discrete Mathematics, Machine Learning…"

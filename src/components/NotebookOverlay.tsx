@@ -124,9 +124,12 @@ export default function NotebookOverlay({ subjectName, onClose, theme }: Noteboo
 
         {/* Add Quick Note Section */}
         <div className="p-4 rounded-2xl border" style={{ borderColor: bdr, background: surface }}>
-          <h3 className="text-sm font-semibold mb-2">Add study notes or pyqs</h3>
+          <label htmlFor="new-notebook-note" className="text-sm font-semibold mb-2 block">Add study notes or pyqs</label>
           <div className="flex gap-2">
             <textarea
+              id="new-notebook-note"
+              name="newNotebookNote"
+              aria-label="Add study notes or pyqs"
               value={newNote}
               onChange={(e) => setNewNote(e.target.value)}
               placeholder="Paste important questions, syllabus highlights, formulas, or general context here..."

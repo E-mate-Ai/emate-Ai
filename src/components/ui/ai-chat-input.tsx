@@ -947,6 +947,8 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
         />
 
         <input
+          id="chat-file-attachment-input"
+          name="chatFileAttachment"
           ref={fileInputRef}
           type="file"
           accept="image/*"
@@ -1041,6 +1043,9 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
             )}
 
             <textarea
+              id="chat-prompt-input"
+              name="chatPrompt"
+              aria-label="Ask e-Mate a question..."
               ref={textareaRef}
               value={value}
               onChange={(e) => {
@@ -1074,7 +1079,6 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
                 }
               }}
               placeholder={imageGenMode ? imageGenPlaceholder : placeholder}
-              aria-label="Prompt"
               disabled={isRecording}
               className="w-full bg-transparent border-0 outline-none focus:ring-0 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 placeholder:text-left text-left px-1 py-1 resize-none overflow-y-auto min-h-[56px] max-h-[160px] prompt-scrollbar"
             />
