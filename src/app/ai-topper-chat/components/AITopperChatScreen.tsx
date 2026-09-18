@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import ChatMainArea from './ChatMainArea';
-import { getChatHistory, getChatTranscript, saveChatSession, saveChatTranscript, type ChatMessage } from '@/lib/chatHistory';
+import { getChatHistory, getChatTranscript, getChatTranscriptWithFallback, saveChatSession, saveChatTranscript, type ChatMessage } from '@/lib/chatHistory';
 import {
   Sparkles,
   BookOpen,
@@ -57,47 +57,12 @@ export default function AITopperChatScreen() {
     sessionIdRef.current = id;
   }, []);
 
-  // Hydrate user notebooks, subjects, and chat history from Supabase on mount
-  useEffect(() => {
-    async function hydrateFromSupabase() {
-      try {
-        const { fetchUserNotebooks, fetchUserSubjects, fetchChatSessions } = await import('@/lib/supabase/notebookAndHistory');
-        
-        // Hydrate custom subjects
-        const remoteSubjects = await fetchUserSubjects();
-        if (remoteSubjects && remoteSubjects.length > 0) {
-          localStorage.setItem('nk-custom-subjects', JSON.stringify(remoteSubjects));
-          window.dispatchEvent(new Event('nk-subjects-changed'));
-        }
-
-        // Hydrate notebooks
-        const remoteNotebooks = await fetchUserNotebooks();
-        if (remoteNotebooks && remoteNotebooks.length > 0) {
-          remoteNotebooks.forEach((nb) => {
-            if (nb.subject) {
-              const key = `nk-notebook-${nb.subject.toLowerCase().replace(/\s+/g, '-')}`;
-              localStorage.setItem(key, JSON.stringify(nb));
-            }
-          });
-          window.dispatchEvent(new CustomEvent('nk-notebook-change', { detail: { subject: remoteNotebooks[0].subject } }));
-        }
-
-        // Hydrate chat sessions
-        const remoteSessions = await fetchChatSessions();
-        if (remoteSessions && remoteSessions.length > 0) {
-          localStorage.setItem('nk-chat-history', JSON.stringify(remoteSessions));
-          window.dispatchEvent(new Event('nk-chat-history-change'));
-        }
-      } catch (err) {
-        console.error('Error hydrating data from Supabase:', err);
-      }
-    }
-
-    hydrateFromSupabase();
-  }, []);
+  // NOTE: Global cloud hydration is handled by AuthListener.tsx.
+  // It listens for SIGNED_IN events and merges remote data into the local cache.
 
 
-  // Sync active session when URL searchParam `chatId` changes
+  // Sync active session when URL searchParam `chatId` changes.
+  // Uses getChatTranscriptWithFallback which tries local cache first, then Supabase.
   useEffect(() => {
     const urlChatId = searchParams.get('chatId');
     if (!urlChatId) return;
@@ -106,23 +71,17 @@ export default function AITopperChatScreen() {
 
     async function loadSessionAndTranscript() {
       try {
-        const { fetchChatTranscript, fetchChatSessions } = await import('@/lib/supabase/notebookAndHistory');
-        
-        // Load transcript
-        const localTranscript = getChatTranscript(urlChatId);
-        if (localTranscript && localTranscript.length > 0) {
-          setMessages(localTranscript);
-        } else {
-          const dbMessages = await fetchChatTranscript(urlChatId);
-          if (dbMessages && dbMessages.length > 0) {
-            setMessages(dbMessages);
-          }
+        // Load transcript — tries local cache first, then falls back to Supabase
+        const transcript = await getChatTranscriptWithFallback(urlChatId);
+        if (transcript.length > 0) {
+          setMessages(transcript);
         }
 
-        // Load session metadata if needed
+        // Load session metadata — try local cache first, then Supabase
         const history = getChatHistory();
         let chatItem = history.find((c) => c.id === urlChatId);
         if (!chatItem) {
+          const { fetchChatSessions } = await import('@/lib/supabase/notebookAndHistory');
           const remoteSessions = await fetchChatSessions();
           chatItem = remoteSessions.find((c) => c.id === urlChatId);
         }
@@ -136,7 +95,7 @@ export default function AITopperChatScreen() {
           }
         }
       } catch (err) {
-        console.error('Error loading chat session from Supabase:', err);
+        console.error('Error loading chat session:', err);
       }
     }
 

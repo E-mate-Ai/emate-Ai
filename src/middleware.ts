@@ -1,6 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { updateSession } from '@/lib/supabase/middleware';
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
+  // Always refresh the Supabase session cookie first so server-side
+  // auth clients in API routes can call getUser() without an extra round-trip.
+  await updateSession(request);
   const pathname = request.nextUrl.pathname;
 
   // Inspect cookies for active authentication or guest sessions

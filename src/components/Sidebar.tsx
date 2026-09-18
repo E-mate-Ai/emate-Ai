@@ -177,6 +177,23 @@ export default function Sidebar({
     window.addEventListener('nk-chat-history-change', handleHistoryChange);
     // Also sync when another tab writes to localStorage
     window.addEventListener('storage', handleHistoryChange);
+
+    // On mount, fetch remote sessions for authenticated users to supplement
+    // the local cache — ensures history shows on fresh browsers.
+    import('@/lib/supabase/notebookAndHistory')
+      .then(({ fetchChatSessions }) =>
+        fetchChatSessions().then((remote) => {
+          if (remote.length > 0) {
+            import('@/lib/chatHistory').then(({ mergeRemoteHistory }) => {
+              mergeRemoteHistory(remote);
+              // mergeRemoteHistory dispatches nk-chat-history-change,
+              // which triggers handleHistoryChange above.
+            });
+          }
+        })
+      )
+      .catch(() => {});
+
     return () => {
       window.removeEventListener('nk-chat-history-change', handleHistoryChange);
       window.removeEventListener('storage', handleHistoryChange);
@@ -190,10 +207,10 @@ export default function Sidebar({
     setShowCreateModal(true);
   };
 
-  const handleConfirmCreate = () => {
+  const handleConfirmCreate = async () => {
     const name = newSubjectName.trim();
     if (!name) return;
-    addSubject(name);
+    await addSubject(name);
     handleSelectNotebook(name);
     setShowCreateModal(false);
   };
@@ -204,8 +221,8 @@ export default function Sidebar({
   const [editingSubjectName, setEditingSubjectName] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
-  const handleDeleteSubject = (id: string) => {
-    const updated = deleteSubject(id);
+  const handleDeleteSubject = async (id: string) => {
+    const updated = await deleteSubject(id);
     setConfirmDeleteId(null);
     // If active subject was deleted, switch to first remaining
     const deletedSubject = subjects.find((s) => s.id === id);
@@ -222,10 +239,10 @@ export default function Sidebar({
     setEditingSubjectName(subj.name);
   };
 
-  const handleConfirmRename = (id: string) => {
+  const handleConfirmRename = async (id: string) => {
     const trimmed = editingSubjectName.trim();
     if (!trimmed) return;
-    renameSubject(id, trimmed);
+    await renameSubject(id, trimmed);
     setEditingSubjectId(null);
   };
 

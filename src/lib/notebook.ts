@@ -1,6 +1,11 @@
 /**
  * Per-subject notebook utility.
- * Each subject gets its own localStorage key so context is always isolated.
+ *
+ * Source-of-truth hierarchy for authenticated users:
+ *   1. Supabase Postgres (primary — all writes are awaited)
+ *   2. localStorage (optimistic cache — bootstraps UI before server responds)
+ *
+ * For guest sessions localStorage/in-memory remain the sole stores.
  */
 import { isGuestSession } from './chatHistory';
 
@@ -21,19 +26,20 @@ export interface SubjectNotebook {
   updatedAt: string;
 }
 
-const storageKey = (subject: string) => `nk-notebook-${subject.toLowerCase().replace(/\s+/g, '-')}`;
+// ─── Storage key helpers ───────────────────────────────────────────────────────
+const storageKey = (subject: string) =>
+  `nk-notebook-${subject.toLowerCase().replace(/\s+/g, '-')}`;
 
-// In-memory fallback cache for guests so they can create and access notebooks during active session
+// ─── In-memory guest fallback ──────────────────────────────────────────────────
+// Guests can create and access notebooks during the active session only.
 const guestNotebooksMemory = new Map<string, SubjectNotebook>();
 let guestSubjectsMemory: Subject[] = [];
 
 if (typeof window !== 'undefined') {
-  // Clear guest data when page unloads or session leaves
   window.addEventListener('beforeunload', () => {
     if (isGuestSession()) {
       guestNotebooksMemory.clear();
       guestSubjectsMemory = [];
-      // Also clean up any lingering local storage guest notebooks
       try {
         Object.keys(localStorage).forEach((key) => {
           if (key.startsWith('nk-notebook-') || key === 'nk-custom-subjects') {
@@ -45,8 +51,24 @@ if (typeof window !== 'undefined') {
   });
 }
 
+// ─── Supabase client helper (lazy-loaded to avoid SSR issues) ─────────────────
+async function getSupabaseUser() {
+  try {
+    const { createClient } = await import('@/lib/supabase/client');
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    return { supabase, user };
+  } catch {
+    return { supabase: null, user: null };
+  }
+}
+
+// ─── Notebook read helpers ────────────────────────────────────────────────────
+
 /**
- * Load the notebook for a given subject.
+ * @cache Load the notebook for a given subject from the local optimistic cache.
  */
 export function getNotebook(subject: string): SubjectNotebook {
   if (typeof window === 'undefined') {
@@ -71,57 +93,119 @@ export function getNotebook(subject: string): SubjectNotebook {
 }
 
 /**
- * Save (overwrite) the entire notebook for a subject.
+ * Async notebook loader that tries the local cache first, then falls back
+ * to Supabase. Use this in context-building and cross-device sync flows.
  */
-export function saveNotebook(subject: string, notebook: SubjectNotebook): void {
+export async function getNotebookWithFallback(subject: string): Promise<SubjectNotebook> {
+  const local = getNotebook(subject);
+  if (local.entries.length > 0) return local;
+
+  try {
+    const { supabase, user } = await getSupabaseUser();
+    if (!supabase || !user) return local;
+
+    const id = `${user.id}-${subject.toLowerCase().replace(/\s+/g, '-')}`;
+    const { data, error } = await supabase
+      .from('user_notebooks')
+      .select('notebook_data')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('[notebook] getNotebookWithFallback error:', error.message);
+      return local;
+    }
+
+    const remote = (data?.notebook_data as SubjectNotebook) ?? local;
+
+    // Warm local cache
+    if (remote.entries.length > 0 && typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(storageKey(subject), JSON.stringify(remote));
+      } catch {}
+    }
+
+    return remote;
+  } catch {
+    return local;
+  }
+}
+
+/**
+ * Merge notebooks fetched from the server into the local cache.
+ * Called by AuthListener after a SIGNED_IN event. Remote wins for subjects
+ * that have no local cache entry; local wins when a local entry is newer.
+ */
+export function mergeRemoteNotebooks(
+  remoteNotebooks: { subject: string; notebook: SubjectNotebook }[]
+): void {
+  if (typeof window === 'undefined') return;
+  for (const { subject, notebook } of remoteNotebooks) {
+    try {
+      const local = getNotebook(subject);
+      const localIsNewer =
+        local.entries.length > 0 && new Date(local.updatedAt) >= new Date(notebook.updatedAt);
+      if (!localIsNewer) {
+        localStorage.setItem(storageKey(subject), JSON.stringify(notebook));
+      }
+    } catch {}
+  }
+  window.dispatchEvent(new CustomEvent('nk-notebook-change', { detail: { bulk: true } }));
+}
+
+// ─── Notebook write helpers ───────────────────────────────────────────────────
+
+/**
+ * Save (overwrite) the entire notebook for a subject.
+ * Writes to localStorage immediately (optimistic), then awaits the Supabase upsert.
+ */
+export async function saveNotebook(subject: string, notebook: SubjectNotebook): Promise<void> {
   if (typeof window === 'undefined') return;
   const updatedNotebook = { ...notebook, updatedAt: new Date().toISOString() };
+
+  // Guest path: in-memory only
   if (isGuestSession()) {
     guestNotebooksMemory.set(subject.toLowerCase(), updatedNotebook);
     window.dispatchEvent(new CustomEvent('nk-notebook-change', { detail: { subject } }));
     return;
   }
+
+  // 1. Write to local optimistic cache
   try {
     localStorage.setItem(storageKey(subject), JSON.stringify(updatedNotebook));
     window.dispatchEvent(new CustomEvent('nk-notebook-change', { detail: { subject } }));
   } catch {
-    // storage quota exceeded — silently ignore
+    /* storage quota exceeded — ignore */
   }
 
-  // Sync notebook entries to Supabase for signed-in users
-  import('@/lib/supabase/client')
-    .then(({ createClient }) => {
-      const supabase = createClient();
-      supabase.auth.getUser().then(({ data: { user } }) => {
-        if (!user) return;
-        supabase
-          .from('user_notebooks')
-          .upsert(
-            {
-              id: `${user.id}-${subject.toLowerCase().replace(/\s+/g, '-')}`,
-              user_id: user.id,
-              subject,
-              notebook_data: updatedNotebook,
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: 'id' }
-          )
-          .then(({ error }) => {
-            if (error) console.error('Supabase Notebook Write Error:', error.message, error.details);
-          });
-      });
-    })
-    .catch(() => {});
+  // 2. Await Supabase upsert
+  const { supabase, user } = await getSupabaseUser();
+  if (!supabase || !user) return;
+
+  const { error } = await supabase.from('user_notebooks').upsert(
+    {
+      id: `${user.id}-${subject.toLowerCase().replace(/\s+/g, '-')}`,
+      user_id: user.id,
+      subject,
+      notebook_data: updatedNotebook,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'id' }
+  );
+
+  if (error) {
+    console.error('[notebook] saveNotebook Supabase error:', error.message, error.details);
+  }
 }
 
 /**
  * Append a single entry to the subject's notebook.
  */
-export function appendToNotebook(
+export async function appendToNotebook(
   subject: string,
   content: string,
   source: 'ai' | 'user' = 'ai'
-): void {
+): Promise<void> {
   const nb = getNotebook(subject);
   const entry: NotebookEntry = {
     id: `note-${Date.now()}`,
@@ -132,23 +216,23 @@ export function appendToNotebook(
   nb.entries = [...nb.entries, entry];
   // Keep only the last 50 entries to avoid bloat
   if (nb.entries.length > 50) nb.entries = nb.entries.slice(-50);
-  saveNotebook(subject, nb);
+  await saveNotebook(subject, nb);
 }
 
 /**
  * Delete a single notebook entry by id.
  */
-export function deleteNotebookEntry(subject: string, entryId: string): void {
+export async function deleteNotebookEntry(subject: string, entryId: string): Promise<void> {
   const nb = getNotebook(subject);
   nb.entries = nb.entries.filter((e) => e.id !== entryId);
-  saveNotebook(subject, nb);
+  await saveNotebook(subject, nb);
 }
 
 /**
  * Clear all notes for a subject.
  */
-export function clearNotebook(subject: string): void {
-  saveNotebook(subject, { subject, entries: [], updatedAt: new Date().toISOString() });
+export async function clearNotebook(subject: string): Promise<void> {
+  await saveNotebook(subject, { subject, entries: [], updatedAt: new Date().toISOString() });
 }
 
 /**
@@ -160,10 +244,15 @@ export function buildNotebookContext(subject: string): string {
   if (!nb.entries.length) return '';
   const lines = nb.entries
     .slice(-30)
-    .map((e) => `- [${e.type ? e.type.toUpperCase() : e.source}]: ${e.title ? e.title + ' — ' : ''}${e.content}`)
+    .map(
+      (e) =>
+        `- [${e.type ? e.type.toUpperCase() : e.source}]: ${e.title ? e.title + ' — ' : ''}${e.content}`
+    )
     .join('\n');
   return `\n\n## ${subject} — Full Notebook Knowledge Base & Chat History (Use this complete memory of all past discussions and uploaded sources to answer accurately):\n${lines}`;
 }
+
+// ─── Subject management ───────────────────────────────────────────────────────
 
 export interface Subject {
   id: string;
@@ -173,6 +262,7 @@ export interface Subject {
 
 const STATIC_SUBJECTS: Subject[] = [];
 
+/** @cache Read the subjects list from the local optimistic cache. */
 export function getSubjects(): Subject[] {
   if (typeof window === 'undefined') return STATIC_SUBJECTS;
   if (isGuestSession()) return guestSubjectsMemory;
@@ -188,127 +278,137 @@ export function getSubjects(): Subject[] {
   }
 }
 
-export function addSubject(name: string): Subject[] {
+/**
+ * Merge a remote subjects array from Supabase into the local cache.
+ * Called by AuthListener after SIGNED_IN.
+ */
+export function mergeRemoteSubjects(remote: Subject[]): void {
+  if (typeof window === 'undefined' || remote.length === 0) return;
+  try {
+    const local = getSubjects();
+    // Build a merged set: local entries win (may have offline additions)
+    const localIds = new Set(local.map((s) => s.id));
+    const merged = [
+      ...local,
+      ...remote.filter((s) => !localIds.has(s.id)),
+    ];
+    localStorage.setItem('nk-custom-subjects', JSON.stringify(merged));
+    window.dispatchEvent(new Event('nk-subjects-changed'));
+  } catch {}
+}
+
+/** Sync subjects list to Supabase (shared helper for add/delete/rename). */
+async function syncSubjectsToSupabase(subjects: Subject[]): Promise<void> {
+  const { supabase, user } = await getSupabaseUser();
+  if (!supabase || !user) return;
+
+  const { error } = await supabase.from('user_subjects').upsert(
+    {
+      user_id: user.id,
+      subjects,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id' }
+  );
+
+  if (error) {
+    console.error('[notebook] syncSubjectsToSupabase error:', error.message);
+  }
+}
+
+export async function addSubject(name: string): Promise<Subject[]> {
   if (typeof window === 'undefined') return getSubjects();
   const list = getSubjects();
   if (list.some((s) => s.name.toLowerCase() === name.toLowerCase())) return list;
+
   const newSubj: Subject = {
     id: `subj-${Date.now()}`,
     name,
     units: [{ id: `unit-${Date.now()}-1`, name: 'Introduction & Context Setup' }],
   };
   const updated = [...list, newSubj];
+
+  // Guest path: in-memory only
   if (isGuestSession()) {
     guestSubjectsMemory = updated;
     window.dispatchEvent(new Event('nk-subjects-changed'));
     return updated;
   }
+
+  // 1. Write to local optimistic cache
   localStorage.setItem('nk-custom-subjects', JSON.stringify(updated));
   window.dispatchEvent(new Event('nk-subjects-changed'));
 
-  // Sync custom subjects list to Supabase for signed-in users
-  import('@/lib/supabase/client')
-    .then(({ createClient }) => {
-      const supabase = createClient();
-      supabase.auth.getUser().then(({ data: { user } }) => {
-        if (!user) return;
-        supabase
-          .from('user_subjects')
-          .upsert(
-            {
-              user_id: user.id,
-              subjects: updated,
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: 'user_id' }
-          )
-          .then();
-      });
-    })
-    .catch(() => {});
+  // 2. Await Supabase sync
+  await syncSubjectsToSupabase(updated);
 
   return updated;
 }
 
-/**
- * Delete a subject notebook by id and clear all its stored notes.
- */
-export function deleteSubject(subjectId: string): Subject[] {
+export async function deleteSubject(subjectId: string): Promise<Subject[]> {
   const list = getSubjects();
   const subjectToDelete = list.find((s) => s.id === subjectId);
+
   if (subjectToDelete) {
     if (isGuestSession()) {
       guestNotebooksMemory.delete(subjectToDelete.name.toLowerCase());
-    } else {
-      const key = `nk-notebook-${subjectToDelete.name.toLowerCase().replace(/\s+/g, '-')}`;
-      if (typeof window !== 'undefined') localStorage.removeItem(key);
+    } else if (typeof window !== 'undefined') {
+      localStorage.removeItem(storageKey(subjectToDelete.name));
     }
   }
+
   const updated = list.filter((s) => s.id !== subjectId);
+
+  // Guest path
   if (isGuestSession()) {
     guestSubjectsMemory = updated;
     window.dispatchEvent(new Event('nk-subjects-changed'));
     return updated;
   }
+
+  // 1. Write to local cache
   if (typeof window !== 'undefined') {
     localStorage.setItem('nk-custom-subjects', JSON.stringify(updated));
     window.dispatchEvent(new Event('nk-subjects-changed'));
   }
 
-  // Sync subject deletion to Supabase for authenticated users
-  import('@/lib/supabase/client')
-    .then(({ createClient }) => {
-      const supabase = createClient();
-      supabase.auth.getUser().then(({ data: { user } }) => {
-        if (!user) return;
-        supabase
-          .from('user_subjects')
-          .upsert({ user_id: user.id, subjects: updated, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
-          .then();
+  // 2. Await Supabase sync
+  await syncSubjectsToSupabase(updated);
 
-        if (subjectToDelete) {
-          const notebookId = `${user.id}-${subjectToDelete.name.toLowerCase().replace(/\s+/g, '-')}`;
-          supabase.from('user_notebooks').delete().eq('id', notebookId).then();
-        }
-      });
-    })
-    .catch(() => {});
+  // 3. Delete the notebook record for this subject
+  if (subjectToDelete) {
+    const { supabase, user } = await getSupabaseUser();
+    if (supabase && user) {
+      const notebookId = `${user.id}-${subjectToDelete.name.toLowerCase().replace(/\s+/g, '-')}`;
+      await supabase.from('user_notebooks').delete().eq('id', notebookId);
+    }
+  }
 
   return updated;
 }
 
-/**
- * Rename a subject notebook by id.
- */
-export function renameSubject(subjectId: string, newName: string): Subject[] {
+export async function renameSubject(subjectId: string, newName: string): Promise<Subject[]> {
   const list = getSubjects();
   if (list.some((s) => s.name.toLowerCase() === newName.toLowerCase() && s.id !== subjectId)) {
     return list; // name collision
   }
   const updated = list.map((s) => (s.id === subjectId ? { ...s, name: newName } : s));
+
+  // Guest path
   if (isGuestSession()) {
     guestSubjectsMemory = updated;
     window.dispatchEvent(new Event('nk-subjects-changed'));
     return updated;
   }
+
+  // 1. Write to local cache
   if (typeof window !== 'undefined') {
     localStorage.setItem('nk-custom-subjects', JSON.stringify(updated));
     window.dispatchEvent(new Event('nk-subjects-changed'));
   }
 
-  // Sync rename to Supabase for authenticated users
-  import('@/lib/supabase/client')
-    .then(({ createClient }) => {
-      const supabase = createClient();
-      supabase.auth.getUser().then(({ data: { user } }) => {
-        if (!user) return;
-        supabase
-          .from('user_subjects')
-          .upsert({ user_id: user.id, subjects: updated, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
-          .then();
-      });
-    })
-    .catch(() => {});
+  // 2. Await Supabase sync
+  await syncSubjectsToSupabase(updated);
 
   return updated;
 }

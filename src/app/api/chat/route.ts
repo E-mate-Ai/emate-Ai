@@ -4,6 +4,7 @@ import {
   getModelFallbackId,
   type OpenRouterError,
 } from '@/lib/openrouter';
+import { createClient as createSupabaseServer } from '@/lib/supabase/server';
 
 // Ultra-fast primary model (TTFT ~200-400ms via Nitro routing)
 const PRIMARY_MODEL = 'google/gemini-2.0-flash';
@@ -31,6 +32,16 @@ export async function POST(req: Request) {
       credits,
     } = await req.json();
 
+    // ── Extract authenticated user context from Supabase session ──────────
+    let authenticatedUserId: string | null = null;
+    try {
+      const supabase = await createSupabaseServer();
+      const { data: { user } } = await supabase.auth.getUser();
+      authenticatedUserId = user?.id ?? null;
+    } catch {
+      // Not authenticated — proceed as guest
+    }
+
     const cookieHeader = req.headers.get('cookie');
     const userKey = getCookie(cookieHeader, 'user_openrouter_key');
     const apiKey =
@@ -46,7 +57,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const isGuest = !userKey;
+    const isGuest = !userKey && !authenticatedUserId;
 
     // Best-effort guest credit guard. The client is the source of truth for the
     // localStorage trial allowance; this rejects with 402 when a guest (no BYOK

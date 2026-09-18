@@ -6,10 +6,12 @@ import { Search, MessageSquare, FileText, CornerDownLeft } from 'lucide-react';
 import {
   getChatHistory,
   getChatTranscript,
+  getChatTranscriptWithFallback,
   formatChatTime,
   type ChatHistoryItem,
   type ChatMessage,
 } from '@/lib/chatHistory';
+import { fetchChatSessions } from '@/lib/supabase/notebookAndHistory';
 
 interface ChatSearchModalProps {
   open: boolean;
@@ -79,6 +81,8 @@ export default function ChatSearchModal({ open, onClose, onSelect }: ChatSearchM
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  /** Remote chat sessions fetched from Supabase — supplements local cache. */
+  const [remoteHistory, setRemoteHistory] = useState<ChatHistoryItem[]>([]);
 
   // Keep the modal theme in sync with the app.
   useEffect(() => {
@@ -94,12 +98,19 @@ export default function ChatSearchModal({ open, onClose, onSelect }: ChatSearchM
     };
   }, [open]);
 
-  // Reset + autofocus on open.
+  // Reset + autofocus on open, and fetch remote sessions for cross-device search.
   useEffect(() => {
     if (open) {
       setQuery('');
       setActiveIndex(0);
       requestAnimationFrame(() => inputRef.current?.focus());
+
+      // Fetch remote sessions to supplement local cache
+      fetchChatSessions()
+        .then((sessions) => setRemoteHistory(sessions))
+        .catch(() => {});
+    } else {
+      setRemoteHistory([]);
     }
   }, [open]);
 
@@ -117,8 +128,16 @@ export default function ChatSearchModal({ open, onClose, onSelect }: ChatSearchM
     if (!open || !query.trim()) return [];
     const q = query.trim();
 
+    // Merge local + remote sessions, de-duplicated by id
+    const localChats = getChatHistory();
+    const localIds = new Set(localChats.map((c) => c.id));
+    const allChats = [
+      ...localChats,
+      ...remoteHistory.filter((c) => !localIds.has(c.id)),
+    ];
+
     const out: SearchResult[] = [];
-    for (const chat of getChatHistory()) {
+    for (const chat of allChats) {
       const transcript = getChatTranscript(chat.id);
 
       // Title / subject / unit metadata matches.
@@ -139,7 +158,7 @@ export default function ChatSearchModal({ open, onClose, onSelect }: ChatSearchM
         if (out.length >= MAX_RESULTS) return out;
       }
 
-      // Message-content matches (search the persisted transcript).
+      // Message-content matches (search the persisted local transcript).
       for (const m of transcript) {
         if (indexOfCase(m.content, q) >= 0) {
           out.push({
@@ -154,10 +173,15 @@ export default function ChatSearchModal({ open, onClose, onSelect }: ChatSearchM
       if (out.length >= MAX_RESULTS) return out;
     }
     return out;
-  }, [open, query]);
+  }, [open, query, remoteHistory]);
 
-  const select = (res: SearchResult) => {
-    onSelect(res.chat, res.transcript);
+  const select = async (res: SearchResult) => {
+    // Use fallback loader: tries local cache, then fetches from Supabase
+    const transcript =
+      res.transcript.length > 0
+        ? res.transcript
+        : await getChatTranscriptWithFallback(res.chat.id);
+    onSelect(res.chat, transcript);
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
