@@ -2,8 +2,7 @@
 -- SEARCH INDEXES & EXPLICIT ROLE GRANTS
 -- ========================================================
 -- Ensures the authenticated role can access all cloud-synced
--- tables via the Supabase Data API, and adds indexes for
--- the most common query patterns.
+-- tables via the Supabase Data API, and adds indexes for the most common query patterns.
 
 -- Trigram extension for text search
 create extension if not exists pg_trgm;
