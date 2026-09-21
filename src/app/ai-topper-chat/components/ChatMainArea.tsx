@@ -29,6 +29,7 @@ import {
   NotebookText,
   Lock,
   UploadCloud,
+  Gift,
 } from 'lucide-react';
 import ChatMessageBubble from './ChatMessageBubble';
 import StreamingIndicator from './StreamingIndicator';
@@ -361,6 +362,21 @@ export default function ChatMainArea({
   // Full-chat drag-and-drop state
   const [isWindowDragging, setIsWindowDragging] = useState(false);
   const windowDragCounterRef = useRef(0);
+
+  // Invite hover pop-up card state
+  const [showInviteHover, setShowInviteHover] = useState(false);
+  const inviteTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleInviteMouseEnter = () => {
+    if (inviteTimerRef.current) clearTimeout(inviteTimerRef.current);
+    setShowInviteHover(true);
+  };
+
+  const handleInviteMouseLeave = () => {
+    inviteTimerRef.current = setTimeout(() => {
+      setShowInviteHover(false);
+    }, 200);
+  };
 
   const handleWindowDragEnter = useCallback(
     (e: React.DragEvent) => {
@@ -1327,120 +1343,107 @@ export default function ChatMainArea({
         </div>
       )}
 
-      {/* Top bar — sticky header scoped inside <main>, not full-viewport */}
-      <header
-        className="sticky top-0 z-40 w-full flex items-center justify-between px-8 py-4 gap-4"
-        style={{
-          background: theme === 'dark' ? 'rgba(8,8,9,0.7)' : 'rgba(249,249,251,0.7)',
-          backdropFilter: 'blur(14px)',
-          WebkitBackdropFilter: 'blur(14px)',
-          borderBottom:
-            theme === 'dark'
-              ? '1px solid rgba(255,255,255,0.06)'
-              : '1px solid rgba(31,81,255,0.06)',
-        }}
+      {/* ── Floating Top Overlay Components (no static section dividing the screen) ── */}
+      {/* Floating Left: Study / General Switcher Pill */}
+      <div className={`absolute top-4 ${!isSidebarOpen ? 'left-16' : 'left-6'} z-30 flex items-center p-1 rounded-full bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-800 shadow-md transition-all`}>
+        <button
+          onClick={() => {
+            if (!isStudyMode) {
+              setIsStudyMode(true);
+              window.dispatchEvent(new Event('nk-new-chat'));
+            }
+          }}
+          aria-pressed={isStudyMode}
+          className={`flex items-center gap-1.5 transition-all rounded-full px-3.5 py-1.5 text-xs ${
+            isStudyMode
+              ? 'bg-white dark:bg-zinc-700 text-gray-900 dark:text-zinc-100 font-semibold shadow-xs ring-1 ring-black/5 dark:ring-white/10'
+              : 'text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200'
+          }`}
+        >
+          <GraduationCap
+            size={13}
+            className={isStudyMode ? 'text-gray-900 dark:text-zinc-100' : 'text-zinc-400 dark:text-zinc-500'}
+          />
+          Study
+        </button>
+        <button
+          onClick={() => {
+            if (isStudyMode) {
+              setIsStudyMode(false);
+              window.dispatchEvent(new Event('nk-new-chat'));
+            }
+          }}
+          aria-pressed={!isStudyMode}
+          className={`flex items-center gap-1.5 transition-all rounded-full px-3.5 py-1.5 text-xs ${
+            !isStudyMode
+              ? 'bg-white dark:bg-zinc-700 text-gray-900 dark:text-zinc-100 font-semibold shadow-xs ring-1 ring-black/5 dark:ring-white/10'
+              : 'text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200'
+          }`}
+        >
+          <MessageSquare
+            size={13}
+            className={!isStudyMode ? 'text-gray-900 dark:text-zinc-100' : 'text-zinc-400 dark:text-zinc-500'}
+          />
+          General
+        </button>
+      </div>
+
+      {/* Floating Right: Invite Button Pill with Hover Popup Card */}
+      <div
+        className="absolute top-4 right-6 z-30 flex items-center"
+        onMouseEnter={handleInviteMouseEnter}
+        onMouseLeave={handleInviteMouseLeave}
       >
-        {/* Left Group: Mode Switcher compact segmented pill */}
-        <div className="flex items-center gap-3">
-          <div className="inline-flex p-1 rounded-full bg-white/80 dark:bg-zinc-800/80 backdrop-blur-md border border-gray-200/60 dark:border-zinc-700/60 items-center gap-0.5 shadow-sm">
-            <button
-              onClick={() => setIsStudyMode(true)}
-              aria-pressed={isStudyMode}
-              className={`flex items-center gap-1.5 transition-all rounded-full px-3.5 py-1.5 text-xs ${
-                isStudyMode
-                  ? 'bg-white dark:bg-zinc-700 text-gray-900 dark:text-zinc-100 font-semibold shadow-sm ring-1 ring-black/5 dark:ring-white/10'
-                  : 'text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200'
-              }`}
-            >
-              <GraduationCap
-                size={13}
-                className={
-                  isStudyMode
-                    ? 'text-gray-900 dark:text-zinc-100'
-                    : 'text-zinc-400 dark:text-zinc-500'
-                }
+        <button
+          type="button"
+          onClick={() => {
+            const code = 'KZT1DM';
+            navigator.clipboard.writeText(`${window.location.origin}/invite/${code}`);
+            toast.success('Referral link copied to clipboard!');
+          }}
+          className="h-9 px-4 rounded-full bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 text-xs sm:text-sm font-semibold shadow-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+        >
+          <Gift size={16} className="text-zinc-800 dark:text-zinc-200" />
+          <span>Invite</span>
+        </button>
+
+        {/* Invite Hover Card Popup */}
+        {showInviteHover && (
+          <div
+            onMouseEnter={handleInviteMouseEnter}
+            onMouseLeave={handleInviteMouseLeave}
+            className="absolute right-0 top-11 z-50 w-80 sm:w-96 p-6 rounded-[32px] bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-2xl text-zinc-900 dark:text-white animate-in fade-in slide-in-from-top-2 duration-200"
+          >
+            <div className="w-full flex justify-center mb-3">
+              <img
+                src="/images/3d_blue_gift_box.jpg"
+                alt="Gift Box"
+                className="w-32 h-32 object-contain"
               />
-              Study
-            </button>
+            </div>
+            <h4 className="text-lg font-bold text-zinc-900 dark:text-white mb-2 text-left">
+              Invite friends
+            </h4>
+            <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed text-left mb-4">
+              Invite a friend and you'll both get 1 billion Muse tokens when they redeem your code in Settings within 48 hours of joining. 30 uses left.
+            </p>
+            <div className="w-full py-3 px-4 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold text-sm text-center tracking-widest mb-3 select-all">
+              KZT1DM
+            </div>
             <button
-              onClick={() => setIsStudyMode(false)}
-              aria-pressed={!isStudyMode}
-              className={`flex items-center gap-1.5 transition-all rounded-full px-3.5 py-1.5 text-xs ${
-                !isStudyMode
-                  ? 'bg-white dark:bg-zinc-700 text-gray-900 dark:text-zinc-100 font-semibold shadow-sm ring-1 ring-black/5 dark:ring-white/10'
-                  : 'text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200'
-              }`}
+              type="button"
+              onClick={() => {
+                const code = 'KZT1DM';
+                navigator.clipboard.writeText(`${window.location.origin}/invite/${code}`);
+                toast.success('Referral link copied to clipboard!');
+              }}
+              className="w-full py-3.5 rounded-full bg-[#0060df] hover:bg-[#0052cc] text-white text-sm font-semibold transition-all shadow-xs cursor-pointer active:scale-95 flex items-center justify-center"
             >
-              <MessageSquare
-                size={13}
-                className={
-                  !isStudyMode
-                    ? 'text-gray-900 dark:text-zinc-100'
-                    : 'text-zinc-400 dark:text-zinc-500'
-                }
-              />
-              General
+              Copy referral link
             </button>
           </div>
-        </div>
-
-        {/* Right Group: credit badge for guests, Connected status for auth */}
-        <div className="ml-auto flex items-center gap-2">
-          {isGuest && (
-            <div
-              className="h-8 flex items-center gap-1.5 select-none text-[11px] font-medium px-3 rounded-full border"
-              style={{
-                background:
-                  guestCredits <= 0
-                    ? theme === 'dark'
-                      ? 'rgba(239,68,68,0.12)'
-                      : 'rgba(239,68,68,0.08)'
-                    : theme === 'dark'
-                      ? 'rgba(255,255,255,0.05)'
-                      : 'rgba(0,0,0,0.04)',
-                borderColor:
-                  guestCredits <= 0
-                    ? theme === 'dark'
-                      ? 'rgba(239,68,68,0.25)'
-                      : 'rgba(239,68,68,0.2)'
-                    : theme === 'dark'
-                      ? 'rgba(255,255,255,0.08)'
-                      : 'rgba(0,0,0,0.08)',
-                color:
-                  guestCredits <= 0
-                    ? theme === 'dark'
-                      ? '#fca5a5'
-                      : '#dc2626'
-                    : theme === 'dark'
-                      ? '#a1a1aa'
-                      : '#52525b',
-              }}
-            >
-              <Zap size={11} />
-              Free Credits: {guestCredits}/{GUEST_LIMIT}
-            </div>
-          )}
-          {isOpenRouterConnected ? (
-            <Link
-              href="/upgrade"
-              className="h-8 flex items-center gap-1.5 px-3 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-semibold shadow-xs transition-all"
-            >
-              <span>Upgrade</span>
-              <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full font-normal">
-                Pro
-              </span>
-            </Link>
-          ) : isSupabaseSignedUp ? (
-            <button
-              onClick={handleOpenRouterConnect}
-              className="h-8 flex items-center gap-1 px-3 rounded-full bg-[#1f51ff] dark:bg-[#8aa2ff] text-white dark:text-[#0b0b0d] text-[11px] font-medium hover:opacity-90 transition-opacity shadow-sm"
-            >
-              <Key size={11} />
-              Connect
-            </button>
-          ) : null}
-        </div>
-      </header>
+        )}
+      </div>
 
       {/* Glassmorphic Connect Modal / Paywall Modal */}
       {showConnectModal && (
@@ -1482,7 +1485,7 @@ export default function ChatMainArea({
               {isGuestOutOfCredits ? (
                 <Lock size={22} style={{ color: theme === 'dark' ? '#a1a1aa' : '#52525b' }} />
               ) : (
-                <Key size={22} style={{ color: theme === 'dark' ? '#a1a1aa' : '#52525b' }} />
+                <Plus size={22} style={{ color: theme === 'dark' ? '#a1a1aa' : '#52525b' }} />
               )}
             </div>
 
@@ -1509,41 +1512,25 @@ export default function ChatMainArea({
               <>
                 <button
                   onClick={() => router.push('/sign-up-login-screen')}
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-[0.98]"
-                  style={{
-                    background: theme === 'dark' ? '#8aa2ff' : '#1f51ff',
-                    color: theme === 'dark' ? '#0b0b0d' : '#ffffff',
-                  }}
+                  className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-[#0060df] hover:bg-[#0052cc] text-white text-xs sm:text-sm font-medium transition-all cursor-pointer shadow-xs active:scale-95"
                 >
                   <Sparkles size={14} />
                   Sign up / Log in — keep chatting
                 </button>
                 <button
                   onClick={handleOpenRouterConnect}
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-[0.98]"
-                  style={{
-                    background: 'transparent',
-                    border:
-                      theme === 'dark'
-                        ? '1px solid rgba(255,255,255,0.12)'
-                        : '1px solid rgba(0,0,0,0.12)',
-                    color: theme === 'dark' ? '#d4d4d8' : '#18181b',
-                  }}
+                  className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 text-xs sm:text-sm font-medium transition-all cursor-pointer active:scale-95"
                 >
-                  <Key size={14} />
+                  <Plus size={14} />
                   Connect OpenRouter instead
                 </button>
               </>
             ) : (
               <button
                 onClick={handleOpenRouterConnect}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-[0.98]"
-                style={{
-                  background: theme === 'dark' ? '#8aa2ff' : '#1f51ff',
-                  color: theme === 'dark' ? '#0b0b0d' : '#ffffff',
-                }}
+                className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-[#0060df] hover:bg-[#0052cc] text-white text-xs sm:text-sm font-medium transition-all cursor-pointer shadow-xs active:scale-95"
               >
-                <Key size={14} />
+                <Plus size={14} />
                 Connect OpenRouter (1-Click)
               </button>
             )}
@@ -1853,7 +1840,7 @@ export default function ChatMainArea({
             )}
           </div>
         ) : (
-          <div className="max-w-3xl mx-auto w-full px-4 py-6 space-y-6">
+          <div className="max-w-3xl mx-auto w-full px-4 py-6 pb-28 space-y-6">
             {messages.map((msg) => (
               <ChatMessageBubble
                 key={msg.id}
@@ -1869,52 +1856,35 @@ export default function ChatMainArea({
         )}
       </div>
 
-      {/* Input bar — shown at bottom only when conversation is active */}
+      {/* Floating Slim Pill Input Bar — shown at bottom when conversation is active */}
       {hasMessages && (
-        <div
-          className="sticky bottom-0 w-full max-w-3xl mx-auto z-10 px-4 pb-4"
-          style={{
-            background: theme === 'dark' ? 'rgba(8,8,9,0.7)' : 'rgba(249,249,251,0.7)',
-            backdropFilter: 'blur(14px)',
-            WebkitBackdropFilter: 'blur(14px)',
-            borderTop:
-              theme === 'dark'
-                ? '1px solid rgba(255,255,255,0.06)'
-                : '1px solid rgba(31,81,255,0.06)',
-          }}
-        >
-          <PromptInput
-            onSubmit={(text, meta) => {
-              // Map the display name back to a real model id for the API
-              const model = MODELS.find((m) => m.name === meta.model);
-              if (model) setSelectedModel(model.id);
-              // Pass attachments explicitly so /api/chat gets them even before
-              // the state update flushes; also sync hero/state preview.
-              if (meta.attachments.length) {
-                setAttachedFiles(meta.attachments);
-                setPreviewUrls(meta.attachments.map((f) => URL.createObjectURL(f)));
+        <div className="absolute bottom-5 left-0 right-0 z-30 px-4 flex flex-col items-center justify-center pointer-events-none">
+          <div className="w-full max-w-2xl pointer-events-auto">
+            <PromptInput
+              isSlim={true}
+              onSubmit={(text, meta) => {
+                const model = MODELS.find((m) => m.name === meta.model);
+                if (model) setSelectedModel(model.id);
+                if (meta.attachments.length) {
+                  setAttachedFiles(meta.attachments);
+                  setPreviewUrls(meta.attachments.map((f) => URL.createObjectURL(f)));
+                }
+                handleSend(text, meta.attachments);
+              }}
+              models={isGuest ? ['Gemini 2.0 Flash'] : MODELS.map((m) => m.name)}
+              efforts={['Quick', 'Balanced', 'Deep']}
+              allowAttachments={!isGuest}
+              placeholder={
+                !isStudyMode
+                  ? 'Ask e-Mate a question, debug code, or request help...'
+                  : mode === 'sprint'
+                    ? 'Ask for a rapid summary, formula, or exam cram tip...'
+                    : 'Ask for a step-by-step explanation, proof, or derivation...'
               }
-              handleSend(text, meta.attachments);
-            }}
-            models={isGuest ? ['Gemini 2.0 Flash'] : MODELS.map((m) => m.name)}
-            efforts={['Quick', 'Balanced', 'Deep']}
-            allowAttachments={!isGuest}
-            placeholder={
-              !isStudyMode
-                ? 'Ask e-Mate a question, debug code, or request help...'
-                : mode === 'sprint'
-                  ? 'Ask for a rapid summary, formula, or exam cram tip...'
-                  : 'Ask for a step-by-step explanation, proof, or derivation...'
-            }
-            className="mx-auto w-full max-w-3xl mt-3"
-            imageGenMode={imageGenMode}
-            onImageGenToggle={!isGuest ? () => setImageGenMode((v) => !v) : undefined}
-          />
-          <p
-            className="text-[11px] text-center mt-2 text-text-muted"
-          >
-            e-Mate is an AI study copilot. Verify critical academic formulas and exam dates.
-          </p>
+              imageGenMode={imageGenMode}
+              onImageGenToggle={!isGuest ? () => setImageGenMode((v) => !v) : undefined}
+            />
+          </div>
         </div>
       )}
 

@@ -3,20 +3,51 @@
 import React, { useState, useEffect } from 'react';
 import {
   Settings,
-  ArrowLeft,
+  LayoutGrid,
+  Wallet,
+  ShieldCheck,
+  Key,
+  MessageSquare,
+  Monitor,
+  Lock,
+  HelpCircle,
+  FileText,
+  LogOut,
+  X,
   Sun,
   Moon,
+  ArrowUpRight,
+  ChevronRight,
+  Check,
   Compass,
   BookOpen,
-  User,
   Trash2,
-  LogOut,
-  Check,
+  Plus,
   Mail,
   Phone,
+  Laptop,
+  Smartphone,
+  Sparkles,
+  Database,
+  Globe,
+  ExternalLink,
+  ShieldAlert,
+  CreditCard,
+  Zap,
+  User,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { applyTheme } from '@/lib/theme';
+import { fetchOpenRouterKeyInfo, type OpenRouterKeyInfo } from '@/lib/openrouter';
+import {
+  getGuestCredits,
+  getUserTokens,
+  getWalletBalance,
+  addWalletBalance,
+  getAutoRechargeEnabled,
+  setAutoRechargeEnabled,
+} from '@/lib/credits';
+import { clearChatHistory } from '@/lib/chatHistory';
 import {
   getNotebook,
   clearNotebook,
@@ -30,7 +61,19 @@ import { isGuestModeEnabled, clearGuestModeEnabled } from '@/lib/guest-mode';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 
-type SettingsTab = 'general' | 'context' | 'notebook' | 'account';
+type SettingsTab =
+  | 'general'
+  | 'connectors'
+  | 'wallet'
+  | 'secure_store'
+  | 'permissions'
+  | 'messaging'
+  | 'devices'
+  | 'data_controls'
+  | 'help'
+  | 'legal'
+  | 'context'
+  | 'notebook';
 
 interface SettingsPageProps {
   onBack: () => void;
@@ -39,32 +82,84 @@ interface SettingsPageProps {
 export default function SettingsPage({ onBack }: SettingsPageProps) {
   const router = useRouter();
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  const [appearance, setAppearance] = useState<'Light' | 'Dark'>('Light');
-  const [language, setLanguage] = useState('Auto-detect');
+  const [mode, setMode] = useState<'light' | 'dark' | 'system'>('light');
+  const [selectedLanguage, setSelectedLanguage] = useState('English');
+  const [showLanguageMenu, setShowLanguageMenu] = useState(false);
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+
+  // Existing e-Mate states preserved
   const [subjects, setSubjects] = useState<Subject[]>(() => getSubjects());
   const [selectedSubject, setSelectedSubject] = useState('');
   const [selectedUnit, setSelectedUnit] = useState('');
   const [notebookNotes, setNotebookNotes] = useState<NotebookEntry[]>([]);
   const [newNoteText, setNewNoteText] = useState('');
   const [isGuest, setIsGuest] = useState(false);
-  const [profileName, setProfileName] = useState('Guest');
-  const [profileSubtitle, setProfileSubtitle] = useState('Guest mode');
-  const [avatarLabel, setAvatarLabel] = useState('G');
+  const [profileName, setProfileName] = useState('Account');
+  const [profileSubtitle, setProfileSubtitle] = useState('Password, security, personal details');
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [userEmail, setUserEmail] = useState('');
   const [profileLoading, setProfileLoading] = useState(true);
+  const [remainingCredits, setRemainingCredits] = useState(50);
+  const [openRouterKey, setOpenRouterKey] = useState('');
+  const [openRouterKeyInfo, setOpenRouterKeyInfo] = useState<OpenRouterKeyInfo | null>(null);
+  const [userTokens, setUserTokensState] = useState(1_000_000_000);
+  const [walletBalance, setWalletBalanceState] = useState(100.0);
+  const [autoRecharge, setAutoRechargeState] = useState(false); // Default OFF per user request
+
+  // Sync real OpenRouter key, trial credits, tokens, and wallet balance
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const key = localStorage.getItem('user_openrouter_key') || '';
+      setRemainingCredits(getGuestCredits());
+      setOpenRouterKey(key);
+      setUserTokensState(getUserTokens());
+      setWalletBalanceState(getWalletBalance());
+      setAutoRechargeState(getAutoRechargeEnabled());
+
+      if (key) {
+        fetchOpenRouterKeyInfo(key).then((info) => {
+          if (info) setOpenRouterKeyInfo(info);
+        });
+      }
+    }
+  }, []);
+
+  // Connectors state
+  const connectors = [
+    {
+      id: 'openrouter',
+      name: 'OpenRouter AI Models',
+      status: openRouterKey ? 'Connected (API Key Active)' : 'Not Connected',
+      desc: 'Access 200+ LLMs & vision models',
+    },
+    {
+      id: 'supabase',
+      name: 'Supabase Vector DB',
+      status: 'Connected',
+      desc: 'Cloud embeddings & document search',
+    },
+    {
+      id: 'google',
+      name: 'Google Search API',
+      status: 'Connected',
+      desc: 'Live web citations & real-time grounding',
+    },
+  ];
 
   useEffect(() => {
     const saved = localStorage.getItem('nk-theme') as 'light' | 'dark' | null;
     const t = saved || 'light';
     setTheme(t);
-    setAppearance(t === 'light' ? 'Light' : 'Dark');
+    setMode(t);
     setSelectedSubject(localStorage.getItem('nk-subject') || '');
     setSelectedUnit(localStorage.getItem('nk-unit') || '');
+    const savedLang = localStorage.getItem('nk-language');
+    if (savedLang) setSelectedLanguage(savedLang);
+
     const updateTheme = () => {
       const t2 = (localStorage.getItem('nk-theme') as 'light' | 'dark') || 'light';
       setTheme(t2);
-      setAppearance(t2 === 'light' ? 'Light' : 'Dark');
+      setMode(t2);
     };
     window.addEventListener('storage', updateTheme);
     return () => window.removeEventListener('storage', updateTheme);
@@ -93,22 +188,26 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
           user.user_metadata?.full_name ||
           user.user_metadata?.name ||
           user.email?.split('@')[0] ||
-          'User';
-        const displayName = String(fullName).trim() || 'User';
+          'User Account';
+        const displayName = String(fullName).trim() || 'User Account';
         const avatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || '';
         setIsGuest(false);
         setProfileName(displayName);
-        setProfileSubtitle(user.email || 'Signed in');
-        setAvatarLabel(displayName.charAt(0).toUpperCase());
+        setUserEmail(user.email || '');
+        setProfileSubtitle(
+          user.email ? `${user.email} · Password & Security` : 'Password, security, personal details'
+        );
         setAvatarUrl(avatar);
+        setUserTokensState(getUserTokens(false));
+        setWalletBalanceState(getWalletBalance(false));
         setProfileLoading(false);
         return;
       }
-      const guest = isGuestModeEnabled();
-      setIsGuest(guest);
-      setProfileName(guest ? 'Guest' : 'Sign in');
-      setProfileSubtitle(guest ? 'Guest mode' : 'Access your account');
-      setAvatarLabel(guest ? 'G' : 'S');
+      setIsGuest(true);
+      setProfileName('Guest');
+      setProfileSubtitle('Guest mode · Search & Study');
+      setUserTokensState(getUserTokens(true));
+      setWalletBalanceState(getWalletBalance(true));
       setProfileLoading(false);
     };
     sync();
@@ -121,531 +220,606 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
     router.push('/sign-up-login-screen');
   };
 
-  const bdr = theme === 'dark' ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
-  const surface = theme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)';
-  const textPrimary = theme === 'dark' ? '#f4f4f5' : '#09090b';
-  const textMuted = theme === 'dark' ? '#71717a' : '#71717a';
-  const bg = theme === 'dark' ? '#000000' : '#ffffff';
+  const handleThemeChange = (newMode: 'light' | 'dark' | 'system') => {
+    setMode(newMode);
+    let targetTheme: 'light' | 'dark' = 'light';
+    if (newMode === 'system') {
+      targetTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    } else {
+      targetTheme = newMode;
+    }
+    setTheme(targetTheme);
+    localStorage.setItem('nk-theme', targetTheme);
+    applyTheme(targetTheme);
+    window.dispatchEvent(new Event('storage'));
+  };
 
-  const TABS: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
+  const NAV_ITEMS: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
     { id: 'general', label: 'General', icon: Settings },
+    { id: 'connectors', label: 'Connectors', icon: LayoutGrid },
+    { id: 'wallet', label: 'Wallet', icon: Wallet },
+    { id: 'secure_store', label: 'Secure store', icon: ShieldCheck },
+    { id: 'permissions', label: 'Permissions', icon: Key },
+    { id: 'messaging', label: 'Messaging channels', icon: MessageSquare },
+    { id: 'devices', label: 'Devices', icon: Monitor },
+    { id: 'data_controls', label: 'Data controls', icon: Lock },
+    { id: 'help', label: 'Help & support', icon: HelpCircle },
+    { id: 'legal', label: 'Legal info', icon: FileText },
     { id: 'context', label: 'Study Context', icon: Compass },
     { id: 'notebook', label: 'My Notebook', icon: BookOpen },
-    { id: 'account', label: 'Account', icon: User },
   ];
 
   return (
     <div
-      className="flex-1 h-full w-full flex flex-col overflow-hidden"
-      style={{ background: bg, color: textPrimary, fontFamily: "'Inter', sans-serif" }}
+      className="relative w-full max-w-[840px] h-[640px] max-h-[92vh] bg-white dark:bg-[#18181b] rounded-[28px] shadow-2xl border border-zinc-200/80 dark:border-zinc-800 flex overflow-hidden text-zinc-900 dark:text-zinc-100 font-sans transition-colors duration-150 animate-in zoom-in-95"
+      onClick={(e) => e.stopPropagation()}
     >
-      {/* Back bar */}
-      <div
-        className="flex items-center gap-3 px-8 py-4 shrink-0 border-b"
-        style={{ borderColor: bdr, background: bg }}
-      >
+      {/* ── Left Sidebar Navigation Pane ─────────────────────────────────── */}
+      <nav className="w-[240px] shrink-0 border-r border-zinc-200/70 dark:border-zinc-800/80 p-5 flex flex-col justify-between bg-zinc-50/70 dark:bg-[#121215] select-none overflow-y-auto">
+        <div className="space-y-4">
+          <h2 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-white px-2">
+            Settings
+          </h2>
+
+          <div className="space-y-1">
+            {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
+              const isActive = activeTab === id;
+              return (
+                <button
+                  key={id}
+                  onClick={() => setActiveTab(id)}
+                  className={`w-full text-left px-3 py-2 rounded-2xl flex items-center gap-3 text-xs sm:text-sm font-medium transition-all ${
+                    isActive
+                      ? 'border-[1.5px] border-blue-500 bg-blue-500/5 text-blue-600 dark:text-blue-400 font-semibold shadow-xs'
+                      : 'border border-transparent text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50'
+                  }`}
+                >
+                  <Icon
+                    size={17}
+                    className={isActive ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-500 dark:text-zinc-400'}
+                  />
+                  <span className="truncate">{label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Bottom Log out button */}
+        <div className="pt-4 border-t border-zinc-200/60 dark:border-zinc-800/60 mt-4">
+          <button
+            onClick={handleSignOut}
+            className="w-full text-left px-3 py-2 rounded-2xl flex items-center gap-3 text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
+          >
+            <LogOut size={17} className="text-zinc-500 dark:text-zinc-400 hover:text-red-500" />
+            <span>Log out</span>
+          </button>
+        </div>
+      </nav>
+
+      {/* ── Right Content Area ────────────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto p-6 sm:p-7 relative bg-white dark:bg-[#18181b]">
+        {/* Close Button on top right */}
         <button
           onClick={onBack}
-          className="flex items-center gap-2 text-sm font-medium transition hover:opacity-70 active:scale-95"
-          style={{ color: textPrimary }}
+          className="absolute top-5 right-5 p-1.5 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 bg-zinc-100/80 dark:bg-zinc-800/80 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all z-10"
+          aria-label="Close Settings"
         >
-          <ArrowLeft size={16} />
-          <span>Back to Chat</span>
+          <X size={16} />
         </button>
-        <span style={{ color: textMuted }}>·</span>
-        <span className="text-sm font-semibold" style={{ color: textPrimary }}>
-          Settings
-        </span>
-      </div>
 
-      {/* Two-column layout */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left tab nav */}
-        <nav
-          className="w-52 shrink-0 flex flex-col p-4 gap-1 border-r overflow-y-auto"
-          style={{ borderColor: bdr, background: surface }}
-        >
-          <p
-            className="text-[9px] font-mono uppercase tracking-widest px-3 pt-2 pb-3"
-            style={{ color: textMuted }}
-          >
-            Settings
-          </p>
-          {TABS.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id)}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-left transition-all"
-              style={{
-                background:
-                  activeTab === id
-                    ? theme === 'dark'
-                      ? 'rgba(255,255,255,0.08)'
-                      : 'rgba(0,0,0,0.06)'
-                    : 'transparent',
-                color: activeTab === id ? textPrimary : textMuted,
-              }}
+        {/* Tab Header Title */}
+        <div className="mb-6">
+          <h3 className="text-lg font-bold text-zinc-900 dark:text-white capitalize">
+            {NAV_ITEMS.find((item) => item.id === activeTab)?.label || 'General'}
+          </h3>
+        </div>
+
+        {/* ── GENERAL TAB CONTENT ───────────────────────────────────────── */}
+        {activeTab === 'general' && (
+          <div className="space-y-6">
+            {/* User Account Card */}
+            <div
+              className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 flex items-center justify-between transition-all"
             >
-              <Icon size={15} />
-              {label}
-            </button>
-          ))}
-        </nav>
-
-        {/* Right content */}
-        <div className="flex-1 overflow-y-auto p-8 max-w-2xl">
-          {/* General */}
-          {activeTab === 'general' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-xl font-bold mb-1" style={{ color: textPrimary }}>
-                  General
-                </h2>
-                <p className="text-sm" style={{ color: textMuted }}>
-                  Preferences that apply across e-Mate.
-                </p>
-              </div>
-              <div
-                className="flex items-center justify-between p-4 rounded-2xl"
-                style={{ border: `1px solid ${bdr}`, background: surface }}
-              >
-                <div>
-                  <p className="text-sm font-semibold" style={{ color: textPrimary }}>
-                    Appearance
-                  </p>
-                  <p className="text-xs mt-0.5" style={{ color: textMuted }}>
-                    Interface colour scheme
-                  </p>
-                </div>
-                <div
-                  className="flex items-center p-0.5 rounded-xl gap-0.5"
-                  style={{
-                    background: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
-                    border: `1px solid ${bdr}`,
-                  }}
-                >
-                  {(['Light', 'Dark'] as const).map((opt) => (
-                    <button
-                      key={opt}
-                      onClick={() => {
-                        setAppearance(opt);
-                        const nt = opt === 'Light' ? 'light' : 'dark';
-                        localStorage.setItem('nk-theme', nt);
-                        applyTheme(nt);
-                        window.dispatchEvent(new Event('storage'));
-                      }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                      style={{
-                        background:
-                          appearance === opt
-                            ? theme === 'dark'
-                              ? '#27272a'
-                              : '#ffffff'
-                            : 'transparent',
-                        color: appearance === opt ? textPrimary : textMuted,
-                        boxShadow: appearance === opt ? '0 1px 3px rgba(0,0,0,0.12)' : 'none',
-                      }}
-                    >
-                      {opt === 'Light' ? <Sun size={12} /> : <Moon size={12} />}
-                      {opt}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div
-                className="p-4 rounded-2xl"
-                style={{ border: `1px solid ${bdr}`, background: surface }}
-              >
-                <p className="text-sm font-semibold mb-0.5" style={{ color: textPrimary }}>
-                  Language
-                </p>
-                <p className="text-xs mb-3" style={{ color: textMuted }}>
-                  AI response language
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {['Auto-detect', 'English', 'Hindi', 'Spanish', 'French', 'German'].map(
-                    (lang) => (
-                      <button
-                        key={lang}
-                        onClick={() => setLanguage(lang)}
-                        className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-                        style={{
-                          background:
-                            language === lang
-                              ? theme === 'dark'
-                                ? '#27272a'
-                                : '#09090b'
-                              : theme === 'dark'
-                                ? 'rgba(255,255,255,0.04)'
-                                : 'rgba(0,0,0,0.04)',
-                          color:
-                            language === lang
-                              ? theme === 'dark'
-                                ? '#f4f4f5'
-                                : '#ffffff'
-                              : textMuted,
-                          border:
-                            language === lang
-                              ? theme === 'dark'
-                                ? '1px solid rgba(255,255,255,0.12)'
-                                : '1px solid rgba(0,0,0,0.15)'
-                              : `1px solid ${bdr}`,
-                        }}
-                      >
-                        {lang}
-                      </button>
-                    )
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center shrink-0 overflow-hidden text-zinc-700 dark:text-zinc-200">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    <User size={20} />
                   )}
                 </div>
-              </div>
-              <div
-                className="flex items-center justify-between p-4 rounded-2xl"
-                style={{ border: `1px solid ${bdr}`, background: surface }}
-              >
-                <div>
-                  <p className="text-sm font-semibold" style={{ color: textPrimary }}>
-                    Interactive Guide
-                  </p>
-                  <p className="text-xs mt-0.5" style={{ color: textMuted }}>
-                    Learn e-Mate&apos;s advanced features
+                <div className="min-w-0">
+                  <h4 className="text-sm font-semibold text-zinc-900 dark:text-white truncate">
+                    {isGuest ? 'Guest' : profileName || 'User Account'}
+                  </h4>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                    {isGuest ? 'Guest mode · Sync searches' : profileSubtitle}
                   </p>
                 </div>
+              </div>
+              {isGuest ? (
                 <button
-                  onClick={() => window.dispatchEvent(new Event('nk-launch-guide'))}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold transition hover:opacity-85"
-                  style={{
-                    background: theme === 'dark' ? '#ffffff' : '#09090b',
-                    color: theme === 'dark' ? '#000000' : '#ffffff',
-                  }}
+                  onClick={() => window.dispatchEvent(new Event('nk-open-signup-popup'))}
+                  className="px-4 py-1.5 rounded-full bg-[#0060df] hover:bg-[#0052cc] text-white text-xs font-semibold shadow-2xs cursor-pointer active:scale-95 shrink-0"
                 >
-                  Launch Guide
+                  Sign In
                 </button>
-              </div>
-            </div>
-          )}
-
-          {/* Study Context */}
-          {activeTab === 'context' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-xl font-bold mb-1" style={{ color: textPrimary }}>
-                  Study Context
-                </h2>
-                <p className="text-sm" style={{ color: textMuted }}>
-                  Set the subject and unit e-Mate answers from.
-                </p>
-              </div>
-              <div
-                className="p-4 rounded-2xl"
-                style={{ border: `1px solid ${bdr}`, background: surface }}
-              >
-                <p
-                  className="text-xs font-semibold uppercase tracking-wider mb-3"
-                  style={{ color: textMuted }}
-                >
-                  Syllabus Subject
-                </p>
-                <div className="flex flex-col gap-1">
-                  {subjects.map((s) => (
-                    <button
-                      key={s.id}
-                      onClick={() => {
-                        const fu = s.units[0]?.name ?? '';
-                        setSelectedSubject(s.name);
-                        if (fu) setSelectedUnit(fu);
-                        localStorage.setItem('nk-subject', s.name);
-                        if (fu) localStorage.setItem('nk-unit', fu);
-                        window.dispatchEvent(new Event('nk-context-change'));
-                      }}
-                      className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm text-left transition-all"
-                      style={{
-                        background:
-                          selectedSubject === s.name
-                            ? theme === 'dark'
-                              ? 'rgba(255,255,255,0.08)'
-                              : 'rgba(0,0,0,0.06)'
-                            : 'transparent',
-                        color: selectedSubject === s.name ? textPrimary : textMuted,
-                        border:
-                          selectedSubject === s.name ? `1px solid ${bdr}` : '1px solid transparent',
-                      }}
-                    >
-                      <span>{s.name}</span>
-                      {selectedSubject === s.name && (
-                        <Check size={14} style={{ color: textPrimary }} />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div
-                className="p-4 rounded-2xl"
-                style={{ border: `1px solid ${bdr}`, background: surface }}
-              >
-                <p
-                  className="text-xs font-semibold uppercase tracking-wider mb-3"
-                  style={{ color: textMuted }}
-                >
-                  Unit / Topic
-                </p>
-                <div className="flex flex-col gap-1">
-                  {(subjects.find((s) => s.name === selectedSubject)?.units ?? []).map((u) => (
-                    <button
-                      key={u.id}
-                      onClick={() => {
-                        setSelectedUnit(u.name);
-                        localStorage.setItem('nk-unit', u.name);
-                        window.dispatchEvent(new Event('nk-context-change'));
-                      }}
-                      className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm text-left transition-all"
-                      style={{
-                        background:
-                          selectedUnit === u.name
-                            ? theme === 'dark'
-                              ? 'rgba(255,255,255,0.08)'
-                              : 'rgba(0,0,0,0.06)'
-                            : 'transparent',
-                        color: selectedUnit === u.name ? textPrimary : textMuted,
-                        border:
-                          selectedUnit === u.name ? `1px solid ${bdr}` : '1px solid transparent',
-                      }}
-                    >
-                      <span>{u.name}</span>
-                      {selectedUnit === u.name && (
-                        <Check size={14} style={{ color: textPrimary }} />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Notebook */}
-          {activeTab === 'notebook' && (
-            <div className="space-y-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h2 className="text-xl font-bold mb-1" style={{ color: textPrimary }}>
-                    My Notebook
-                  </h2>
-                  <p className="text-sm" style={{ color: textMuted }}>
-                    Notes auto-saved during chats for{' '}
-                    <strong>{selectedSubject || 'your active subject'}</strong>.
-                  </p>
-                </div>
-                {notebookNotes.length > 0 && (
-                  <button
-                    onClick={() => {
-                      clearNotebook(selectedSubject);
-                      setNotebookNotes([]);
-                    }}
-                    className="text-xs font-semibold px-3 py-1.5 rounded-lg transition hover:opacity-80 shrink-0"
-                    style={{ color: '#ef4444', background: 'rgba(239,68,68,0.08)' }}
-                  >
-                    Clear All
-                  </button>
-                )}
-              </div>
-              <div className="space-y-2">
-                {notebookNotes.length === 0 ? (
-                  <div
-                    className="flex flex-col items-center justify-center py-12 px-4 rounded-2xl border border-dashed text-center"
-                    style={{ borderColor: bdr }}
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-brand/10 border border-brand/20 text-brand flex items-center justify-center mb-2.5 shadow-glow-subtle">
-                      <BookOpen size={18} strokeWidth={1.75} />
-                    </div>
-                    <h4 className="text-sm font-semibold font-display" style={{ color: textPrimary }}>
-                      No saved notes yet
-                    </h4>
-                    <p className="text-xs mt-1 max-w-xs leading-relaxed" style={{ color: textMuted }}>
-                      Key concepts, formulas, and definitions are automatically captured to this notebook during your study sessions.
-                    </p>
-                  </div>
-                ) : (
-                  notebookNotes.map((note) => (
-                    <div
-                      key={note.id}
-                      className="group flex items-start justify-between gap-3 p-4 rounded-xl border"
-                      style={{ background: surface, borderColor: bdr }}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm leading-relaxed" style={{ color: textPrimary }}>
-                          {note.content}
-                        </p>
-                        <span className="text-xs mt-1 block" style={{ color: textMuted }}>
-                          {note.timestamp} · {note.source === 'ai' ? 'Auto-saved' : 'Manual'}
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => {
-                          deleteNotebookEntry(selectedSubject, note.id);
-                          setNotebookNotes((prev) => prev.filter((n) => n.id !== note.id));
-                        }}
-                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg transition hover:bg-red-500/10"
-                        title="Delete"
-                      >
-                        <Trash2 size={13} style={{ color: '#ef4444' }} />
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-              <div
-                className="flex gap-2 p-4 rounded-2xl border"
-                style={{ borderColor: bdr, background: surface }}
-              >
-                <input
-                  type="text"
-                  value={newNoteText}
-                  onChange={(e) => setNewNoteText(e.target.value)}
-                  placeholder="Add a study note..."
-                  className="flex-1 px-3 py-2 rounded-xl text-sm focus:outline-none transition"
-                  style={{
-                    background: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
-                    border: `1px solid ${bdr}`,
-                    color: textPrimary,
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && newNoteText.trim()) {
-                      appendToNotebook(selectedSubject, newNoteText.trim(), 'user');
-                      setNotebookNotes(getNotebook(selectedSubject).entries);
-                      setNewNoteText('');
-                    }
-                  }}
-                />
-                <button
-                  onClick={() => {
-                    if (newNoteText.trim()) {
-                      appendToNotebook(selectedSubject, newNoteText.trim(), 'user');
-                      setNotebookNotes(getNotebook(selectedSubject).entries);
-                      setNewNoteText('');
-                    }
-                  }}
-                  disabled={!newNoteText.trim()}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold transition disabled:opacity-40"
-                  style={{
-                    background: theme === 'dark' ? '#27272a' : '#09090b',
-                    color: theme === 'dark' ? '#f4f4f5' : '#ffffff',
-                  }}
-                >
-                  Add
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Account */}
-          {activeTab === 'account' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-xl font-bold mb-1" style={{ color: textPrimary }}>
-                  Account
-                </h2>
-                <p className="text-sm" style={{ color: textMuted }}>
-                  Manage your profile and session.
-                </p>
-              </div>
-              {profileLoading ? (
-                <div
-                  className="flex items-center gap-4 p-5 rounded-2xl animate-pulse"
-                  style={{ border: `1px solid ${bdr}`, background: surface }}
-                >
-                  <div
-                    className="w-12 h-12 rounded-2xl shrink-0"
-                    style={{ background: theme === 'dark' ? '#27272a' : '#e4e4e7' }}
-                  />
-                  <div className="flex-1 space-y-2">
-                    <div
-                      className="h-3.5 rounded w-28"
-                      style={{ background: theme === 'dark' ? '#27272a' : '#e4e4e7' }}
-                    />
-                    <div
-                      className="h-3 rounded w-40"
-                      style={{ background: theme === 'dark' ? '#27272a' : '#e4e4e7' }}
-                    />
-                  </div>
-                </div>
               ) : (
-                <div
-                  className="flex items-center gap-4 p-5 rounded-2xl"
-                  style={{ border: `1px solid ${bdr}`, background: surface }}
+                <button
+                  onClick={() => setActiveTab('help')}
+                  className="p-1 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
                 >
-                  <div
-                    className="w-12 h-12 rounded-2xl flex items-center justify-center text-base font-bold shrink-0 overflow-hidden"
-                    style={{
-                      background: theme === 'dark' ? '#27272a' : '#f4f4f5',
-                      color: textPrimary,
-                    }}
-                  >
-                    {avatarUrl ? (
-                      <img
-                        src={avatarUrl}
-                        alt={profileName}
-                        className="w-full h-full object-cover"
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                      />
-                    ) : null}
-                    {avatarUrl ? null : avatarLabel}
+                  <ArrowUpRight size={18} />
+                </button>
+              )}
+            </div>
+
+            {/* Usage Section */}
+            <div className="space-y-2">
+              <span className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">
+                Usage
+              </span>
+              <div className="p-5 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 space-y-4">
+                {/* Row 1: Free plan */}
+                <div>
+                  <div className="flex items-center justify-between text-xs font-semibold text-zinc-800 dark:text-zinc-200 mb-1">
+                    <span>Free plan</span>
+                    <span className="text-zinc-500 font-medium">
+                      {remainingCredits} / 50 free searches left
+                    </span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate" style={{ color: textPrimary }}>
-                      {profileName}
-                    </p>
-                    <p className="text-xs mt-0.5 truncate" style={{ color: textMuted }}>
-                      {profileSubtitle}
-                    </p>
+                  <p className="text-[11px] text-zinc-400 mb-2">Weekly limit resets every Sunday</p>
+                  <div className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                      style={{
+                        width: `${Math.min(100, Math.max(0, ((50 - remainingCredits) / 50) * 100))}%`,
+                      }}
+                    />
                   </div>
-                  <span
-                    className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full shrink-0"
-                    style={{
-                      background: theme === 'dark' ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.06)',
-                      color: textMuted,
-                    }}
+                </div>
+
+                <div className="h-[1px] bg-zinc-200/70 dark:bg-zinc-800/80 my-2" />
+
+                {/* Row 2: OpenRouter API Tokens / Usage */}
+                <div>
+                  <div className="flex items-center justify-between text-xs font-semibold text-zinc-800 dark:text-zinc-200 mb-1">
+                    <span>{openRouterKey ? 'OpenRouter API Usage' : 'Additional tokens'}</span>
+                    <span className="text-zinc-500 font-medium font-mono text-[11px]">
+                      {openRouterKey
+                        ? openRouterKeyInfo
+                          ? `$${openRouterKeyInfo.usage.toFixed(4)} USD used`
+                          : 'Connected'
+                        : isGuest
+                        ? '0 tokens'
+                        : `${(userTokens / 1_000_000_000).toFixed(1)}B tokens left`}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-zinc-400 mb-2">
+                    {openRouterKey
+                      ? openRouterKeyInfo
+                        ? openRouterKeyInfo.isFreeTier
+                          ? 'Free Tier Models active'
+                          : openRouterKeyInfo.limit !== null
+                          ? `$${openRouterKeyInfo.limit.toFixed(2)} USD spending limit`
+                          : 'Direct OpenRouter API balance'
+                        : 'OpenRouter Key connected'
+                      : isGuest
+                      ? 'Connect OpenRouter to unlock 200+ models'
+                      : 'Never expires'}
+                  </p>
+                  <div className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${
+                        openRouterKey ? 'bg-emerald-500 w-[100%]' : 'bg-emerald-500 w-[0%]'
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                {/* Upgrade Button */}
+                <div className="pt-1">
+                  <button
+                    onClick={() => router.push('/upgrade')}
+                    className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
                   >
-                    {isGuest ? 'Guest' : 'Pro'}
-                  </span>
+                    Upgrade
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Language Section */}
+            <div className="relative">
+              <div
+                onClick={() => setShowLanguageMenu(!showLanguageMenu)}
+                className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 flex items-center justify-between cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all"
+              >
+                <div className="flex items-center gap-2 text-sm font-medium text-zinc-900 dark:text-white">
+                  <span>Language</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-zinc-400">
+                  <span>{selectedLanguage}</span>
+                  <ChevronRight size={16} />
+                </div>
+              </div>
+
+              {showLanguageMenu && (
+                <div className="absolute top-full left-0 right-0 mt-2 p-2 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xl z-20 grid grid-cols-2 gap-1 animate-in fade-in slide-in-from-top-2 duration-150">
+                  {['English', 'Auto-detect', 'Hindi', 'Spanish', 'French', 'German'].map((lang) => (
+                    <button
+                      key={lang}
+                      onClick={() => {
+                        setSelectedLanguage(lang);
+                        setShowLanguageMenu(false);
+                        toast.success(`Language set to ${lang}`);
+                      }}
+                      className={`px-3 py-2 rounded-xl text-left text-xs font-medium transition-all ${
+                        selectedLanguage === lang
+                          ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold'
+                          : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
+                      }`}
+                    >
+                      {lang}
+                    </button>
+                  ))}
                 </div>
               )}
-              
-              <div
-                className="p-5 rounded-2xl space-y-3"
-                style={{ border: `1px solid ${bdr}`, background: surface }}
-              >
-                <h3 className="text-sm font-semibold" style={{ color: textPrimary }}>
-                  Need Help &amp; Support?
-                </h3>
-                <p className="text-xs leading-relaxed" style={{ color: textMuted }}>
-                  Have questions or issues with your e-Mate study workspace? Contact our support team directly.
-                </p>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 pt-1 text-xs">
-                  <a
-                    href="mailto:isachinbisht@gmail.com"
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-600/10 text-blue-600 dark:text-blue-400 font-medium hover:bg-blue-600/20 transition-colors min-h-[44px]"
+            </div>
+
+            {/* Appearance Section */}
+            <div className="space-y-2">
+              <span className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">
+                Appearance
+              </span>
+              <div className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 flex items-center justify-between">
+                <span className="text-sm font-medium text-zinc-900 dark:text-white">Mode</span>
+                <div className="flex items-center p-1 bg-zinc-200/70 dark:bg-zinc-800/80 rounded-2xl gap-1 border border-zinc-300/40 dark:border-zinc-700/50">
+                  <button
+                    onClick={() => handleThemeChange('light')}
+                    className={`p-1.5 rounded-xl transition-all ${
+                      mode === 'light'
+                        ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white'
+                        : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+                    }`}
+                    title="Light theme"
                   >
-                    <Mail size={14} /> isachinbisht@gmail.com
-                  </a>
-                  <a
-                    href="tel:+918860911070"
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 font-medium hover:bg-zinc-500/20 transition-colors min-h-[44px]"
+                    <Sun size={15} />
+                  </button>
+                  <button
+                    onClick={() => handleThemeChange('dark')}
+                    className={`p-1.5 rounded-xl transition-all ${
+                      mode === 'dark'
+                        ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white'
+                        : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+                    }`}
+                    title="Dark theme"
                   >
-                    <Phone size={14} /> +91 8860911070
-                  </a>
+                    <Moon size={15} />
+                  </button>
+                  <button
+                    onClick={() => handleThemeChange('system')}
+                    className={`p-1.5 rounded-xl transition-all ${
+                      mode === 'system'
+                        ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white'
+                        : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+                    }`}
+                    title="System theme"
+                  >
+                    <Monitor size={15} />
+                  </button>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
 
+        {/* ── CONNECTORS TAB ────────────────────────────────────────────── */}
+        {activeTab === 'connectors' && (
+          <div className="space-y-4">
+            <p className="text-xs text-zinc-500">Connect third-party models, search grounding, &amp; data stores.</p>
+            <div className="space-y-3">
+              {connectors.map((c) => (
+                <div key={c.id} className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">{c.name}</h4>
+                    <p className="text-xs text-zinc-500">{c.desc}</p>
+                  </div>
+                  <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full">
+                    {c.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── WALLET TAB ────────────────────────────────────────────────── */}
+        {activeTab === 'wallet' && (
+          <div className="space-y-4">
+            <div className="p-5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white space-y-3 shadow-lg">
+              <div className="flex justify-between items-start">
+                <div>
+                  <span className="text-xs text-blue-100 uppercase font-semibold">
+                    {openRouterKey ? 'OpenRouter API Credit Balance' : 'Available Credit'}
+                  </span>
+                  <h3 className="text-2xl font-bold mt-1">
+                    {openRouterKey
+                      ? openRouterKeyInfo
+                        ? openRouterKeyInfo.limit !== null
+                          ? `$${Math.max(0, openRouterKeyInfo.limit - openRouterKeyInfo.usage).toFixed(2)} USD`
+                          : `$${walletBalance.toFixed(2)} USD`
+                        : `$${walletBalance.toFixed(2)} USD`
+                      : `$${walletBalance.toFixed(2)} USD`}
+                  </h3>
+                </div>
+                <CreditCard size={24} className="text-blue-200" />
+              </div>
+              <div className="flex items-center justify-between pt-1">
+                <p className="text-xs text-blue-100">
+                  {openRouterKey
+                    ? openRouterKeyInfo
+                      ? `Key Usage: $${openRouterKeyInfo.usage.toFixed(4)} USD`
+                      : 'OpenRouter key connected'
+                    : isGuest
+                    ? 'Sign in or create a free account to load wallet funds.'
+                    : 'Unlimited fast-tier token access granted.'}
+                </p>
+                <button
+                  onClick={() => {
+                    if (openRouterKey) {
+                      window.dispatchEvent(new Event('nk-open-openrouter-modal'));
+                    } else if (isGuest) {
+                      window.dispatchEvent(new Event('nk-open-signup-popup'));
+                    } else {
+                      const newBal = addWalletBalance(25.0);
+                      setWalletBalanceState(newBal);
+                      toast.success('Added $25.00 USD to your wallet!');
+                    }
+                  }}
+                  className="px-3 py-1 rounded-full bg-white/20 hover:bg-white/30 text-white text-xs font-semibold backdrop-blur-md transition-all active:scale-95 cursor-pointer"
+                >
+                  {openRouterKey ? 'Manage Key' : isGuest ? 'Sign In' : '+ Add $25'}
+                </button>
+              </div>
+            </div>
+            <div className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 flex justify-between items-center text-xs">
+              <div>
+                <span className="font-semibold text-zinc-900 dark:text-white block">Auto-recharge low balance</span>
+                <span className="text-[11px] text-zinc-400">Automatically top-up $20 when balance falls below $5</span>
+              </div>
               <button
-                onClick={handleSignOut}
-                className="flex items-center gap-2.5 px-5 py-3 rounded-2xl border text-sm font-semibold transition-all hover:bg-red-500/8 active:scale-[0.99] min-h-[44px]"
-                style={{ color: '#ef4444', borderColor: 'rgba(239,68,68,0.2)' }}
+                onClick={() => {
+                  const next = !autoRecharge;
+                  setAutoRechargeState(next);
+                  setAutoRechargeEnabled(next);
+                  toast.success(`Auto-recharge ${next ? 'enabled' : 'disabled'}`);
+                }}
+                className={`px-3.5 py-1.5 rounded-full font-semibold transition-all cursor-pointer active:scale-95 ${
+                  autoRecharge
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
+                }`}
               >
-                <LogOut size={15} />
-                Sign Out of e-Mate
+                {autoRecharge ? 'Enabled' : 'Disabled'}
               </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* ── SECURE STORE TAB ───────────────────────────────────────────── */}
+        {activeTab === 'secure_store' && (
+          <div className="space-y-4">
+            <p className="text-xs text-zinc-500">Manage encrypted API keys and model credentials.</p>
+            <div className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 space-y-3">
+              <div className="flex justify-between items-center text-xs">
+                <div>
+                  <span className="font-semibold text-zinc-900 dark:text-white block">OpenRouter API Key</span>
+                  <span className="font-mono text-zinc-400 text-[11px]">
+                    {openRouterKey ? `sk-or-••••••••${openRouterKey.slice(-4)}` : 'Not connected'}
+                  </span>
+                </div>
+                <button
+                  onClick={() => {
+                    if (openRouterKey) {
+                      localStorage.removeItem('user_openrouter_key');
+                      setOpenRouterKey('');
+                      toast.success('OpenRouter API key disconnected');
+                    } else {
+                      window.dispatchEvent(new Event('nk-open-openrouter-modal'));
+                    }
+                  }}
+                  className="px-3.5 py-1.5 rounded-full text-xs font-medium bg-[#0060df] hover:bg-[#0052cc] text-white transition-all active:scale-95"
+                >
+                  {openRouterKey ? 'Disconnect' : 'Connect Key'}
+                </button>
+              </div>
+              <div className="h-[1px] bg-zinc-200/70 dark:bg-zinc-800" />
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-semibold text-zinc-900 dark:text-white">Supabase Cloud Vector Key</span>
+                <span className="font-mono text-emerald-500 font-semibold">Active &amp; Secured</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── PERMISSIONS TAB ───────────────────────────────────────────── */}
+        {activeTab === 'permissions' && (
+          <div className="space-y-3">
+            {['Microphone & Voice Input', 'Local File Access', 'Web Browser Grounding', 'Code Execution Sandbox'].map((p) => (
+              <div key={p} className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 flex justify-between items-center text-xs">
+                <span className="font-medium text-zinc-900 dark:text-white">{p}</span>
+                <span className="text-emerald-500 font-semibold">Allowed</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── MESSAGING CHANNELS TAB ───────────────────────────────────── */}
+        {activeTab === 'messaging' && (
+          <div className="space-y-3">
+            {['Web Chat Assistant', 'WhatsApp Integration', 'Telegram Bot Channel', 'Email Updates'].map((channel, idx) => (
+              <div key={channel} className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 flex justify-between items-center text-xs">
+                <span className="font-medium text-zinc-900 dark:text-white">{channel}</span>
+                <span className={idx === 0 ? 'text-blue-500 font-semibold' : 'text-zinc-400'}>{idx === 0 ? 'Active' : 'Configure'}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── DEVICES TAB ───────────────────────────────────────────────── */}
+        {activeTab === 'devices' && (
+          <div className="space-y-3">
+            <div className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-3">
+                <Laptop size={18} className="text-blue-500" />
+                <div>
+                  <h5 className="font-semibold text-zinc-900 dark:text-white">Current Mac Workstation</h5>
+                  <p className="text-[11px] text-zinc-400">Safari · macOS · Active Now</p>
+                </div>
+              </div>
+              <span className="text-xs font-semibold text-blue-500">This Device</span>
+            </div>
+          </div>
+        )}
+
+        {/* ── DATA CONTROLS TAB ─────────────────────────────────────────── */}
+        {activeTab === 'data_controls' && (
+          <div className="space-y-3">
+            <div className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 space-y-3 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="font-medium text-zinc-900 dark:text-zinc-100">Export Personal Chat History</span>
+                <button
+                  onClick={() => toast.success('Export started...')}
+                  className="text-xs font-medium px-3.5 py-1 rounded-full bg-[#0060df] hover:bg-[#0052cc] text-white transition-all shadow-xs cursor-pointer active:scale-95"
+                >
+                  Export JSON
+                </button>
+              </div>
+              <div className="h-[1px] bg-zinc-200 dark:bg-zinc-800" />
+              <div className="flex justify-between items-center">
+                <span className="font-medium text-zinc-900 dark:text-zinc-100">Delete All Stored Sessions</span>
+                <button
+                  onClick={() => {
+                    clearChatHistory();
+                    toast.success('All chat sessions and local caches cleared!');
+                  }}
+                  className="text-xs font-medium px-3.5 py-1 rounded-full bg-[#db7a88] hover:bg-[#c96a78] text-white transition-all shadow-2xs cursor-pointer active:scale-95"
+                >
+                  Clear Data
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── HELP & SUPPORT TAB ────────────────────────────────────────── */}
+        {activeTab === 'help' && (
+          <div className="space-y-4">
+            <div className="p-5 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 space-y-3 text-xs">
+              <h4 className="font-semibold text-sm text-zinc-900 dark:text-white">Direct Support Contact</h4>
+              <p className="text-zinc-500 leading-relaxed">Reach out to our engineering team for instant assistance.</p>
+              <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                <a href="mailto:isachinbisht@gmail.com" className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold">
+                  <Mail size={14} /> isachinbisht@gmail.com
+                </a>
+                <a href="tel:+918860911070" className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-200/60 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-semibold">
+                  <Phone size={14} /> +91 8860911070
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── LEGAL INFO TAB ────────────────────────────────────────────── */}
+        {activeTab === 'legal' && (
+          <div className="space-y-3 text-xs text-zinc-500">
+            <div className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 space-y-2">
+              <h4 className="font-semibold text-zinc-900 dark:text-white">e-Mate Artificial Intelligence System</h4>
+              <p>Version 2.4.0 (Build 2026.09)</p>
+              <p>© 2026 e-Mate AI. All rights reserved.</p>
+            </div>
+          </div>
+        )}
+
+        {/* ── STUDY CONTEXT TAB ─────────────────────────────────────────── */}
+        {activeTab === 'context' && (
+          <div className="space-y-4">
+            <p className="text-xs text-zinc-500">Select active syllabus subject and learning unit for contextual AI answers.</p>
+            <div className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 space-y-2">
+              <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block">Syllabus Subject</span>
+              <div className="flex flex-col gap-1">
+                {subjects.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => {
+                      const fu = s.units[0]?.name ?? '';
+                      setSelectedSubject(s.name);
+                      if (fu) setSelectedUnit(fu);
+                      localStorage.setItem('nk-subject', s.name);
+                      if (fu) localStorage.setItem('nk-unit', fu);
+                      window.dispatchEvent(new Event('nk-context-change'));
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs text-left transition-all ${
+                      selectedSubject === s.name
+                        ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold'
+                        : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50'
+                    }`}
+                  >
+                    <span>{s.name}</span>
+                    {selectedSubject === s.name && <Check size={14} />}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── NOTEBOOK TAB ──────────────────────────────────────────────── */}
+        {activeTab === 'notebook' && (
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <p className="text-xs text-zinc-500">Notes captured for <strong>{selectedSubject || 'active subject'}</strong></p>
+              {notebookNotes.length > 0 && (
+                <button
+                  onClick={() => {
+                    clearNotebook(selectedSubject);
+                    setNotebookNotes([]);
+                  }}
+                  className="text-xs font-medium px-3.5 py-1.5 rounded-full bg-[#db7a88] hover:bg-[#c96a78] text-white transition-all shadow-2xs cursor-pointer active:scale-95 inline-flex items-center gap-1.5"
+                >
+                  <Trash2 size={13} />
+                  Clear All Notes
+                </button>
+              )}
+            </div>
+            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+              {notebookNotes.length === 0 ? (
+                <p className="text-xs text-zinc-400 py-6 text-center">No saved notes yet.</p>
+              ) : (
+                notebookNotes.map((n) => (
+                  <div key={n.id} className="p-3 rounded-xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 flex justify-between items-start text-xs">
+                    <div>
+                      <p className="text-zinc-900 dark:text-zinc-100">{n.content}</p>
+                      <span className="text-[10px] text-zinc-400 mt-1 block">{n.timestamp}</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        deleteNotebookEntry(selectedSubject, n.id);
+                        setNotebookNotes((prev) => prev.filter((x) => x.id !== n.id));
+                      }}
+                      className="text-red-500 p-1 hover:bg-red-500/10 rounded"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

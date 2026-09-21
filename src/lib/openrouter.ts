@@ -401,3 +401,36 @@ export async function openRouterCompletionStream(
 
   return response;
 }
+
+export interface OpenRouterKeyInfo {
+  usage: number; // in USD
+  limit: number | null; // in USD
+  isFreeTier: boolean;
+  label?: string;
+}
+
+/** Query OpenRouter API for real-time key usage, credits, and free tier status */
+export async function fetchOpenRouterKeyInfo(apiKey: string): Promise<OpenRouterKeyInfo | null> {
+  if (!apiKey || !apiKey.trim()) return null;
+  try {
+    const res = await fetch('https://openrouter.ai/api/v1/auth/key', {
+      headers: {
+        Authorization: `Bearer ${apiKey.trim()}`,
+      },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    if (json?.data) {
+      return {
+        usage: typeof json.data.usage === 'number' ? json.data.usage : 0,
+        limit: typeof json.data.limit === 'number' ? json.data.limit : null,
+        isFreeTier: Boolean(json.data.is_free_tier),
+        label: json.data.label || 'OpenRouter Key',
+      };
+    }
+    return null;
+  } catch (err) {
+    console.error('Failed to fetch OpenRouter key info:', err);
+    return null;
+  }
+}

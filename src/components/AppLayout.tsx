@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
+import { PanelLeft } from 'lucide-react';
 
 const Sidebar = dynamic(() => import('./Sidebar'), { ssr: false });
 const SettingsPage = dynamic(() => import('./SettingsPage'), { ssr: false });
@@ -246,15 +247,33 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
       {/* ── Main content column ─────────────────────────────────────────── */}
       <main
-        className="flex-1 flex flex-col h-full overflow-hidden min-w-0 w-full"
+        className="flex-1 flex flex-col h-full overflow-hidden min-w-0 w-full relative"
         style={{ background: theme === 'dark' ? '#000000' : '#ffffff' }}
       >
+        {!sidebarOpen && (
+          <button
+            type="button"
+            onClick={() => toggleSidebar(true)}
+            className="absolute top-4 left-4 z-40 p-2 rounded-full bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-800 text-zinc-700 dark:text-zinc-200 shadow-md hover:bg-white dark:hover:bg-zinc-800 transition-all cursor-pointer active:scale-95 flex items-center justify-center"
+            title="Open sidebar"
+            aria-label="Open sidebar"
+          >
+            <PanelLeft size={16} />
+          </button>
+        )}
         {children}
       </main>
 
-      {/* ── Full-Screen Settings Overlay ─────────────────────────────────── */}
+      {/* ── Settings Modal Overlay ─────────────────────────────────── */}
       {activeModalView === 'settings' && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setActiveModalView('none');
+            }
+          }}
+        >
           <SettingsPage onBack={() => setActiveModalView('none')} />
         </div>
       )}

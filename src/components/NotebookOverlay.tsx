@@ -114,7 +114,7 @@ export default function NotebookOverlay({ subjectName, onClose, theme }: Noteboo
           {notebook && notebook.entries.length > 0 && (
             <button
               onClick={handleClearAll}
-              className="text-xs font-semibold text-red-500 hover:text-red-600 transition-colors flex items-center gap-1 px-3 py-1.5 rounded-lg border border-red-500/20 hover:bg-red-500/5"
+              className="text-xs font-medium px-4 py-2 rounded-full bg-[#db7a88] hover:bg-[#c96a78] text-white transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer active:scale-95"
             >
               <Trash2 className="w-3.5 h-3.5" />
               Clear All Notes
@@ -125,7 +125,7 @@ export default function NotebookOverlay({ subjectName, onClose, theme }: Noteboo
         {/* Add Quick Note Section */}
         <div className="p-4 rounded-2xl border" style={{ borderColor: bdr, background: surface }}>
           <label htmlFor="new-notebook-note" className="text-sm font-semibold mb-2 block">Add study notes or pyqs</label>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <textarea
               id="new-notebook-note"
               name="newNotebookNote"
@@ -139,7 +139,7 @@ export default function NotebookOverlay({ subjectName, onClose, theme }: Noteboo
             />
             <button
               onClick={handleAddNote}
-              className="px-4 rounded-xl bg-slate-900 text-white hover:bg-black font-semibold text-xs flex items-center justify-center gap-1 transition-all"
+              className="px-5 py-2.5 rounded-full bg-[#0060df] hover:bg-[#0052cc] text-white font-medium text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all shadow-xs active:scale-[0.98] cursor-pointer shrink-0"
             >
               <Plus className="w-4 h-4" />
               Add Note

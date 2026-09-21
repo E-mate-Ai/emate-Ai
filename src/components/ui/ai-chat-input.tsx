@@ -11,6 +11,7 @@ import {
   TerminalSquare,
   LayoutGrid,
   ChevronRight,
+  ChevronDown,
   HelpCircle,
   Layers,
   BookOpen,
@@ -455,6 +456,8 @@ export interface PromptInputProps {
   onImageGenToggle?: () => void;
   /** Placeholder shown when imageGenMode is active. */
   imageGenPlaceholder?: string;
+  /** When true, renders as a sleek, slim floating pill input bar */
+  isSlim?: boolean;
 }
 
 export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
@@ -473,6 +476,7 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
       imageGenMode = false,
       onImageGenToggle,
       imageGenPlaceholder = 'Describe the diagram, chart, or visual you want e-Mate to generate...',
+      isSlim = false,
     },
     ref
   ) => {
@@ -932,6 +936,123 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
         startRecording();
       }
     };
+
+    if (isSlim) {
+      return (
+        <>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleFilesChosen}
+            className="hidden"
+            tabIndex={-1}
+            aria-hidden="true"
+          />
+          <div
+            ref={ref}
+            className={cn(
+              'relative w-full max-w-2xl mx-auto rounded-full border border-zinc-200/90 dark:border-zinc-800/90 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl px-4 py-2 shadow-xl flex items-center justify-between gap-3 min-h-[50px] transition-all duration-300 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500/40',
+              className
+            )}
+          >
+            {/* Model Selector pill on left */}
+            <div className="relative shrink-0 flex items-center" ref={modelSelectRef}>
+              <button
+                type="button"
+                onClick={() => setIsModelSelectOpen((v) => !v)}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              >
+                <ModelIcon model={selectedModel} className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline text-[11px]">{selectedModel}</span>
+                <ChevronDown className="w-3 h-3 text-zinc-400" />
+              </button>
+
+              {isModelSelectOpen && (
+                <div className="absolute bottom-full left-0 mb-2 w-48 p-1.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xl z-50 animate-in fade-in zoom-in-95">
+                  {models.map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => {
+                        setSelectedModel(m);
+                        setIsModelSelectOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs text-left transition-colors ${
+                        selectedModel === m
+                          ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-semibold'
+                          : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                      }`}
+                    >
+                      <ModelIcon model={m} className="w-3.5 h-3.5" />
+                      <span>{m}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Center: Text Input */}
+            <div className="flex-1 flex items-center min-w-0">
+              <textarea
+                ref={textareaRef}
+                value={value}
+                onChange={(e) => {
+                  handleInput(e);
+                  handleValueChange(e.target.value);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSubmit();
+                  }
+                }}
+                placeholder={placeholder || 'Ask follow-up or search...'}
+                disabled={isRecording}
+                className="w-full bg-transparent border-0 outline-none focus:ring-0 text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 placeholder:text-left text-left px-1 py-0 resize-none leading-relaxed overflow-y-auto min-h-[24px] max-h-[72px] prompt-scrollbar my-auto"
+                rows={1}
+              />
+            </div>
+
+            {/* Right: Mic & Action buttons */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {allowAttachments && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    uploadKindRef.current = 'image';
+                    fileInputRef.current?.click();
+                  }}
+                  className="p-1.5 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center justify-center"
+                  title="Attach image"
+                >
+                  <Paperclip className="w-3.5 h-3.5 -rotate-45" />
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={onActionButtonClick}
+                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                  hasValue || isRecording
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs'
+                    : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                }`}
+              >
+                {showStop ? (
+                  <StopIcon />
+                ) : showArrow ? (
+                  <ArrowUpIcon />
+                ) : (
+                  <Mic className="w-3.5 h-3.5" />
+                )}
+              </button>
+            </div>
+          </div>
+        </>
+      );
+    }
 
     return (
       <>

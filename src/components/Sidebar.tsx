@@ -292,19 +292,11 @@ export default function Sidebar({
         }
       } catch (_) {}
 
-      const guestEnabled = isGuestModeEnabled();
-      setIsGuest(guestEnabled);
+      setIsGuest(true);
       setAvatarUrl('');
-
-      if (guestEnabled) {
-        setProfileName('Guest');
-        setProfileSubtitle('Guest mode');
-        setAvatarLabel('G');
-      } else {
-        setProfileName('Sign in');
-        setProfileSubtitle('Access your account');
-        setAvatarLabel('S');
-      }
+      setProfileName('Guest');
+      setProfileSubtitle('Guest mode');
+      setAvatarLabel('G');
       setProfileLoading(false);
     };
 
@@ -448,30 +440,9 @@ export default function Sidebar({
                   router.push('/ai-topper-chat');
                 }
               }}
-              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold transition-colors cursor-pointer"
-              style={{
-                background: !selectedSubject
-                  ? theme === 'dark'
-                    ? 'rgba(255,255,255,0.12)'
-                    : 'rgba(0,0,0,0.08)'
-                  : theme === 'dark'
-                    ? 'rgba(255,255,255,0.08)'
-                    : 'rgba(0,0,0,0.06)',
-                color: !selectedSubject
-                  ? theme === 'dark'
-                    ? '#ffffff'
-                    : '#000000'
-                  : theme === 'dark'
-                    ? '#f4f4f5'
-                    : '#09090b',
-                border: !selectedSubject
-                  ? theme === 'dark'
-                    ? '1px solid rgba(255,255,255,0.18)'
-                    : '1px solid rgba(0,0,0,0.12)'
-                  : '1px solid transparent',
-              }}
+              className="w-full flex items-center justify-center gap-2 rounded-full px-4 py-2.5 bg-[#0060df] hover:bg-[#0052cc] text-white text-xs font-semibold shadow-xs transition-all active:scale-[0.98] cursor-pointer mb-2"
             >
-              <PenSquare size={14} />
+              <Plus size={15} />
               <span>{!selectedSubject ? 'General Workspace' : 'New chat'}</span>
             </a>
 
@@ -630,9 +601,9 @@ export default function Sidebar({
                 {chatHistory.length > 0 && (
                   <button
                     onClick={() => clearChatHistory()}
-                    className="text-[10px] font-semibold px-2 py-0.5 rounded-lg transition hover:opacity-80"
-                    style={{ color: '#ef4444', background: 'rgba(239,68,68,0.08)' }}
+                    className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-[#db7a88] hover:bg-[#c96a78] text-white transition-all shadow-2xs cursor-pointer active:scale-95 inline-flex items-center gap-1"
                   >
+                    <Trash2 size={12} />
                     Clear
                   </button>
                 )}
@@ -790,15 +761,8 @@ export default function Sidebar({
                 }}
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <div
-                    className="relative w-9 h-9 shrink-0 rounded-full overflow-hidden flex items-center justify-center font-semibold text-sm border"
-                    style={{
-                      background: theme === 'dark' ? '#1c3a3a' : '#ccfbf1',
-                      borderColor: theme === 'dark' ? 'rgba(94,234,212,0.3)' : 'rgba(20,184,166,0.3)',
-                      color: theme === 'dark' ? '#5eead4' : '#0d9488',
-                    }}
-                  >
-                    G
+                  <div className="w-9 h-9 shrink-0 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-700 dark:text-zinc-200 shadow-2xs">
+                    <User size={18} />
                   </div>
                   <div className="flex flex-col min-w-0 leading-tight">
                     <span
@@ -814,11 +778,7 @@ export default function Sidebar({
                 </div>
                 <button
                   onClick={() => window.dispatchEvent(new Event('nk-open-signup-popup'))}
-                  className="text-[10px] font-semibold px-2.5 py-1 rounded-lg transition-all hover:opacity-90"
-                  style={{
-                    background: theme === 'dark' ? 'rgba(138,162,255,0.15)' : 'rgba(31,81,255,0.1)',
-                    color: theme === 'dark' ? '#8aa2ff' : '#1f51ff',
-                  }}
+                  className="text-xs font-semibold px-3.5 py-1.5 rounded-full bg-[#0060df] hover:bg-[#0052cc] text-white transition-all shadow-2xs cursor-pointer active:scale-95 shrink-0"
                   title="Sign in to your account"
                 >
                   Sign In

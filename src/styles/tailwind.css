@@ -364,27 +364,28 @@
   }
 
   .btn-primary {
-    background: var(--primary);
-    color: var(--primary-foreground);
-    border-radius: 0.5rem;
-    font-weight: 600;
+    background: #0060df;
+    color: #ffffff;
+    border-radius: 9999px;
+    font-weight: 500;
     font-size: 0.875rem;
-    padding: 0.625rem 1.25rem;
-    transition:
-      background-color 150ms ease,
-      transform 100ms ease,
-      box-shadow 150ms ease;
+    padding: 0.625rem 1.375rem;
+    transition: all 150ms ease;
     cursor: pointer;
     border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
   }
 
   .btn-primary:hover {
-    background: var(--primary-hover);
-    box-shadow: 0 0 16px rgba(16, 163, 127, 0.35);
+    background: #0052cc;
+    box-shadow: 0 4px 14px rgba(0, 96, 223, 0.3);
   }
 
   .btn-primary:active {
-    transform: scale(0.97);
+    transform: scale(0.98);
   }
 
   .btn-primary:disabled {
@@ -393,10 +394,86 @@
     transform: none;
   }
 
+  .btn-secondary {
+    background: #f0f0f2;
+    color: #09090b;
+    border-radius: 9999px;
+    font-weight: 500;
+    font-size: 0.875rem;
+    padding: 0.5rem 1.25rem;
+    transition: all 150ms ease;
+    cursor: pointer;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .dark .btn-secondary {
+    background: #27272a;
+    color: #f4f4f5;
+  }
+
+  .btn-secondary:hover {
+    background: #e4e4e7;
+  }
+
+  .dark .btn-secondary:hover {
+    background: #3f3f46;
+  }
+
+  .btn-danger {
+    background: #db7a88;
+    color: #ffffff;
+    border-radius: 9999px;
+    font-weight: 500;
+    font-size: 0.875rem;
+    padding: 0.5rem 1.25rem;
+    transition: all 150ms ease;
+    cursor: pointer;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .btn-danger:hover {
+    background: #c96a78;
+  }
+
+  .btn-circle {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 9999px;
+    background: #f0f0f2;
+    color: #09090b;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 150ms ease;
+    cursor: pointer;
+    border: none;
+  }
+
+  .dark .btn-circle {
+    background: #27272a;
+    color: #f4f4f5;
+  }
+
+  .btn-circle:hover {
+    background: #e4e4e7;
+  }
+
+  .dark .btn-circle:hover {
+    background: #3f3f46;
+  }
+
   .btn-ghost {
     background: transparent;
     color: var(--text-secondary);
-    border-radius: 0.5rem;
+    border-radius: 9999px;
     font-weight: 500;
     font-size: 0.875rem;
     padding: 0.5rem 1rem;

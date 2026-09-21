@@ -111,3 +111,91 @@ export function spendAuthCredit(): number {
 export function authCreditsExhausted(): boolean {
   return getAuthCredits().remaining <= 0;
 }
+
+/* ── Additional Token & Wallet Balance System ────────────────────────────── */
+
+export const DEFAULT_AUTH_TOKENS = 1_000_000_000; // 1 Billion tokens for authenticated users
+export const DEFAULT_AUTH_WALLET = 100.0; // $100 USD initial balance for authenticated users
+
+const TOKENS_KEY = 'nk-user-tokens';
+const WALLET_KEY = 'nk-wallet-balance';
+const AUTO_RECHARGE_KEY = 'nk-auto-recharge';
+
+/** Get remaining Muse tokens balance (0 for guest unless specified) */
+export function getUserTokens(isGuest: boolean = false): number {
+  if (isGuest) return 0;
+  if (typeof window === 'undefined') return DEFAULT_AUTH_TOKENS;
+  const raw = localStorage.getItem(TOKENS_KEY);
+  if (!raw) {
+    localStorage.setItem(TOKENS_KEY, String(DEFAULT_AUTH_TOKENS));
+    return DEFAULT_AUTH_TOKENS;
+  }
+  const parsed = parseInt(raw, 10);
+  return Number.isNaN(parsed) ? DEFAULT_AUTH_TOKENS : Math.max(0, parsed);
+}
+
+/** Spend specified amount of tokens */
+export function spendUserTokens(amount: number): number {
+  const current = getUserTokens(false);
+  const next = Math.max(0, current - amount);
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(TOKENS_KEY, String(next));
+  }
+  return next;
+}
+
+/** Add tokens to user's token balance */
+export function addUserTokens(amount: number): number {
+  const current = getUserTokens(false);
+  const next = current + amount;
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(TOKENS_KEY, String(next));
+  }
+  return next;
+}
+
+/** Get user's wallet USD balance ($0.00 for guest unless signed in) */
+export function getWalletBalance(isGuest: boolean = false): number {
+  if (isGuest) return 0.0;
+  if (typeof window === 'undefined') return DEFAULT_AUTH_WALLET;
+  const raw = localStorage.getItem(WALLET_KEY);
+  if (!raw) {
+    localStorage.setItem(WALLET_KEY, String(DEFAULT_AUTH_WALLET));
+    return DEFAULT_AUTH_WALLET;
+  }
+  const parsed = parseFloat(raw);
+  return Number.isNaN(parsed) ? DEFAULT_AUTH_WALLET : Math.max(0, parsed);
+}
+
+/** Add USD funds to user wallet */
+export function addWalletBalance(amount: number): number {
+  const current = getWalletBalance(false);
+  const next = current + amount;
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(WALLET_KEY, String(next.toFixed(2)));
+  }
+  return next;
+}
+
+/** Spend USD funds from user wallet */
+export function spendWalletBalance(amount: number): number {
+  const current = getWalletBalance();
+  const next = Math.max(0, current - amount);
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(WALLET_KEY, String(next.toFixed(2)));
+  }
+  return next;
+}
+
+/** Get auto-recharge enabled status (OFF by default) */
+export function getAutoRechargeEnabled(): boolean {
+  if (typeof window === 'undefined') return false;
+  const raw = localStorage.getItem(AUTO_RECHARGE_KEY);
+  return raw === 'true';
+}
+
+/** Set auto-recharge status */
+export function setAutoRechargeEnabled(enabled: boolean): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(AUTO_RECHARGE_KEY, String(enabled));
+}

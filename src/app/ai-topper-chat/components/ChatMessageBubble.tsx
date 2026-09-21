@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Copy, Check, RotateCcw, BookMarked, Sparkles, Loader2, ChevronRight } from 'lucide-react';
+import { Copy, Check, RotateCcw, BookMarked, Sparkles, Loader2, ChevronRight, Plus } from 'lucide-react';
 import type { ChatMessage } from './AITopperChatScreen';
 import { appendToNotebook } from '@/lib/notebook';
 import { toast } from 'sonner';
@@ -299,17 +299,14 @@ function renderMarkdown(text: string, theme: 'light' | 'dark' = 'dark'): React.R
         i++;
       }
       result.push(
-        <ul key={`ul-${i}`} className="my-2 space-y-2 pl-4">
+        <ul key={`ul-${i}`} className="my-1.5 space-y-1 pl-1">
           {bullets.map((b, bi) => (
             <li
               key={`li-${i}-${bi}`}
-              className="text-sm leading-relaxed flex items-start gap-2"
-              style={{ color: isDark ? '#b4b4b4' : '#27272a' }}
+              className="text-xs sm:text-sm leading-relaxed flex items-start gap-2"
+              style={{ color: isDark ? '#e4e4e7' : '#18181b' }}
             >
-              <span
-                className="w-1 h-1 rounded-full mt-2.5 shrink-0"
-                style={{ background: '#1f51ff' }}
-              />
+              <span className="shrink-0 text-zinc-600 dark:text-zinc-400 font-bold text-sm leading-relaxed">•</span>
               <span dangerouslySetInnerHTML={{ __html: formatInline(b, theme) }} />
             </li>
           ))}
@@ -371,7 +368,7 @@ function formatInline(text: string, theme: 'light' | 'dark' = 'dark'): string {
   return text
     .replace(
       /\*\*(.+?)\*\*/g,
-      `<strong style="font-weight:600;color:${strongColor};background:${chipBg};border:1px solid ${chipBorder};padding:1px 5px;border-radius:4px;font-size:0.95em;margin:0 1px;">$1</strong>`
+      `<strong style="font-weight:600;color:${strongColor};">$1</strong>`
     )
     .replace(/\*(.+?)\*/g, `<em style="font-style:italic;color:${emColor}">$1</em>`)
     .replace(
@@ -585,8 +582,8 @@ export default function ChatMessageBubble({
 
   if (isUser) {
     return (
-      <div className="flex justify-end w-full fade-in-up">
-        <div className="bg-brand text-brand-foreground px-4 py-2.5 rounded-2xl rounded-br-md max-w-[80%] ml-auto text-sm leading-relaxed shadow-glow-subtle font-medium">
+      <div className="flex flex-col items-end w-full fade-in-up my-1">
+        <div className="bg-[#cbe2ff] dark:bg-[#1e3a8a]/70 text-[#1a1a1a] dark:text-[#f0f0f0] px-4 py-2 rounded-full max-w-[80%] inline-block text-xs sm:text-sm font-normal shadow-2xs">
           {message.content}
         </div>
       </div>
@@ -596,87 +593,104 @@ export default function ChatMessageBubble({
   const showProcessAccordion = !message.isGeneralChat && processStep >= 1;
 
   return (
-    <div className="w-full fade-in-up group transition-colors flex flex-col gap-2">
-      {/* Header Row — only in Study Copilot mode */}
-      {!message.isGeneralChat && (
-        <div className="flex items-center gap-2 mb-2">
-          <div className="bg-brand text-brand-foreground w-6 h-6 rounded-md flex items-center justify-center shrink-0 shadow-xs">
-            <Sparkles size={13} strokeWidth={1.75} />
-          </div>
-          <span className="font-display text-xs sm:text-sm font-semibold tracking-tight text-text-primary">
-            Assistant
-          </span>
-          {message.mode === 'sprint' ? (
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20">
-              Sprint
-            </span>
-          ) : (
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-brand/10 text-brand border border-brand/20">
-              Deep Dive
-            </span>
-          )}
-          <span className="text-[11px] text-text-muted font-normal ml-auto">{message.timestamp}</span>
+    <div className="w-full fade-in-up group transition-colors flex flex-col items-start gap-1.5 my-1">
+      {/* Assistant Message Container Card */}
+      <div className="px-5 py-3.5 sm:px-6 sm:py-4 rounded-[22px] bg-[#e5e5e5] dark:bg-zinc-800/80 text-[#1a1a1a] dark:text-[#f0f0f0] max-w-[620px] shadow-2xs space-y-2">
+        {/* Animated process accordion — only for study mode with active tracking */}
+        {showProcessAccordion && <ProcessAccordion processStep={processStep} theme={theme} />}
+
+        {/* Message content */}
+        <div
+          className="prose prose-zinc dark:prose-invert max-w-none text-xs sm:text-sm leading-relaxed font-normal"
+          style={{ color: isDark ? '#f4f4f5' : '#1a1a1a' }}
+        >
+          {renderMarkdown(message.content, theme)}
         </div>
-      )}
 
-      {/* Animated process accordion — only for study mode with active tracking */}
-      {showProcessAccordion && <ProcessAccordion processStep={processStep} theme={theme} />}
+        {/* Connect your apps Action Card block */}
+        {(message.content.toLowerCase().includes('gmail') || message.content.toLowerCase().includes('inbox') || message.content.toLowerCase().includes('calendar')) && (
+          <div className="mt-3 p-4 rounded-[22px] bg-[#dedede] dark:bg-zinc-800/90 max-w-xs space-y-3 border border-transparent">
+            <h5 className="text-xs font-bold text-zinc-900 dark:text-white">Connect your apps</h5>
+            <div className="space-y-2">
+              {/* Gmail Row */}
+              <div
+                onClick={() => toast.success('Connecting Gmail...')}
+                className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-white/50 dark:hover:bg-zinc-700/50 cursor-pointer transition-colors"
+              >
+                <div className="w-8 h-8 rounded-xl bg-white dark:bg-zinc-700 flex items-center justify-center shrink-0 border border-zinc-200/50 dark:border-zinc-600 shadow-2xs">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <path d="M20 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V6C22 4.9 21.1 4 20 4Z" fill="#EA4335"/>
+                    <path d="M20 6L12 11L4 6V18H20V6Z" fill="#34A853"/>
+                    <path d="M4 6L12 11L20 6" stroke="#4285F4" strokeWidth="2"/>
+                  </svg>
+                </div>
+                <div className="min-w-0">
+                  <h6 className="text-xs font-semibold text-zinc-900 dark:text-white leading-tight">Gmail</h6>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate leading-tight mt-0.5">Manage your inbox and draft replies</p>
+                </div>
+              </div>
 
-      {/* Fallback static accordion for old messages with no tracking */}
-      {!message.isGeneralChat && !showProcessAccordion && <StaticProcessAccordion theme={theme} />}
+              {/* Google Calendar Row */}
+              <div
+                onClick={() => toast.success('Connecting Google Calendar...')}
+                className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-white/50 dark:hover:bg-zinc-700/50 cursor-pointer transition-colors"
+              >
+                <div className="w-8 h-8 rounded-xl bg-[#4285F4] text-white flex items-center justify-center shrink-0 font-bold text-xs shadow-2xs">
+                  31
+                </div>
+                <div className="min-w-0">
+                  <h6 className="text-xs font-semibold text-zinc-900 dark:text-white leading-tight">Google Calendar</h6>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate leading-tight mt-0.5">Add and manage calendar events</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
-      {/* Message content */}
-      <div
-        className="prose prose-zinc dark:prose-invert max-w-none text-sm leading-relaxed font-normal"
-        style={{ color: isDark ? '#d4d4d8' : '#27272a' }}
-      >
-        {renderMarkdown(message.content, theme)}
+        {/* Interactive OpenRouter Connect CTA button for error messages */}
+        {message.content.toLowerCase().includes('openrouter') && (
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event('nk-open-openrouter-modal'))}
+              className="px-5 py-2.5 rounded-full bg-[#0060df] hover:bg-[#0052cc] text-white text-xs sm:text-sm font-medium inline-flex items-center gap-2 transition-all cursor-pointer shadow-xs active:scale-95"
+            >
+              <Plus size={16} />
+              <span>Connect OpenRouter Account</span>
+            </button>
+          </div>
+        )}
+
+        {/* Generated image cards */}
+        {message.images && message.images.length > 0 && (
+          <div className="mt-2">
+            {message.images.map((img) => (
+              <GeneratedImageCard
+                key={img.id}
+                image={img}
+                theme={theme}
+                onRegenerate={
+                  onRegenerateImage
+                    ? (imageId, prompt) => onRegenerateImage(message.id, imageId, prompt)
+                    : undefined
+                }
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Study Analyzer Report */}
+        {message.analyzerReport && onReinforce && (
+          <StudyAnalyzerReport report={message.analyzerReport} onReinforce={onReinforce} />
+        )}
       </div>
 
-      {/* Interactive OpenRouter Connect CTA button for error messages (FIX 4) */}
-      {message.content.toLowerCase().includes('openrouter') && (
-        <div className="mt-3">
-          <button
-            type="button"
-            onClick={() => window.dispatchEvent(new Event('nk-open-openrouter-modal'))}
-            className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold inline-flex items-center gap-2 transition-all cursor-pointer shadow-sm active:scale-95"
-          >
-            <Sparkles size={14} />
-            <span>Connect OpenRouter Account</span>
-          </button>
-        </div>
-      )}
-
-      {/* Generated image cards (in-memory — only present in live state) */}
-      {message.images && message.images.length > 0 && (
-        <div className="mt-2">
-          {message.images.map((img) => (
-            <GeneratedImageCard
-              key={img.id}
-              image={img}
-              theme={theme}
-              onRegenerate={
-                onRegenerateImage
-                  ? (imageId, prompt) => onRegenerateImage(message.id, imageId, prompt)
-                  : undefined
-              }
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Study Analyzer Report (in-memory — only present in live state) */}
-      {message.analyzerReport && onReinforce && (
-        <StudyAnalyzerReport report={message.analyzerReport} onReinforce={onReinforce} />
-      )}
-
       {/* Actions */}
-      <div className="flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+      <div className="flex items-center gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pl-2">
         <button
           onClick={handleCopy}
           title="Copy response"
-          className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/5"
-          style={{ color: '#8e8ea0' }}
+          className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-zinc-600 dark:text-zinc-300 cursor-pointer"
         >
           {copied ? <Check size={12} /> : <Copy size={12} />}
           <span>{copied ? 'Copied' : 'Copy'}</span>
@@ -685,8 +699,7 @@ export default function ChatMessageBubble({
           <button
             onClick={handleSaveToNotebook}
             title="Save to Subject Notebook"
-            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/5"
-            style={{ color: '#8e8ea0' }}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-zinc-600 dark:text-zinc-300 cursor-pointer"
           >
             {saved ? <Check size={12} className="text-emerald-500" /> : <BookMarked size={12} />}
             <span className={saved ? 'text-emerald-500 font-medium' : ''}>
@@ -698,12 +711,11 @@ export default function ChatMessageBubble({
           title="Regenerate"
           onClick={onRegenerate}
           disabled={!onRegenerate}
-          className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-all duration-150 ${
+          className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-zinc-600 dark:text-zinc-300 ${
             onRegenerate
-              ? 'hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer'
+              ? 'cursor-pointer'
               : 'opacity-40 cursor-not-allowed'
           }`}
-          style={{ color: '#8e8ea0' }}
         >
           <RotateCcw size={12} />
           <span>Regenerate</span>
