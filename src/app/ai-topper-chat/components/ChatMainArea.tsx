@@ -50,7 +50,7 @@ import {
   saveNotebook,
   type Subject,
 } from '@/lib/notebook';
-import { formatFileSize, type SourceItem } from '@/components/AddSourcesModal';
+import { type SourceItem } from '@/components/AddSourcesModal';
 import {
   saveChatSession,
   saveChatTranscript,
@@ -163,7 +163,6 @@ export default function ChatMainArea({
   const [isSupabaseSignedUp, setIsSupabaseSignedUp] = useState(false);
   const [notebookSessions, setNotebookSessions] = useState<ChatHistoryItem[]>([]);
   const [notebookSources, setNotebookSources] = useState<SourceItem[]>([]);
-  const [showSourcesDrawer, setShowSourcesDrawer] = useState(false);
   const popupRef = useRef<Window | null>(null);
 
   // Keep notebook chat history in sync for the active subject
@@ -1927,86 +1926,7 @@ export default function ChatMainArea({
                   </button>
                 </div>
 
-                {/* Notebook Sources Section in Empty View */}
-                {notebookSources.length > 0 ? (
-                  <div className="w-full mt-4 mb-1 p-3.5 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30">
-                    <div className="flex items-center justify-between mb-2.5">
-                      <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5 uppercase tracking-wider">
-                        <Paperclip size={13} className="text-zinc-400" />
-                        <span>Notebook Sources ({notebookSources.length})</span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const evt = new CustomEvent('nk-open-sources-modal', { detail: { subject: selectedContext.subject } });
-                          window.dispatchEvent(evt);
-                        }}
-                        className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-                      >
-                        <Plus size={12} />
-                        Add more
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
-                      {notebookSources.map((source, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center justify-between p-2.5 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm text-xs group hover:border-zinc-300 dark:hover:border-zinc-700 transition-all shadow-2xs"
-                        >
-                          <div className="flex items-center gap-2 min-w-0 pr-2">
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 shrink-0 border border-zinc-200/60 dark:border-zinc-700/60">
-                              {source.type.toUpperCase()}
-                            </span>
-                            <span className="truncate font-medium text-zinc-800 dark:text-zinc-200" title={source.title || source.name}>
-                              {source.title || source.name}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {formatFileSize(source.size) && (
-                              <span className="text-[10px] text-zinc-400 font-mono">
-                                {formatFileSize(source.size)}
-                              </span>
-                            )}
-                            <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                              Indexed
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveSource(source.id || source.title || source.name || '')}
-                              className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/40 text-zinc-400 hover:text-red-500 transition-all"
-                              title="Remove source"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="w-full mt-4 mb-1 p-3 rounded-2xl border border-dashed border-zinc-200/80 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/20 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-400">
-                        <File size={14} />
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">No sources added yet</p>
-                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Add PDF, Doc, or Web links to ground responses in this notebook.</p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const evt = new CustomEvent('nk-open-sources-modal', { detail: { subject: selectedContext.subject } });
-                        window.dispatchEvent(evt);
-                      }}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:opacity-90 transition-all shadow-xs"
-                    >
-                      Add source
-                    </button>
-                  </div>
-                )}
+
               </div>
             ) : (
               /* Basic Chat Screen Heading & Subheading */
@@ -2191,125 +2111,7 @@ export default function ChatMainArea({
         onSubmit={handleQuizSubmission}
       />
 
-      {/* Sources Drawer Slide-over Modal for Active Chat Inspection */}
-      {showSourcesDrawer && (
-        <div className="fixed inset-0 z-[150] flex justify-end bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
-          <div
-            className="fixed inset-0"
-            onClick={() => setShowSourcesDrawer(false)}
-          />
-          <div className="relative w-full max-w-md h-full bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col z-10 animate-in slide-in-from-right duration-200">
-            <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-300">
-                  <Paperclip size={14} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                    Notebook Sources
-                  </h3>
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                    {selectedContext.subject ? `Grounded in ${selectedContext.subject}` : 'Active session sources'}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowSourcesDrawer(false)}
-                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
-              >
-                <X size={16} />
-              </button>
-            </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
-              {notebookSources.length === 0 ? (
-                <div className="text-center py-12 px-4 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl bg-zinc-50/50 dark:bg-zinc-900/20">
-                  <Paperclip size={24} className="mx-auto text-zinc-300 dark:text-zinc-600 mb-2" />
-                  <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
-                    No sources attached to this notebook
-                  </p>
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 max-w-xs mx-auto mb-4">
-                    Add documents, notes, or web links to provide context for your questions.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowSourcesDrawer(false);
-                      const evt = new CustomEvent('nk-open-sources-modal', { detail: { subject: selectedContext.subject } });
-                      window.dispatchEvent(evt);
-                    }}
-                    className="px-3.5 py-1.5 rounded-xl text-xs font-medium bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:opacity-90 transition-all"
-                  >
-                    + Add first source
-                  </button>
-                </div>
-              ) : (
-                notebookSources.map((source, idx) => (
-                  <div
-                    key={idx}
-                    className="p-3 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-start justify-between gap-3 group hover:border-zinc-300 dark:hover:border-zinc-700 transition-all"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-zinc-200/80 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 shrink-0">
-                          {source.type.toUpperCase()}
-                        </span>
-                        <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          Indexed
-                        </span>
-                      </div>
-                      <h4 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate" title={source.title || source.name}>
-                        {source.title || source.name}
-                      </h4>
-                      {source.url && (
-                        <a
-                          href={source.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-[11px] text-blue-600 dark:text-blue-400 truncate flex items-center gap-1 mt-0.5 hover:underline"
-                        >
-                          <ExternalLink size={10} />
-                          {source.url}
-                        </a>
-                      )}
-                      {formatFileSize(source.size) && (
-                        <p className="text-[10px] text-zinc-400 mt-0.5 font-mono">
-                          {formatFileSize(source.size)}
-                        </p>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveSource(source.id || source.title || source.name || '')}
-                      className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-all shrink-0"
-                      title="Remove source"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowSourcesDrawer(false);
-                  const evt = new CustomEvent('nk-open-sources-modal', { detail: { subject: selectedContext.subject } });
-                  window.dispatchEvent(evt);
-                }}
-                className="w-full py-2 rounded-xl text-xs font-semibold bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:opacity-90 transition-all flex items-center justify-center gap-1.5 shadow-xs"
-              >
-                <Plus size={14} />
-                <span>Add More Sources</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
     </div>
   );
