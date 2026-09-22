@@ -10,10 +10,11 @@ const razorpay = new Razorpay({
 
 export async function POST(req: NextRequest) {
   try {
-    const { amount, currency = 'INR', planTier } = (await req.json()) as {
+    const { amount, currency = 'INR', planTier, userId } = (await req.json()) as {
       amount?: number;
       currency?: string;
       planTier?: string;
+      userId?: string;
     };
 
     if (!amount || amount <= 0) {
@@ -28,7 +29,10 @@ export async function POST(req: NextRequest) {
       amount: Math.round(amount * 100), // Convert to paise
       currency,
       receipt: `receipt_${Date.now()}`,
-      notes: { planTier },
+      notes: {
+        planTier,
+        ...(userId ? { userId } : {}),
+      },
     });
 
     return NextResponse.json({
