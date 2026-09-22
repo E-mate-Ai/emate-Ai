@@ -1,0 +1,17 @@
+{
+  "projectId": "e8c4b5bd-8e30-43a8-be59-faea62759329",
+  "type": "frontend",
+  "name": "Sign-up and login screen renders authentication interface",
+  "description": "When a user navigates to /sign-up-login-screen, the authentication options and form inputs are visible.",
+  "priority": "p1",
+  "planSteps": [
+    {
+      "type": "action",
+      "description": "Navigate to /sign-up-login-screen"
+    },
+    {
+      "type": "assertion",
+      "description": "Verify the email and password inputs or sign-up form elements are visible"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "projectId": "e8c4b5bd-8e30-43a8-be59-faea62759329",
+  "type": "frontend",
+  "name": "Upgrade page displays subscription plans and features",
+  "description": "When a user navigates to /upgrade, the subscription tiers, pricing cards, and features are visible.",
+  "priority": "p1",
+  "planSteps": [
+    {
+      "type": "action",
+      "description": "Navigate to /upgrade"
+    },
+    {
+      "type": "assertion",
+      "description": "Verify the pricing tiers and upgrade subscription options are visible"
+    }
+  ]
+}

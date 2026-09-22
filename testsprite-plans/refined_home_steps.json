@@ -1,0 +1,5 @@
+[
+  { "type": "action", "description": "Navigate to the homepage" },
+  { "type": "action", "description": "If an onboarding or getting-started modal is visible, dismiss it by clicking the dark backdrop area outside the modal card" },
+  { "type": "assertion", "description": "Verify the AI Topper chat input area is visible and the onboarding modal overlay is no longer blocking the page" }
+]

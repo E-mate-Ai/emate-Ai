@@ -45,17 +45,29 @@ export async function POST(req: Request) {
     }
 
     const cookieHeader = req.headers.get('cookie');
-    const userKey = getCookie(cookieHeader, 'user_openrouter_key');
-    const apiKey =
-      userKey || process.env.OPENROUTER_SERVER_FREE_KEY || process.env.OPENROUTER_API_KEY;
+    const userKey =
+      getCookie(cookieHeader, 'user_openrouter_key') ||
+      // Fallback: client can also pass the key via Authorization: Bearer header
+      (() => {
+        const auth = req.headers.get('authorization') || req.headers.get('x-openrouter-key');
+        if (auth?.startsWith('Bearer sk-or-')) return auth.slice(7).trim();
+        if (auth?.startsWith('sk-or-')) return auth.trim();
+        return undefined;
+      })();
+    const serverKey = process.env.OPENROUTER_SERVER_FREE_KEY || process.env.OPENROUTER_API_KEY;
+    const apiKey = userKey || serverKey;
 
+    // No key at all — tell the user exactly what to do
     if (!apiKey || apiKey === 'your-openrouter-api-key-here') {
+      const isLoggedIn = Boolean(authenticatedUserId);
       return new Response(
         JSON.stringify({
-          error:
-            'OpenRouter API key is missing. Please connect your OpenRouter account to unlock unlimited access.',
+          error: isLoggedIn
+            ? 'No OpenRouter API key configured. Please connect your OpenRouter account in Settings → API Key to start chatting.'
+            : 'OpenRouter API key is missing. Please sign up and connect your OpenRouter account to unlock unlimited access.',
+          code: 'no_api_key',
         }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { status: 402, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
@@ -68,7 +80,7 @@ export async function POST(req: Request) {
       return new Response(
         JSON.stringify({
           error:
-            'Oops ! no credits left sign up and connect your key',
+            'Oops! No credits left. Sign up and connect your OpenRouter key to continue.',
           code: 'trial_exhausted',
         }),
         { status: 402, headers: { 'Content-Type': 'application/json' } }

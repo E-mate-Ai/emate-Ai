@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, X, Trash2, Plus, Sparkles, BookOpen, Clock } from 'lucide-react';
+import { ArrowLeft, X, Trash2, Plus, BookOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   getNotebook,
@@ -65,7 +65,6 @@ export default function NotebookOverlay({ subjectName, onClose, theme }: Noteboo
   const surface = theme === 'dark' ? '#111113' : '#f9f9fb';
   const cardBg = theme === 'dark' ? '#18181b' : '#ffffff';
   const textPrimary = theme === 'dark' ? '#f4f4f5' : '#18181b';
-  const textMuted = theme === 'dark' ? '#71717a' : '#71717a';
 
   return (
     <div
@@ -170,35 +169,13 @@ export default function NotebookOverlay({ subjectName, onClose, theme }: Noteboo
                   style={{ borderColor: bdr, background: cardBg }}
                 >
                   <p className="text-sm leading-relaxed whitespace-pre-wrap">{entry.content}</p>
-
-                  <div
-                    className="flex items-center justify-between mt-4 pt-3 border-t text-[10px]"
-                    style={{ borderColor: bdr, color: textMuted }}
+                  <button
+                    onClick={() => handleDeleteNote(entry.id)}
+                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 rounded-md text-zinc-400 hover:text-red-500 transition-all"
+                    title="Delete note"
                   >
-                    <div className="flex items-center gap-1">
-                      {entry.source === 'ai' ? (
-                        <span className="flex items-center gap-1 font-semibold text-indigo-500">
-                          <Sparkles className="w-3 h-3" /> Auto-Saved
-                        </span>
-                      ) : (
-                        <span className="font-semibold text-zinc-550 dark:text-zinc-400">
-                          Manual Note
-                        </span>
-                      )}
-                      <span>·</span>
-                      <span className="flex items-center gap-0.5">
-                        <Clock className="w-2.5 h-2.5" /> {entry.timestamp}
-                      </span>
-                    </div>
-
-                    <button
-                      onClick={() => handleDeleteNote(entry.id)}
-                      className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-zinc-400 hover:text-red-500 transition-all"
-                      title="Delete note"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               ))}
             </div>

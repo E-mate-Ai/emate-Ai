@@ -318,6 +318,8 @@ export default function AITopperChatScreen() {
         <div
           className="fixed inset-0 z-[200] flex items-center justify-center px-4"
           style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(16px)' }}
+          onClick={handleCloseGuide}
+          data-testid="onboarding-backdrop"
         >
           {/* Keyframe Animations */}
           <style
@@ -354,6 +356,8 @@ export default function AITopperChatScreen() {
                   : '1px solid rgba(31,81,255,0.16)',
               fontFamily: "'Inter', sans-serif",
             }}
+            onClick={(e) => e.stopPropagation()}
+            data-testid="onboarding-modal"
           >
             {/* Glowing background accent behind the icon */}
             <div
@@ -391,6 +395,8 @@ export default function AITopperChatScreen() {
               </div>
               <button
                 onClick={handleCloseGuide}
+                data-testid="onboarding-close"
+                aria-label="Close onboarding guide"
                 className="absolute top-5 right-5 w-8 h-8 rounded-full flex items-center justify-center border transition-all hover:bg-black/5 dark:hover:bg-white/5 active:scale-95 z-20"
                 style={{
                   borderColor: theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
@@ -469,6 +475,7 @@ export default function AITopperChatScreen() {
 
                 <button
                   onClick={handleNext}
+                  data-testid="onboarding-next"
                   className="px-6 py-3 rounded-2xl text-xs font-bold transition-all duration-200 flex items-center gap-1.5 hover:scale-[1.02] active:scale-[0.98] shadow-lg"
                   style={{
                     background: theme === 'dark' ? '#8aa2ff' : '#1f51ff',

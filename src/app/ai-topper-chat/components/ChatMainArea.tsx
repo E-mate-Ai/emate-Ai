@@ -400,7 +400,13 @@ export default function ChatMainArea({
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === 'OPENROUTER_AUTH_SUCCESS') {
         if (event.data.key) {
-          localStorage.setItem('user_openrouter_key', event.data.key);
+          const key = event.data.key;
+          // Persist to localStorage (client-side check)
+          localStorage.setItem('user_openrouter_key', key);
+          // Also persist to cookie so the server-side route can read it from the Cookie header
+          const maxAge = 60 * 60 * 24 * 30; // 30 days
+          const secure = location.protocol === 'https:' ? '; Secure' : '';
+          document.cookie = `user_openrouter_key=${encodeURIComponent(key)}; path=/; max-age=${maxAge}; SameSite=Lax${secure}`;
         }
         setIsConnectingOpenRouter(false);
         setIsOpenRouterConnected(true);
@@ -1186,9 +1192,22 @@ export default function ChatMainArea({
         (lastMsg as any)._attachments = base64Attachments;
       }
 
+      // Read the BYOK key to send as Authorization header fallback
+      const byokKey = typeof window !== 'undefined'
+        ? (localStorage.getItem('user_openrouter_key') ||
+           document.cookie.split('; ').find((r) => r.startsWith('user_openrouter_key='))
+             ?.split('=')[1]?.replace(/^"|"$/g, '') || '')
+        : '';
+
+      const fetchHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (byokKey) {
+        // Send as Authorization header so server can pick it up even if cookie isn't set
+        fetchHeaders['Authorization'] = `Bearer ${byokKey}`;
+      }
+
       const res = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: fetchHeaders,
         body: JSON.stringify({
           messages: finalPayloadMessages,
           mode,

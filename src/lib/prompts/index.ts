@@ -429,22 +429,44 @@ export function buildChatPrompt(options: ChatPromptOptions): PromptPayload {
 
   // 1. (a) Base identity & conversational instructions
   let systemPrompt = '';
-  if (isGeneralChat || (!subject && !unit && !notebookContext && (!retrievedChunks || retrievedChunks.length === 0))) {
-    systemPrompt = `${BASE_IDENTITY_PROMPT}\n\nYou are ready to assist with general study questions, problem-solving, and explanations across any topic.`;
-  } else {
-    const modeInstruction =
-      mode === 'sprint'
-        ? '\n\nMode: SPRINT — Give concise, bullet-pointed answers optimised for rapid last-minute revision. Prioritise key formulas, definitions, and high-yield exam tips.'
-        : '\n\nMode: DEEP DIVE — Give thorough, step-by-step conceptual explanations with intuitive analogies, edge cases, and worked examples.';
 
-    const contextSection =
+  const isStudyMode = !isGeneralChat && (subject || unit || notebookContext || (retrievedChunks && retrievedChunks.length > 0));
+
+  if (!isStudyMode) {
+    // ── General Workspace: direct, conversational answers. No study framing. ──
+    systemPrompt = `You are e-Mate AI, a knowledgeable and friendly AI assistant.
+
+Answer the user's question directly and helpfully. Be clear, accurate, and concise.
+- Use Markdown formatting (headers, bold, code blocks, bullet points) where it genuinely improves readability.
+- For math or formulas, use LaTeX ($...$ for inline, $$...$$ for block).
+- Do NOT add academic study framing, exam tips, or revision mode labels to general answers.
+- Do NOT start answers with preamble like "Sure!", "Of course!", or "Great question!".
+- Just answer the question directly.`;
+  } else {
+    // ── Study Mode: grounded academic tutor, adapts depth from mode flag. ──
+    // The mode flag controls HOW to answer (depth/format), NOT what to say as a preamble.
+    const depthGuidance =
+      mode === 'sprint'
+        ? 'Be concise and high-yield: lead with the key point, use tight bullet points, highlight important formulas and definitions. Skip lengthy preamble.'
+        : 'Be thorough: give step-by-step explanations, worked examples, intuitive analogies, and cover edge cases where relevant.';
+
+    const scopeNote =
       subject && unit
-        ? `\n\nCurrent Academic Scope: Subject = ${subject}, Unit = ${unit}. Tailor all answers to this syllabus scope.`
+        ? `The student is studying ${subject} — ${unit}.`
         : subject
-          ? `\n\nCurrent Academic Scope: Subject = ${subject}.`
+          ? `The student is studying ${subject}.`
           : '';
 
-    systemPrompt = `${BASE_IDENTITY_PROMPT}${contextSection}${modeInstruction}`;
+    systemPrompt = `You are e-Mate AI, an expert academic tutor helping a student prepare for exams.
+${scopeNote ? `\n${scopeNote}` : ''}
+${depthGuidance}
+
+Rules:
+- Answer the student's question directly. Do NOT start with "Mode: SPRINT", "Mode: DEEP DIVE", unit introductions, or any setup text.
+- Use Markdown: headers (##), bold key terms, bullet points, LaTeX math ($...$ / $$...$$).
+- Mark exam-critical points with ⭐ or 📌.
+- If notebook notes are provided, ground your answer in them and reference them naturally.
+- Do NOT announce the mode, subject, or unit at the start of your answer — just answer.`;
   }
 
   // 2. Apply Central Context Window Budget Enforcement
@@ -464,17 +486,17 @@ export function buildChatPrompt(options: ChatPromptOptions): PromptPayload {
 
   if (budgeted.finalChunks && budgeted.finalChunks.length > 0) {
     const formatted = formatRetrievedContext(budgeted.finalChunks, budget);
-    finalSystemPrompt += `\n\n## Verified Study Material Context:\n${formatted.formattedText}\n\nCitation Grounding Rules:\n- For any factual claims, definitions, or formulas drawing from the verified study context above, attach an inline citation marker matching the source attribute (e.g. [Source: filename.pdf, Page X] or [Doc: filename.pdf]).\n- If the verified study context above DOES NOT contain sufficient information to answer the student's question, explicitly state: "I couldn't find this in your uploaded sources."\n- Never fabricate citations or guess for knowledge not contained in the provided context blocks.`;
+    finalSystemPrompt += `\n\n<verified_study_context>\n${formatted.formattedText}\n</verified_study_context>\n\nWhen answering, draw from the verified study context above. Attach inline citations matching the source (e.g. [Source: filename.pdf, Page X]) for any factual claims. If the context does not contain the answer, say "I couldn't find this in your uploaded sources." — never fabricate.`;
     includedCount = formatted.includedCount;
     droppedCount = formatted.droppedCount;
   }
 
   if (budgeted.finalNotebookContext) {
-    finalSystemPrompt += `\n\n## Student's Personal Notebook for ${subject || 'this course'} (USE THIS to personalise answers):\n${budgeted.finalNotebookContext}\n\nAlways reference relevant notebook notes when answering.`;
+    finalSystemPrompt += `\n\n<student_notebook subject="${subject || 'this course'}">\n${budgeted.finalNotebookContext}\n</student_notebook>\n\nGround your answers in the student's notebook above when relevant. Do not mention that you have a notebook — just use it naturally.`;
   }
 
   if (options.isGroundingWeak) {
-    finalSystemPrompt += `\n\n## Grounding Fallback Notice:\nThe verified study material in the student's notebook does NOT contain sufficient information or relevance to answer this query. Strictly state:\n"I couldn't find this in your uploaded sources."\nOffer to explain from general knowledge if the student wishes, but make it unmistakably clear that this is not verified in their course material.`;
+    finalSystemPrompt += `\n\n[INTERNAL INSTRUCTION — do not repeat this to the user]\nThe retrieval system found no sufficiently relevant study material for this query. Politely tell the student you couldn't find this in their uploaded sources, and offer to explain from general knowledge if they'd like.`;
   }
 
   const messages: ChatMessage[] = [

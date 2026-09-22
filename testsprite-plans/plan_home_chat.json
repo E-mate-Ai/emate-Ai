@@ -1,0 +1,21 @@
+{
+  "projectId": "e8c4b5bd-8e30-43a8-be59-faea62759329",
+  "type": "frontend",
+  "name": "Homepage loads AI Topper chat interface and displays chat UI",
+  "description": "When a user navigates to the homepage, the AI Topper chat interface renders with conversation space and input area. If an onboarding modal appears, it should be dismissable by clicking the backdrop or close button.",
+  "priority": "p0",
+  "planSteps": [
+    {
+      "type": "action",
+      "description": "Navigate to the homepage"
+    },
+    {
+      "type": "action",
+      "description": "If an onboarding or getting-started modal is visible, dismiss it by clicking the dark backdrop area outside the modal card"
+    },
+    {
+      "type": "assertion",
+      "description": "Verify the AI Topper chat input area is visible and the onboarding modal overlay is no longer blocking the page"
+    }
+  ]
+}

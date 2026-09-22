@@ -382,7 +382,8 @@ export default function Sidebar({
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap"
         />
-        <div className="px-3 pt-3 pb-2 flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
+        {/* ── Sticky top section: logo + nav + search (never scrolls) ── */}
+        <div className="px-3 pt-3 pb-2 shrink-0">
           {/* Logo + collapse button */}
           <div className="flex items-center justify-between mb-3">
             <Link
@@ -500,9 +501,13 @@ export default function Sidebar({
               </span>
             </button>
           </nav>
+        </div>
+
+        {/* ── Scrollable section: notebooks + recent chats only ── */}
+        <div className="px-3 pb-2 flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
 
           {/* Notebooks & Recent Sections container with space-y-4 visual separation */}
-          <div className="mt-6 space-y-4">
+          <div className="mt-2 space-y-4">
             {/* Notebooks Section */}
             <div>
               <div className="flex items-center justify-between mb-2 px-3">

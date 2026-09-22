@@ -625,6 +625,8 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                   onClick={() => {
                     if (openRouterKey) {
                       localStorage.removeItem('user_openrouter_key');
+                      // Also expire the cookie so the server stops reading it
+                      document.cookie = 'user_openrouter_key=; path=/; max-age=0; SameSite=Lax';
                       setOpenRouterKey('');
                       toast.success('OpenRouter API key disconnected');
                     } else {
