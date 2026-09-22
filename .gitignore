@@ -3,44 +3,60 @@
 .env*
 !.env.example
 
-# Node modules
+# Dependencies
 node_modules/
-
-# Next.js build output
-.next/
-out/
-
-# Production build
-build/
-
-# Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+lerna-debug.log*
+*.log
+
+# Next.js build output
+.next/
+out/
+dist/
+build/
+
+# Turborepo & Monorepo
+.turbo/
+turbo/
 
 # OS-specific files
 .DS_Store
 Thumbs.db
 Icon?
 Icon*
-
-# External standalone tools
-gemini-web2api/
+*.swp
+*~
 
 # Vercel deployment
 .vercel/
 
-# Optional: if using TypeScript
+# TypeScript
 *.tsbuildinfo
+next-env.d.ts
 
-# Optional: if using testing tools
+# Testing & Coverage
 coverage/
 jest-test-results.json
+.nyc_output/
 
-# Optional: if using IDEs
+# IDEs and Editors
 .vscode/
 .idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
-# Optional: if using TurboRepo or monorepo
-turbo/
+# Temporary / Scratch files
+*.bak
+*.tmp
+*.old
+scratch/
+.tempmediaStorage/
+
+# External standalone tools
+gemini-web2api/

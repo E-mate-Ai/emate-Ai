@@ -1,9 +1,11 @@
 import { openRouterCompletion } from '@/lib/openrouter';
-import type { QuizGenerationRequest, MCQQuiz, MCQQuestion } from './types';
+import type { QuizGenerationRequest, MCQQuiz } from './types';
+import { validateAndNormalizeMCQQuiz } from '@/lib/tools/schemas';
 
 /**
  * MCQ Agent — generates multiple-choice quizzes from notebook context.
- * Enforces strict JSON output format and validates the response.
+ * Enforces strict JSON output format, validates against MCQQuiz schema,
+ * and includes automatic 1-attempt retry on malformed output.
  */
 export async function generateQuiz(
   apiKey: string,
@@ -20,12 +22,12 @@ export async function generateQuiz(
     `Generate exactly ${count} multiple-choice questions at ${difficulty} difficulty level.\n` +
     `Focus area: ${promptUnit || `general ${promptSubject}`}\n\n` +
     `STRICT FORMAT RULES:\n` +
-    `- Return ONLY a valid JSON array — no markdown, no explanation, no text outside the array.\n` +
-    `- Each object must have exactly these fields:\n` +
+    `- Return ONLY a valid JSON array or { "questions": [...] } object — no markdown, no explanation, no text outside JSON.\n` +
+    `- Each question object must have:\n` +
     `  {\n` +
     `    "question": "string — the question text",\n` +
     `    "options": ["A", "B", "C", "D"],\n` +
-    `    "correctAnswer": 0,  // index 0-3\n` +
+    `    "correctAnswer": 0,  // integer 0-3 index\n` +
     `    "topicTag": "string — specific sub-topic name",\n` +
     `    "explanation": "string — brief explanation of the correct answer"\n` +
     `  }\n` +
@@ -40,96 +42,117 @@ export async function generateQuiz(
 
   const userMessage = `Generate ${count} ${difficulty}-level MCQ questions for ${promptSubject}${promptUnit ? ` — ${promptUnit}` : ''}.${notebookSection}`;
 
-  const response = await openRouterCompletion(apiKey, {
+  // Attempt 1
+  let rawText = '';
+  try {
+    const response = await openRouterCompletion(apiKey, {
+      model: 'google/gemini-2.5-flash',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage },
+      ],
+      temperature: 0.7,
+      max_tokens: 2000,
+    });
+
+    rawText = extractContentText(response);
+    const parsedJson = parseRawJson(rawText);
+    const validation = validateAndNormalizeMCQQuiz(parsedJson, {
+      subject: promptSubject,
+      unit: promptUnit,
+    });
+
+    if (validation.valid && validation.data) {
+      return validation.data;
+    }
+  } catch (err) {
+    console.warn('[mcqAgent] Attempt 1 failed schema validation or parsing. Retrying with corrective prompt:', err);
+  }
+
+  // Attempt 2 (Automatic 1-attempt retry with stricter corrective prompt)
+  console.log('[mcqAgent] Executing retry attempt for quiz generation...');
+  const retryResponse = await openRouterCompletion(apiKey, {
     model: 'google/gemini-2.5-flash',
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userMessage },
+      {
+        role: 'assistant',
+        content: rawText || '[]',
+      },
+      {
+        role: 'user',
+        content: 'Your previous response was not valid JSON. Please return STRICTLY a valid JSON array of question objects matching the required schema.',
+      },
     ],
-    temperature: 0.7,
+    temperature: 0.3,
     max_tokens: 2000,
   });
 
-  const content = response?.choices?.[0]?.message?.content;
-  const text =
-    typeof content === 'string'
-      ? content
-      : Array.isArray(content)
-        ? content
-            .filter((p: any) => p.type === 'text')
-            .map((p: any) => p.text)
-            .join('')
-        : '';
-
-  const questions = extractAndValidateQuestions(text);
-
-  return {
-    id: `quiz-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  const retryText = extractContentText(retryResponse);
+  const retryParsed = parseRawJson(retryText);
+  const retryValidation = validateAndNormalizeMCQQuiz(retryParsed, {
     subject: promptSubject,
     unit: promptUnit,
-    questions,
-    createdAt: new Date().toISOString(),
-  };
+  });
+
+  if (retryValidation.valid && retryValidation.data) {
+    return retryValidation.data;
+  }
+
+  console.error('[mcqAgent] Quiz schema validation failed after retry:', retryValidation.error);
+  throw new Error(`Quiz generation failed schema validation: ${retryValidation.error || 'Malformed output'}`);
+}
+
+function extractContentText(response: any): string {
+  const content = response?.choices?.[0]?.message?.content;
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .filter((p: any) => p.type === 'text')
+      .map((p: any) => p.text)
+      .join('');
+  }
+  return '';
 }
 
 /**
- * Extract JSON array from the LLM response text, handling markdown code blocks
- * and other common LLM formatting quirks.
+ * Robust JSON extraction handling markdown code fences, object wrapping, and trailing characters.
  */
-function extractAndValidateQuestions(raw: string): MCQQuestion[] {
+function parseRawJson(raw: string): unknown {
+  if (!raw || !raw.trim()) return null;
+
   // 1. Strip markdown code fences (```json ... ``` or ``` ... ```)
   let cleaned = raw.replace(/```(?:json)?\s*\n?/g, '').replace(/```\s*$/gm, '').trim();
 
-  // 2. Strip any leading/trailing non-JSON text before the first `[` or after the last `]`
+  // Try direct parse first
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    /* fallback to substring extraction */
+  }
+
+  // 2. Find JSON Array [ ... ]
   const arrayStart = cleaned.indexOf('[');
   const arrayEnd = cleaned.lastIndexOf(']');
   if (arrayStart !== -1 && arrayEnd > arrayStart) {
-    cleaned = cleaned.slice(arrayStart, arrayEnd + 1);
-  }
-
-  let parsed: any[];
-  try {
-    parsed = JSON.parse(cleaned);
-  } catch (firstErr) {
-    // Fallback: try to find a JSON array embedded in the text
-    const arrayMatch = cleaned.match(/\[[\s\S]*\]/);
-    if (arrayMatch) {
-      try {
-        parsed = JSON.parse(arrayMatch[0]);
-      } catch {
-        console.error('[mcqAgent] Failed to parse extracted JSON array:', arrayMatch[0].slice(0, 200));
-        throw new Error('Quiz JSON is malformed — the LLM returned unparseable output. Please retry.');
-      }
-    } else {
-      console.error('[mcqAgent] No JSON array found in LLM response:', raw.slice(0, 300));
-      throw new Error('Failed to find quiz JSON in LLM response. Please retry.');
+    try {
+      return JSON.parse(cleaned.slice(arrayStart, arrayEnd + 1));
+    } catch {
+      /* ignore */
     }
   }
 
-  if (!Array.isArray(parsed)) {
-    throw new Error('LLM response is not a JSON array');
+  // 3. Find JSON Object { ... }
+  const objStart = cleaned.indexOf('{');
+  const objEnd = cleaned.lastIndexOf('}');
+  if (objStart !== -1 && objEnd > objStart) {
+    try {
+      return JSON.parse(cleaned.slice(objStart, objEnd + 1));
+    } catch {
+      /* ignore */
+    }
   }
 
-  // Validate and assign IDs
-  return parsed.map((q, index) => {
-    if (!q.question || !Array.isArray(q.options) || q.options.length !== 4) {
-      throw new Error(`Invalid question at index ${index}: missing question or options`);
-    }
-    if (typeof q.correctAnswer !== 'number' || q.correctAnswer < 0 || q.correctAnswer > 3) {
-      throw new Error(`Invalid correctAnswer at index ${index}`);
-    }
-    return {
-      id: `q-${Date.now()}-${index}`,
-      question: String(q.question),
-      options: [
-        String(q.options[0]),
-        String(q.options[1]),
-        String(q.options[2]),
-        String(q.options[3]),
-      ],
-      correctAnswer: q.correctAnswer,
-      topicTag: String(q.topicTag || `Topic ${index + 1}`),
-      explanation: String(q.explanation || ''),
-    };
-  });
+  return null;
 }

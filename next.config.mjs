@@ -10,6 +10,8 @@ const nextConfig = {
     // Fix workspace root resolution to avoid scanning parent user directory
     outputFileTracingRoot: path.resolve(__dirname),
     
+    serverExternalPackages: ['pdf-parse', 'pdfjs-dist', 'mammoth', '@napi-rs/canvas'],
+    
     // Performance and compression
     compress: true,
     poweredByHeader: false,

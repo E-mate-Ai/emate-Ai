@@ -1,13 +1,17 @@
 import { NextResponse, NextRequest } from "next/server";
 
 export async function GET(request: NextRequest) {
+  // Determine base URL dynamically from request, environment, or request headers
+  const origin = request.nextUrl.origin;
   const host = request.headers.get("x-forwarded-host") || request.headers.get("host");
-  const protocol = request.headers.get("x-forwarded-proto") || "https";
+  const protocol = request.headers.get("x-forwarded-proto") || (host?.includes("localhost") || host?.includes("127.0.0.1") ? "http" : "https");
 
-  const isLocal = host?.includes("localhost") || host?.includes("127.0.0.1");
-  const baseUrl = isLocal
-    ? "http://localhost:3000"
-    : (process.env.NEXT_PUBLIC_APP_URL || `${protocol}://${host}`);
+  const baseUrl = (
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    origin ||
+    (host ? `${protocol}://${host}` : "http://localhost:4028")
+  ).replace(/\/+$/, "");
 
   const callbackUrl = `${baseUrl}/api/auth/openrouter/callback`;
 

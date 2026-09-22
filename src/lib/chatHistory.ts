@@ -33,6 +33,8 @@ export interface ChatMessage {
   timestamp: string;
   subject?: string;
   isGeneralChat?: boolean;
+  /** Grounded citations attached to retrieved context chunks */
+  citations?: import('@/lib/prompts').Citation[];
   /** Generated images rendered live from React state. Never persisted. */
   images?: GeneratedImage[];
   /** Quiz analyzer report rendered inline. In-memory only, never persisted. */

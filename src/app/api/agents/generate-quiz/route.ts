@@ -1,4 +1,4 @@
-import { generateQuiz } from '@/lib/agents/mcqAgent';
+import { toolRegistry } from '@/lib/tools';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,15 +26,22 @@ export async function POST(req: Request) {
       );
     }
 
-    const quiz = await generateQuiz(apiKey, {
-      subject: subject || '',
-      unit: unit || '',
-      count: Math.min(Math.max(count || 5, 1), 20),
-      difficulty: difficulty || 'medium',
-      notebookContext: notebookContext || '',
+    const toolResult = await toolRegistry.execute('quiz_gen_tool', {
+      apiKey,
+      request: {
+        subject: subject || '',
+        unit: unit || '',
+        count: Math.min(Math.max(count || 5, 1), 20),
+        difficulty: difficulty || 'medium',
+        notebookContext: notebookContext || '',
+      },
     });
 
-    return new Response(JSON.stringify(quiz), {
+    if (!toolResult.success || !toolResult.data) {
+      throw new Error(toolResult.error || 'Failed to generate valid quiz.');
+    }
+
+    return new Response(JSON.stringify(toolResult.data), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });

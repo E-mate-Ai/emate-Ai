@@ -41,6 +41,8 @@ interface ChatMessageBubbleProps {
   onRegenerateImage?: (messageId: string, imageId: string, prompt: string) => void;
   /** Called when user clicks "Reinforce Weak Concepts" in an analyzer report. */
   onReinforce?: (weakTopics: string[], submissionData?: MCQSubmission) => void;
+  /** True when this message is actively streaming tokens from the LLM */
+  isStreaming?: boolean;
 }
 
 // ─── Collapsible details/summary component ───────────────────────────────────
@@ -374,6 +376,10 @@ function formatInline(text: string, theme: 'light' | 'dark' = 'dark'): string {
     .replace(
       /`(.+?)`/g,
       `<code style="padding:2px 6px;border-radius:4px;font-size:0.75rem;font-family:monospace;background:${codeBg};color:${codeColor}">$1</code>`
+    )
+    .replace(
+      /\[(?:Source|Doc):\s*([^\]]+)\]/gi,
+      `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;margin:2px 4px;border-radius:6px;font-size:0.7rem;font-weight:600;background:${chipBg};color:${codeColor};border:1px solid ${chipBorder};" title="Verified Study Source Citation">📎 $1</span>`
     );
 }
 
@@ -548,6 +554,85 @@ function ProcessAccordion({ processStep, theme }: ProcessAccordionProps) {
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 
+// ─── Grounded Citations List ─────────────────────────────────────────────────
+
+function GroundedCitationsList({
+  citations,
+  theme = 'dark',
+}: {
+  citations: import('@/lib/prompts').Citation[];
+  theme?: 'light' | 'dark';
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const isDark = theme === 'dark';
+
+  if (!citations || citations.length === 0) return null;
+
+  return (
+    <div
+      className="mt-3 pt-2 rounded-xl transition-all"
+      style={{
+        borderTop: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setIsExpanded((v) => !v)}
+        className="flex items-center gap-1.5 text-xs font-semibold hover:opacity-80 transition-opacity focus:outline-none cursor-pointer"
+        style={{ color: isDark ? '#a1a1aa' : '#52525b' }}
+      >
+        <span className="text-[11px]">📎</span>
+        <span>Grounded in {citations.length} source{citations.length > 1 ? 's' : ''}</span>
+        <ChevronRight
+          size={12}
+          className="transition-transform duration-200"
+          style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
+        />
+      </button>
+
+      {isExpanded && (
+        <div className="mt-2 space-y-1.5 animate-in fade-in duration-150">
+          {citations.map((c, idx) => (
+            <div
+              key={idx}
+              className="p-2.5 rounded-xl text-xs flex flex-col gap-1"
+              style={{
+                background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.05)',
+              }}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold truncate text-xs" style={{ color: isDark ? '#e4e4e7' : '#18181b' }}>
+                  {c.sourceFileName}
+                </span>
+                {c.page && (
+                  <span
+                    className="px-1.5 py-0.5 text-[10px] font-mono rounded shrink-0 font-medium"
+                    style={{
+                      background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                      color: isDark ? '#a1a1aa' : '#71717a',
+                    }}
+                  >
+                    Page {c.page}
+                  </span>
+                )}
+              </div>
+              {c.previewText && (
+                <p
+                  className="text-[11px] leading-relaxed line-clamp-2 italic"
+                  style={{ color: isDark ? '#a1a1aa' : '#71717a' }}
+                >
+                  "{c.previewText}"
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ChatMessageBubble({
   message,
   theme = 'dark',
@@ -555,6 +640,7 @@ export default function ChatMessageBubble({
   processStep = -1,
   onRegenerateImage,
   onReinforce,
+  isStreaming = false,
 }: ChatMessageBubbleProps) {
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -604,8 +690,31 @@ export default function ChatMessageBubble({
           className="prose prose-zinc dark:prose-invert max-w-none text-xs sm:text-sm leading-relaxed font-normal"
           style={{ color: isDark ? '#f4f4f5' : '#1a1a1a' }}
         >
-          {renderMarkdown(message.content, theme)}
+          {message.content ? (
+            <>
+              {renderMarkdown(message.content, theme)}
+              {isStreaming && (
+                <span
+                  className="inline-block w-1.5 h-3.5 ml-1 bg-blue-500 animate-pulse align-middle rounded-xs"
+                  aria-label="streaming"
+                />
+              )}
+            </>
+          ) : (
+            isStreaming && (
+              <div className="flex items-center gap-1.5 py-1.5 text-zinc-400 dark:text-zinc-500 text-xs">
+                <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
+            )
+          )}
         </div>
+
+        {/* Grounded Citations List if attached to message */}
+        {message.citations && message.citations.length > 0 && (
+          <GroundedCitationsList citations={message.citations} theme={theme} />
+        )}
 
         {/* Connect your apps Action Card block */}
         {(message.content.toLowerCase().includes('gmail') || message.content.toLowerCase().includes('inbox') || message.content.toLowerCase().includes('calendar')) && (

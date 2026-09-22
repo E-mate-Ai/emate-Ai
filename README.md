@@ -115,7 +115,7 @@ npm install
 Create a `.env.local` file in the root directory and add the following:
 
 ```env
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_URL=http://localhost:4028
 OPENROUTER_API_KEY=your_api_key_here
 DATABASE_URL=your_database_url_here
 # Add any additional keys your integrations require
@@ -129,7 +129,7 @@ DATABASE_URL=your_database_url_here
 npm run dev
 ```
 
-The app will be available at `http://localhost:3000`.
+The app will be available at `http://localhost:4028`.
 
 ---
 

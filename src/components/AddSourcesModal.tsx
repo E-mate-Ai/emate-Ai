@@ -16,16 +16,39 @@ import {
   File,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { getNotebook, saveNotebook, type NotebookEntry } from '@/lib/notebook';
+import { getNotebook, saveNotebook, addSubject, type NotebookEntry } from '@/lib/notebook';
+import { isGuestSession } from '@/lib/chatHistory';
+
+export function formatFileSize(size: string | number | undefined | null): string {
+  if (size === undefined || size === null || size === '') return '';
+  if (typeof size === 'string') {
+    if (size.includes('NaN')) return '';
+    if (/\b(B|KB|MB|GB|bytes)\b/i.test(size)) return size.trim();
+    const num = parseFloat(size);
+    if (isNaN(num) || num <= 0) return '';
+    if (num < 1024) return `${num.toFixed(0)} B`;
+    if (num < 1024 * 1024) return `${(num / 1024).toFixed(1)} KB`;
+    return `${(num / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  if (typeof size === 'number') {
+    if (isNaN(size) || size <= 0) return '';
+    if (size < 1024) return `${size.toFixed(0)} B`;
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  return '';
+}
 
 export interface SourceItem {
   id: string;
   title: string;
+  name?: string;
   type: 'file' | 'drive' | 'website' | 'text';
   content?: string;
   url?: string;
-  size?: string;
+  size?: string | number;
   timestamp: string;
+  status?: 'indexed' | 'processing' | 'error';
 }
 
 interface AddSourcesModalProps {
@@ -64,19 +87,30 @@ const DriveIcon = ({ className = 'w-4 h-4' }: { className?: string }) => (
   </svg>
 );
 
-export default function AddSourcesModal({ isOpen, onClose, subject }: AddSourcesModalProps) {
+export default function AddSourcesModal({ isOpen, onClose, subject: initialSubject }: AddSourcesModalProps) {
   const [sources, setSources] = useState<SourceItem[]>([]);
   const [activeInputMode, setActiveInputMode] = useState<'none' | 'drive' | 'website' | 'text'>('none');
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [driveUrl, setDriveUrl] = useState('');
   const [pastedTextTitle, setPastedTextTitle] = useState('');
   const [pastedTextContent, setPastedTextContent] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [currentSubject, setCurrentSubject] = useState(initialSubject || '');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    setCurrentSubject(initialSubject || '');
+  }, [initialSubject]);
 
   // Load existing sources whenever subject or modal open state changes
   useEffect(() => {
-    if (!isOpen || !subject) return;
-    const nb = getNotebook(subject);
+    if (!isOpen) return;
+    const targetSubj = currentSubject || (typeof window !== 'undefined' ? localStorage.getItem('nk-subject') || '' : '');
+    if (!targetSubj) {
+      setSources([]);
+      return;
+    }
+    const nb = getNotebook(targetSubj);
     const existingSources: SourceItem[] = (nb.entries || [])
       .filter((e) => e.type)
       .map((e) => ({
@@ -87,116 +121,234 @@ export default function AddSourcesModal({ isOpen, onClose, subject }: AddSources
         url: e.url,
         size: e.size,
         timestamp: e.timestamp,
+        status: 'indexed',
       }));
     setSources(existingSources);
-  }, [isOpen, subject]);
+  }, [isOpen, currentSubject]);
 
   if (!isOpen) return null;
 
-  const saveNewSource = (source: SourceItem) => {
-    const nb = getNotebook(subject);
-    const newEntry: NotebookEntry = {
-      id: source.id,
-      content: source.content || source.title,
-      timestamp: source.timestamp,
-      source: 'user',
-      type: source.type,
-      title: source.title,
-      url: source.url,
-      size: source.size,
-    };
-    const updatedEntries = [...nb.entries, newEntry];
-    saveNotebook(subject, { ...nb, entries: updatedEntries });
-    setSources((prev) => [source, ...prev]);
-    toast.success(`Added "${source.title}" to ${subject}`);
-    setActiveInputMode('none');
+  /**
+   * Helper: Ensures a sensible active notebook exists.
+   * If no notebook is active, creates one named cleanly after the source file / title.
+   */
+  const resolveTargetSubject = async (sourceHint: string): Promise<string> => {
+    if (currentSubject && currentSubject.trim()) return currentSubject.trim();
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('nk-subject') : '';
+    if (stored && stored.trim()) {
+      setCurrentSubject(stored.trim());
+      return stored.trim();
+    }
+
+    // Derive a clean, human-readable name from filename/title
+    const cleanName = sourceHint
+      .replace(/\.[^/.]+$/, '') // strip file extension
+      .replace(/[-_]+/g, ' ')   // replace hyphens/underscores with space
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const finalName = cleanName || 'Study Notebook';
+    await addSubject(finalName);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('nk-subject', finalName);
+      window.dispatchEvent(new Event('nk-context-change'));
+      window.dispatchEvent(new Event('nk-subjects-changed'));
+    }
+    setCurrentSubject(finalName);
+    return finalName;
   };
 
-  const handleDeleteSource = (sourceId: string, sourceTitle: string) => {
-    const nb = getNotebook(subject);
-    const updatedEntries = nb.entries.filter((e) => e.id !== sourceId);
-    saveNotebook(subject, { ...nb, entries: updatedEntries });
+  const saveNewSource = async (source: SourceItem, targetSubj?: string) => {
+    const finalTitle = source.title || source.name || 'Untitled Source';
+    const subj = targetSubj || (await resolveTargetSubject(finalTitle));
+    const nb = getNotebook(subj);
+    const newEntry: NotebookEntry = {
+      id: source.id,
+      content: source.content || finalTitle,
+      source: 'user',
+      type: source.type,
+      title: finalTitle,
+      url: source.url,
+      size: source.size ? String(source.size) : undefined,
+      timestamp: source.timestamp,
+    };
+    await saveNotebook(subj, {
+      ...nb,
+      entries: [...(nb.entries || []), newEntry],
+    });
+    setSources((prev) => [...prev, { ...source, title: finalTitle, name: finalTitle }]);
+    window.dispatchEvent(new CustomEvent('nk-sources-updated', { detail: { subject: subj } }));
+  };
+
+  const handleDeleteSource = async (sourceId: string, sourceTitle: string) => {
+    const subj = currentSubject || (typeof window !== 'undefined' ? localStorage.getItem('nk-subject') || '' : '');
+    if (!subj) return;
+    const nb = getNotebook(subj);
+    const updatedEntries = nb.entries.filter((e) => e.id !== sourceId && e.title !== sourceTitle);
+    await saveNotebook(subj, { ...nb, entries: updatedEntries });
     setSources((prev) => prev.filter((s) => s.id !== sourceId));
+    window.dispatchEvent(new CustomEvent('nk-sources-updated', { detail: { subject: subj } }));
     toast.info(`Removed "${sourceTitle}"`);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const text = event.target?.result as string;
-        const sizeFormatted = (file.size / 1024).toFixed(1) + ' KB';
-        saveNewSource({
-          id: `source-file-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-          title: file.name,
-          type: 'file',
-          content: text || `Content from ${file.name}`,
-          size: sizeFormatted,
-          timestamp: new Date().toLocaleDateString([], { month: 'short', day: 'numeric' }),
-        });
-      };
-      reader.readAsText(file);
-    });
+    const fileList = Array.from(files);
+    setIsUploading(true);
+    const isGuest = isGuestSession();
 
+    for (const file of fileList) {
+      const toastId = toast.loading(`Uploading & parsing "${file.name}"...`);
+      try {
+        const targetSubj = await resolveTargetSubject(file.name);
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('subject', targetSubj);
+
+        // Only request permanent DB store for authenticated users
+        if (!isGuest) {
+          formData.append('store', 'true');
+        }
+
+        const endpoint = isGuest
+          ? '/api/documents/parse?chunk=true'
+          : '/api/documents/parse?chunk=true&store=true';
+
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || `Failed to process ${file.name}`);
+        }
+
+        const data = await response.json();
+        const parsedDoc = data.document;
+        const totalChunks = data.chunking?.totalChunks || 1;
+        const sizeFormatted = formatFileSize(file.size);
+
+        await saveNewSource(
+          {
+            id: data.storage?.documentId || `source-file-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+            title: file.name,
+            name: file.name,
+            type: 'file',
+            content: parsedDoc.extractedText || `Extracted content from ${file.name}`,
+            size: sizeFormatted,
+            timestamp: new Date().toLocaleDateString([], { month: 'short', day: 'numeric' }),
+            status: 'indexed',
+          },
+          targetSubj
+        );
+
+        toast.success(`Added "${file.name}" (${totalChunks} chunks ready)`, { id: toastId });
+      } catch (err: any) {
+        toast.error(`Error with "${file.name}": ${err?.message || 'Processing failed'}`, { id: toastId });
+      }
+    }
+
+    setIsUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleAddWebsite = (e: React.FormEvent) => {
+  const handleAddWebsite = async (e: React.FormEvent) => {
     e.preventDefault();
     const url = websiteUrl.trim();
     if (!url) return;
-    let title = url.replace(/^https?:\/\//, '').replace(/\/$/, '');
-    if (title.length > 35) title = title.slice(0, 32) + '...';
 
-    saveNewSource({
-      id: `source-web-${Date.now()}`,
-      title: title || 'Website Link',
-      type: 'website',
-      url,
-      content: `Reference URL: ${url}`,
-      timestamp: new Date().toLocaleDateString([], { month: 'short', day: 'numeric' }),
-    });
+    let displayTitle = url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const toastId = toast.loading(`Resolving website "${displayTitle}"...`);
+
+    try {
+      const res = await fetch('/api/documents/fetch-title', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.title && data.title.trim()) {
+          displayTitle = data.title.trim();
+        }
+      }
+    } catch {
+      // Keep URL fallback
+    }
+
+    const targetSubj = await resolveTargetSubject(displayTitle);
+    await saveNewSource(
+      {
+        id: `source-web-${Date.now()}`,
+        title: displayTitle,
+        name: displayTitle,
+        type: 'website',
+        url,
+        content: `Reference URL: ${url}`,
+        timestamp: new Date().toLocaleDateString([], { month: 'short', day: 'numeric' }),
+        status: 'indexed',
+      },
+      targetSubj
+    );
+    toast.success(`Added website "${displayTitle}"`, { id: toastId });
     setWebsiteUrl('');
+    setActiveInputMode('none');
   };
 
-  const handleAddDrive = (e: React.FormEvent) => {
+  const handleAddDrive = async (e: React.FormEvent) => {
     e.preventDefault();
     const url = driveUrl.trim();
     if (!url) return;
     let title = 'Google Drive Document';
-    if (url.includes('/document/d/')) title = 'Drive Doc';
-    else if (url.includes('/spreadsheets/d/')) title = 'Drive Spreadsheet';
-    else if (url.includes('/presentation/d/')) title = 'Drive Slides';
+    if (url.includes('/document/d/')) title = 'Google Doc';
+    else if (url.includes('/spreadsheets/d/')) title = 'Google Sheet';
+    else if (url.includes('/presentation/d/')) title = 'Google Slide Deck';
 
-    saveNewSource({
-      id: `source-drive-${Date.now()}`,
-      title,
-      type: 'drive',
-      url,
-      content: `Google Drive file: ${url}`,
-      timestamp: new Date().toLocaleDateString([], { month: 'short', day: 'numeric' }),
-    });
+    const targetSubj = await resolveTargetSubject(title);
+    await saveNewSource(
+      {
+        id: `source-drive-${Date.now()}`,
+        title,
+        name: title,
+        type: 'drive',
+        url,
+        content: `Google Drive file: ${url}`,
+        timestamp: new Date().toLocaleDateString([], { month: 'short', day: 'numeric' }),
+        status: 'indexed',
+      },
+      targetSubj
+    );
     setDriveUrl('');
+    setActiveInputMode('none');
   };
 
-  const handleAddCopiedText = (e: React.FormEvent) => {
+  const handleAddCopiedText = async (e: React.FormEvent) => {
     e.preventDefault();
     const text = pastedTextContent.trim();
     if (!text) return;
-    const title = pastedTextTitle.trim() || text.slice(0, 25) + '...';
+    const title = pastedTextTitle.trim() || 'Pasted Notes';
+    const sizeFormatted = formatFileSize(new Blob([text]).size);
 
-    saveNewSource({
-      id: `source-text-${Date.now()}`,
-      title,
-      type: 'text',
-      content: text,
-      timestamp: new Date().toLocaleDateString([], { month: 'short', day: 'numeric' }),
-    });
+    const targetSubj = await resolveTargetSubject(title);
+    await saveNewSource(
+      {
+        id: `source-text-${Date.now()}`,
+        title,
+        name: title,
+        type: 'text',
+        size: sizeFormatted,
+        content: text,
+        timestamp: new Date().toLocaleDateString([], { month: 'short', day: 'numeric' }),
+        status: 'indexed',
+      },
+      targetSubj
+    );
     setPastedTextTitle('');
     setPastedTextContent('');
+    setActiveInputMode('none');
   };
 
   return (
@@ -237,16 +389,23 @@ export default function AddSourcesModal({ isOpen, onClose, subject }: AddSources
           <div className="md:col-span-4 flex flex-col gap-2.5">
             <button
               type="button"
+              disabled={isUploading}
               onClick={() => {
                 setActiveInputMode('none');
                 fileInputRef.current?.click();
               }}
-              className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-zinc-100/90 dark:bg-zinc-800/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80 text-zinc-800 dark:text-zinc-200 text-xs font-semibold transition-all cursor-pointer shadow-2xs group"
+              className={`flex items-center gap-3 px-4 py-3 rounded-2xl bg-zinc-100/90 dark:bg-zinc-800/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80 text-zinc-800 dark:text-zinc-200 text-xs font-semibold transition-all shadow-2xs group ${
+                isUploading ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+              }`}
             >
               <div className="w-6 h-6 rounded-full bg-white dark:bg-zinc-900 flex items-center justify-center text-zinc-700 dark:text-zinc-300 group-hover:scale-110 transition-transform">
-                <Plus size={14} strokeWidth={2.5} />
+                {isUploading ? (
+                  <div className="w-3.5 h-3.5 border-2 border-zinc-400 border-t-blue-600 rounded-full animate-spin" />
+                ) : (
+                  <Plus size={14} strokeWidth={2.5} />
+                )}
               </div>
-              <span>Upload files</span>
+              <span>{isUploading ? 'Processing & indexing...' : 'Upload files'}</span>
             </button>
 
             <button
@@ -448,7 +607,7 @@ export default function AddSourcesModal({ isOpen, onClose, subject }: AddSources
                               </p>
                               <p className="text-[10px] text-zinc-400 flex items-center gap-2">
                                 <span>{src.type.toUpperCase()}</span>
-                                {src.size && <span>• {src.size}</span>}
+                                {formatFileSize(src.size) && <span>• {formatFileSize(src.size)}</span>}
                                 <span>• {src.timestamp}</span>
                               </p>
                             </div>

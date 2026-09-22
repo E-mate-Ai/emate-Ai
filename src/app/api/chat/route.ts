@@ -5,9 +5,11 @@ import {
   type OpenRouterError,
 } from '@/lib/openrouter';
 import { createClient as createSupabaseServer } from '@/lib/supabase/server';
+import { toolRegistry, evaluateRetrievalConfidence } from '@/lib/tools';
+import { buildChatPrompt } from '@/lib/prompts';
 
 // Ultra-fast primary model (TTFT ~200-400ms via Nitro routing)
-const PRIMARY_MODEL = 'google/gemini-2.0-flash';
+const PRIMARY_MODEL = 'google/gemini-2.5-flash';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,68 +78,79 @@ export async function POST(req: Request) {
     // Prefer user-chosen model, fall back to ultra-fast primary
     const selectedModel = model || PRIMARY_MODEL;
 
-    // ── System prompt ────────────────────────────────────────────────────────
-    let systemPrompt = '';
-    if (isGeneralChat || (!subject && !unit && !notebookContext)) {
-      // No active study context → general-purpose assistant
-      systemPrompt =
-        `You are e-Mate AI, a smart study copilot and versatile AI assistant.\n` +
-        `Guidelines:\n` +
-        `- Answer the user's questions clearly, accurately, and conversationally.\n` +
-        `- Use standard Markdown for formatting.\n` +
-        `- You can help with any subject, topic, or general question.\n` +
-        `- When generating flashcards, hidden answers, or Q&A pairs, wrap answers in HTML details tags:\n` +
-        `  <details>\n` +
-        `  <summary>Click to reveal answer</summary>\n` +
-        `  **Answer:** your answer here\n` +
-        `  </details>`;
-    } else {
-      // Smart Payload & Context Trimming:
-      // Bypass heavy notebook context if the user's input is very short (e.g., "hi", "hello")
-      const lastMessageContent = messages.length > 0 ? messages[messages.length - 1].content : '';
-      const isShortGreeting = lastMessageContent.trim().split(/\s+/).length < 5;
+    // ── Semantic RAG Retrieval & Re-ranking via Tool-Calling Layer ──────────
+    const lastUserMessageObj = messages.filter((m: any) => m.role === 'user').pop();
+    const lastUserMessage = lastUserMessageObj?.content || '';
 
-      const notebookSection =
-        notebookContext && !isShortGreeting
-          ? `\n\n## Student's Personal Notebook for ${subject} (USE THIS to personalise answers):\n${notebookContext}\n\nAlways reference relevant notebook entries when answering to make answers feel personalised.`
-          : '';
+    let retrievedChunks: any[] = [];
+    let isGroundingWeak = false;
 
-      const modeInstruction =
-        mode === 'sprint'
-          ? '\n\nMode: SPRINT — Give concise, bullet-pointed answers optimised for last-minute revision. Prioritise key formulas, definitions and exam tips.'
-          : '\n\nMode: DEEP DIVE — Give thorough, step-by-step explanations with examples. Cover edge cases and exam pitfalls.';
-
-      const contextSection =
-        subject && unit
-          ? `\n\nCurrent study context: Subject = ${subject}, Unit = ${unit}. Tailor all answers to this scope.`
-          : '';
-
-      systemPrompt =
-        `You are e-Mate AI, an expert AI academic tutor helping students ace their university exams.\n` +
-        `Guidelines:\n` +
-        `- Answer naturally, conversationally, and directly to what the user asks.\n` +
-        `- Use Markdown formatting (headers, bullet points, code blocks) for clarity.\n` +
-        `- If the student's notebook contains relevant notes, reference them and build upon them.\n` +
-        `- Always highlight exam-important points with a ⭐ or 📌 marker.\n` +
-        `- When generating flashcards, hidden answers, or Q&A pairs, always wrap the answer in HTML details tags:\n` +
-        `  <details>\n` +
-        `  <summary>Click to reveal answer</summary>\n` +
-        `  **Answer:** your answer here\n` +
-        `  </details>` +
-        contextSection +
-        modeInstruction +
-        notebookSection;
+    if (!isGeneralChat && lastUserMessage.trim().length > 3) {
+      try {
+        const retResult = await toolRegistry.execute('retrieval_tool', {
+          query: lastUserMessage,
+          k: 4,
+          filterSubject: subject,
+          filterUserId: authenticatedUserId || undefined,
+          similarityThreshold: 0.15,
+        });
+        if (retResult.success && retResult.data) {
+          const guardrailEval = evaluateRetrievalConfidence(retResult.data);
+          if (guardrailEval.isConfident) {
+            retrievedChunks = retResult.data.chunks;
+          } else {
+            // Guardrail triggered: discard weakly relevant chunks and instruct ungrounded fallback
+            retrievedChunks = [];
+            isGroundingWeak = true;
+          }
+        }
+      } catch (err) {
+        console.warn('[Chat RAG] Retrieval tool failed, proceeding with notebook context:', err);
+      }
     }
 
-    // Conversation History Capping: Keep only the last 6 messages
-    const cappedMessages = messages.slice(-6);
+    // ── Build Structured Prompt via Unified Harness Prompt Engine ───────────
+    const chatPromptPayload = buildChatPrompt({
+      subject,
+      unit,
+      mode: mode === 'sprint' ? 'sprint' : 'deep-dive',
+      notebookContext,
+      retrievedChunks,
+      isGeneralChat,
+      isGroundingWeak,
+      historyMessages: messages.slice(0, -1).map((m: any) => ({
+        role: m.role,
+        content: m.content,
+      })),
+      currentUserMessage: lastUserMessage,
+      maxHistoryMessages: 6,
+    });
+
+    const systemMessage = chatPromptPayload.messages[0];
+    const cappedHistory = chatPromptPayload.messages.slice(1, -1);
+
+    // ── Prompt & Context Caching Layer ──────────────────────────────────────
+    const sessionKey = req.headers.get('x-session-id') || authenticatedUserId || subject || 'default-chat-session';
+    const { promptCache } = await import('@/lib/prompts');
+    const cacheEval = promptCache.evaluate(sessionKey, {
+      systemPrompt: systemMessage.content,
+      subject,
+      unit,
+      mode,
+      chunks: retrievedChunks,
+      notebookContext,
+    });
+
+    // Build system message with provider-native cache_control breakpoint
+    const cachedSystemMessage = promptCache.buildCachedSystemMessage(systemMessage.content, true);
 
     const formattedMessages = [
-      { role: 'system', content: systemPrompt },
-      ...cappedMessages.map((m: any, index: number) => {
-        // If this is the last message and we have attachments, format as multimodal array
-        if (index === cappedMessages.length - 1 && attachments && attachments.length > 0) {
-          const contentArray: any[] = [{ type: 'text', text: m.content }];
+      cachedSystemMessage,
+      ...cappedHistory.map((m: any) => ({ role: m.role, content: m.content })),
+      // Format last message (with attachments if present)
+      (() => {
+        if (attachments && attachments.length > 0) {
+          const contentArray: any[] = [{ type: 'text', text: lastUserMessage }];
           attachments.forEach((att: any) => {
             if (att.mimeType?.startsWith('image/') && att.data) {
               contentArray.push({
@@ -145,8 +158,6 @@ export async function POST(req: Request) {
                 image_url: { url: `data:${att.mimeType};base64,${att.data}` },
               });
             } else if (att.text) {
-              // Text-based document (txt, md, json, csv, …) — include the
-              // file's content as a text block so the model can reference it.
               const fileName = att.fileName || 'attached file';
               contentArray.push({
                 type: 'text',
@@ -154,14 +165,10 @@ export async function POST(req: Request) {
               });
             }
           });
-          return { role: m.role, content: contentArray };
+          return { role: 'user', content: contentArray };
         }
-
-        return {
-          role: m.role,
-          content: m.content,
-        };
-      }),
+        return { role: 'user', content: lastUserMessage };
+      })(),
     ];
 
     const headers = {
@@ -233,6 +240,12 @@ export async function POST(req: Request) {
       );
     }
 
+    // ── Build structured citation metadata via Citation Formatter Tool ─────
+    const citationResult = await toolRegistry.execute('citation_formatter_tool', {
+      chunks: retrievedChunks,
+    });
+    const citations = citationResult.success && citationResult.data ? citationResult.data : [];
+
     // ── SSE pipe: forward upstream stream straight to the client ─────────────
     // Transforms OpenRouter's raw NDJSON SSE lines into `data: "<delta>"\n\n`
     // so the client receives plain text deltas with no heavy parsing.
@@ -284,6 +297,11 @@ export async function POST(req: Request) {
           }
         }
 
+        // Send structured citation event if citations exist
+        if (citations.length > 0) {
+          await writer.write(encoder.encode(`data: ${JSON.stringify({ type: 'citations', citations })}\n\n`));
+        }
+
         await writer.write(encoder.encode('data: [DONE]\n\n'));
       } catch (err) {
         await writer.write(encoder.encode(`data: ${JSON.stringify({ error: String(err) })}\n\n`));
@@ -299,6 +317,11 @@ export async function POST(req: Request) {
         Connection: 'keep-alive',
         'X-Accel-Buffering': 'no', // Disable Nginx/Vercel proxy buffering
         'X-Content-Type-Options': 'nosniff', // Prevent browser content-sniffing delays
+        'X-Citations': encodeURIComponent(JSON.stringify(citations)),
+        'X-Retrieved-Chunks': encodeURIComponent(JSON.stringify(citations)),
+        'X-Prompt-Cache-Hit': String(cacheEval.isHit),
+        'X-Prompt-Cache-Saved': String(cacheEval.tokensSaved),
+        'X-Prompt-Cache-Fingerprint': cacheEval.shortKey,
       },
     });
   } catch (err: any) {

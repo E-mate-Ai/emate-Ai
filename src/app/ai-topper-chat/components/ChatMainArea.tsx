@@ -30,6 +30,10 @@ import {
   Lock,
   UploadCloud,
   Gift,
+  Paperclip,
+  Trash2,
+  ExternalLink,
+  File,
 } from 'lucide-react';
 import ChatMessageBubble from './ChatMessageBubble';
 import StreamingIndicator from './StreamingIndicator';
@@ -37,7 +41,16 @@ import { PromptInput } from '@/components/ui/ai-chat-input';
 import type { ChatMessage, SelectedContext, StudyMode } from './AITopperChatScreen';
 import { applyTheme } from '@/lib/theme';
 import { ModelSelector } from '@/components/ModelSelector';
-import { buildNotebookContext, appendToNotebook, addSubject, getSubjects, type Subject } from '@/lib/notebook';
+import {
+  buildNotebookContext,
+  appendToNotebook,
+  addSubject,
+  getSubjects,
+  getNotebook,
+  saveNotebook,
+  type Subject,
+} from '@/lib/notebook';
+import { formatFileSize, type SourceItem } from '@/components/AddSourcesModal';
 import {
   saveChatSession,
   saveChatTranscript,
@@ -149,6 +162,8 @@ export default function ChatMainArea({
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [isSupabaseSignedUp, setIsSupabaseSignedUp] = useState(false);
   const [notebookSessions, setNotebookSessions] = useState<ChatHistoryItem[]>([]);
+  const [notebookSources, setNotebookSources] = useState<SourceItem[]>([]);
+  const [showSourcesDrawer, setShowSourcesDrawer] = useState(false);
   const popupRef = useRef<Window | null>(null);
 
   // Keep notebook chat history in sync for the active subject
@@ -167,6 +182,43 @@ export default function ChatMainArea({
     syncNotebookSessions();
     window.addEventListener('nk-chat-history-change', syncNotebookSessions);
     return () => window.removeEventListener('nk-chat-history-change', syncNotebookSessions);
+  }, [selectedContext.subject]);
+
+  // Keep notebook sources in sync for the active subject
+  useEffect(() => {
+    const syncNotebookSources = () => {
+      if (!selectedContext.subject) {
+        setNotebookSources([]);
+        return;
+      }
+      const nb = getNotebook(selectedContext.subject);
+      const existing: SourceItem[] = (nb.entries || [])
+        .filter((e) => e.type)
+        .map((e) => {
+          const displayTitle = e.title || (e.content && !e.content.startsWith('http') ? e.content.slice(0, 35) : 'Untitled Source');
+          return {
+            id: e.id,
+            title: displayTitle,
+            name: displayTitle,
+            type: e.type || 'file',
+            content: e.content,
+            url: e.url,
+            size: e.size,
+            timestamp: e.timestamp,
+            status: 'indexed' as const,
+          };
+        });
+      setNotebookSources(existing);
+    };
+    syncNotebookSources();
+    window.addEventListener('nk-sources-updated', syncNotebookSources);
+    window.addEventListener('nk-notebook-change', syncNotebookSources);
+    window.addEventListener('nk-context-change', syncNotebookSources);
+    return () => {
+      window.removeEventListener('nk-sources-updated', syncNotebookSources);
+      window.removeEventListener('nk-notebook-change', syncNotebookSources);
+      window.removeEventListener('nk-context-change', syncNotebookSources);
+    };
   }, [selectedContext.subject]);
 
   // Keep subjects list in sync — initial load + reactive updates.
@@ -199,6 +251,32 @@ export default function ChatMainArea({
     checkSupabase();
     return () => { authSub?.unsubscribe(); };
   }, []);
+
+  const handleRemoveSource = (titleOrId: string) => {
+    if (!selectedContext.subject) return;
+    const current = getNotebook(selectedContext.subject);
+    const updatedEntries = current.entries.filter(
+      (e) => e.title !== titleOrId && e.id !== titleOrId
+    );
+    saveNotebook(selectedContext.subject, { ...current, entries: updatedEntries });
+    setNotebookSources(
+      updatedEntries.map((e) => {
+        const displayTitle = e.title || (e.content && !e.content.startsWith('http') ? e.content.slice(0, 35) : 'Untitled Source');
+        return {
+          id: e.id,
+          title: displayTitle,
+          name: displayTitle,
+          type: e.type || 'file',
+          content: e.content,
+          url: e.url,
+          size: e.size,
+          timestamp: e.timestamp,
+          status: 'indexed' as const,
+        };
+      })
+    );
+    window.dispatchEvent(new CustomEvent('nk-sources-updated', { detail: { subject: selectedContext.subject } }));
+  };
 
   // Identity: signed-up users (Supabase) OR connected OpenRouter users get full unlocked access!
   const isAuthenticated = isSupabaseSignedUp || isOpenRouterConnected;
@@ -1074,6 +1152,8 @@ export default function ChatMainArea({
       }
     };
 
+    const assistantMsgId = `msg-${String(msgCounter++).padStart(3, '0')}`;
+
     try {
       const notebookContext = isStudyMode ? buildNotebookContext(selectedContext.subject) : '';
       // actualAttachments lets the PromptInput pass fresh attachments that haven't
@@ -1117,7 +1197,16 @@ export default function ChatMainArea({
         throw new Error(msg);
       }
 
-      const assistantMsgId = `msg-${String(msgCounter++).padStart(3, '0')}`;
+      let initialCitations: import('@/lib/prompts').Citation[] = [];
+      const citationsHeader = res.headers.get('X-Citations');
+      if (citationsHeader) {
+        try {
+          initialCitations = JSON.parse(decodeURIComponent(citationsHeader));
+        } catch {
+          // Ignore header parse error
+        }
+      }
+
       setMessages((prev) => [
         ...prev,
         {
@@ -1128,6 +1217,7 @@ export default function ChatMainArea({
           timestamp: formatTimestamp(),
           subject: selectedContext.subject,
           isGeneralChat: !isStudyMode,
+          citations: initialCitations.length > 0 ? initialCitations : undefined,
         },
       ]);
 
@@ -1136,36 +1226,71 @@ export default function ChatMainArea({
 
       const decoder = new TextDecoder();
       let accumulatedText = '';
+      let activeCitations = initialCitations;
+      let sseBuffer = '';
 
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n\n');
+        sseBuffer += decoder.decode(value, { stream: true });
+        const lines = sseBuffer.split('\n\n');
+        sseBuffer = lines.pop() ?? '';
 
         for (let line of lines) {
           line = line.trim();
           if (line.startsWith('data: ')) {
-            const dataStr = line.replace('data: ', '');
+            const dataStr = line.replace(/^data:\s*/, '');
             if (dataStr === '[DONE]') continue;
             try {
-              // Server sends JSON-encoded string deltas: `data: "…"\n\n`
-              const delta = JSON.parse(dataStr);
-              if (typeof delta === 'string' && delta.length > 0) {
-                // FIX 5: Response generation was successful, now deduct credit
+              // Server sends JSON-encoded string deltas or citation events
+              const parsed = JSON.parse(dataStr);
+              if (parsed && typeof parsed === 'object') {
+                if (parsed.type === 'citations' && Array.isArray(parsed.citations)) {
+                  activeCitations = parsed.citations;
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === assistantMsgId ? { ...m, citations: activeCitations } : m
+                    )
+                  );
+                } else if (parsed.error) {
+                  throw new Error(parsed.error);
+                }
+              } else if (typeof parsed === 'string' && parsed.length > 0) {
+                // Response generation was successful, now deduct credit
                 deductCreditOnSuccess();
-                accumulatedText += delta;
+                accumulatedText += parsed;
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantMsgId ? { ...m, content: accumulatedText } : m
                   )
                 );
               }
-            } catch {
-              // Malformed chunk — skip silently (no notice injection)
+            } catch (err: any) {
+              // If it was an explicit server error JSON, rethrow to trigger catch block
+              if (err?.message && !err.message.includes('JSON')) {
+                throw err;
+              }
             }
           }
+        }
+      }
+
+      // Flush any remaining buffer content
+      if (sseBuffer.trim() && sseBuffer.trim() !== 'data: [DONE]' && sseBuffer.startsWith('data: ')) {
+        try {
+          const dataStr = sseBuffer.replace(/^data:\s*/, '');
+          const parsed = JSON.parse(dataStr);
+          if (typeof parsed === 'string' && parsed.length > 0) {
+            accumulatedText += parsed;
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantMsgId ? { ...m, content: accumulatedText } : m
+              )
+            );
+          }
+        } catch {
+          /* ignore */
         }
       }
 
@@ -1181,6 +1306,7 @@ export default function ChatMainArea({
           timestamp: formatTimestamp(),
           subject: selectedContext.subject,
           isGeneralChat: !isStudyMode,
+          citations: activeCitations.length > 0 ? activeCitations : undefined,
         },
       ]);
 
@@ -1194,7 +1320,7 @@ export default function ChatMainArea({
     } catch (err: any) {
       const rawMsg = err.message || 'Failed to connect to server.';
 
-      // FIX 6: If the chat history ALREADY contains an OpenRouter API key error,
+      // If the chat history ALREADY contains an OpenRouter API key error,
       // render a concise, non-disruptive 1-line note instead of repeating full error block.
       const isOpenRouterError = rawMsg.toLowerCase().includes('openrouter');
       const alreadyHasOpenRouterError = messages.some(
@@ -1207,14 +1333,34 @@ export default function ChatMainArea({
           : rawMsg;
 
       setMessages((prev) => {
-        const last = prev[prev.length - 1];
-        if (last && last.role === 'assistant' && last.content === displayContent) {
-          return prev;
+        const existing = prev.find((m) => m.id === assistantMsgId);
+        if (existing) {
+          if (existing.content.trim().length > 0) {
+            // Partial text already rendered: preserve it and append error notice
+            return prev.map((m) =>
+              m.id === assistantMsgId
+                ? {
+                    ...m,
+                    content: `${m.content}\n\n⚠️ *[Response interrupted: ${displayContent}]*`,
+                  }
+                : m
+            );
+          } else {
+            // No content yet: display the error message in the bubble
+            return prev.map((m) =>
+              m.id === assistantMsgId
+                ? {
+                    ...m,
+                    content: displayContent,
+                  }
+                : m
+            );
+          }
         }
         return [
           ...prev,
           {
-            id: `msg-${String(msgCounter++).padStart(3, '0')}`,
+            id: assistantMsgId,
             role: 'assistant',
             content: displayContent,
             mode,
@@ -1388,61 +1534,78 @@ export default function ChatMainArea({
         </button>
       </div>
 
-      {/* Floating Right: Invite Button Pill with Hover Popup Card */}
-      <div
-        className="absolute top-4 right-6 z-30 flex items-center"
-        onMouseEnter={handleInviteMouseEnter}
-        onMouseLeave={handleInviteMouseLeave}
-      >
-        <button
-          type="button"
-          onClick={() => {
-            const code = 'KZT1DM';
-            navigator.clipboard.writeText(`${window.location.origin}/invite/${code}`);
-            toast.success('Referral link copied to clipboard!');
-          }}
-          className="h-9 px-4 rounded-full bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 text-xs sm:text-sm font-semibold shadow-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all flex items-center gap-2 cursor-pointer active:scale-95"
-        >
-          <Gift size={16} className="text-zinc-800 dark:text-zinc-200" />
-          <span>Invite</span>
-        </button>
-
-        {/* Invite Hover Card Popup */}
-        {showInviteHover && (
-          <div
-            onMouseEnter={handleInviteMouseEnter}
-            onMouseLeave={handleInviteMouseLeave}
-            className="absolute right-0 top-11 z-50 w-80 sm:w-96 p-6 rounded-[32px] bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-2xl text-zinc-900 dark:text-white animate-in fade-in slide-in-from-top-2 duration-200"
+      {/* Floating Right: Sources Pill + Invite Button */}
+      <div className="absolute top-4 right-6 z-30 flex items-center gap-2">
+        {selectedContext.subject && (
+          <button
+            type="button"
+            onClick={() => setShowSourcesDrawer(true)}
+            className="h-9 px-3.5 rounded-full bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs font-semibold shadow-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+            title="View sources referenced by AI in this notebook"
           >
-            <div className="w-full flex justify-center mb-3">
-              <img
-                src="/images/3d_blue_gift_box.jpg"
-                alt="Gift Box"
-                className="w-32 h-32 object-contain"
-              />
-            </div>
-            <h4 className="text-lg font-bold text-zinc-900 dark:text-white mb-2 text-left">
-              Invite friends
-            </h4>
-            <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed text-left mb-4">
-              Invite a friend and you'll both get 1 billion Muse tokens when they redeem your code in Settings within 48 hours of joining. 30 uses left.
-            </p>
-            <div className="w-full py-3 px-4 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold text-sm text-center tracking-widest mb-3 select-all">
-              KZT1DM
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                const code = 'KZT1DM';
-                navigator.clipboard.writeText(`${window.location.origin}/invite/${code}`);
-                toast.success('Referral link copied to clipboard!');
-              }}
-              className="w-full py-3.5 rounded-full bg-[#0060df] hover:bg-[#0052cc] text-white text-sm font-semibold transition-all shadow-xs cursor-pointer active:scale-95 flex items-center justify-center"
-            >
-              Copy referral link
-            </button>
-          </div>
+            <Paperclip size={13} className="text-zinc-500 dark:text-zinc-400" />
+            <span>Sources</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-zinc-200/80 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold">
+              {notebookSources.length}
+            </span>
+          </button>
         )}
+
+        <div
+          className="relative flex items-center"
+          onMouseEnter={handleInviteMouseEnter}
+          onMouseLeave={handleInviteMouseLeave}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              const code = 'KZT1DM';
+              navigator.clipboard.writeText(`${window.location.origin}/invite/${code}`);
+              toast.success('Referral link copied to clipboard!');
+            }}
+            className="h-9 px-4 rounded-full bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 text-xs sm:text-sm font-semibold shadow-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+          >
+            <Gift size={16} className="text-zinc-800 dark:text-zinc-200" />
+            <span>Invite</span>
+          </button>
+
+          {/* Invite Hover Card Popup */}
+          {showInviteHover && (
+            <div
+              onMouseEnter={handleInviteMouseEnter}
+              onMouseLeave={handleInviteMouseLeave}
+              className="absolute right-0 top-11 z-50 w-80 sm:w-96 p-6 rounded-[32px] bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-2xl text-zinc-900 dark:text-white animate-in fade-in slide-in-from-top-2 duration-200"
+            >
+              <div className="w-full flex justify-center mb-3">
+                <img
+                  src="/images/3d_blue_gift_box.jpg"
+                  alt="Gift Box"
+                  className="w-32 h-32 object-contain"
+                />
+              </div>
+              <h4 className="text-lg font-bold text-zinc-900 dark:text-white mb-2 text-left">
+                Invite friends
+              </h4>
+              <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed text-left mb-4">
+                Invite a friend and you'll both get 1 billion Muse tokens when they redeem your code in Settings within 48 hours of joining. 30 uses left.
+              </p>
+              <div className="w-full py-3 px-4 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold text-sm text-center tracking-widest mb-3 select-all">
+                KZT1DM
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const code = 'KZT1DM';
+                  navigator.clipboard.writeText(`${window.location.origin}/invite/${code}`);
+                  toast.success('Referral link copied to clipboard!');
+                }}
+                className="w-full py-3.5 rounded-full bg-[#0060df] hover:bg-[#0052cc] text-white text-sm font-semibold transition-all shadow-xs cursor-pointer active:scale-95 flex items-center justify-center"
+              >
+                Copy referral link
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Glassmorphic Connect Modal / Paywall Modal */}
@@ -1728,6 +1891,87 @@ export default function ChatMainArea({
                     <span>Add sources</span>
                   </button>
                 </div>
+
+                {/* Notebook Sources Section in Empty View */}
+                {notebookSources.length > 0 ? (
+                  <div className="w-full mt-4 mb-1 p-3.5 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30">
+                    <div className="flex items-center justify-between mb-2.5">
+                      <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5 uppercase tracking-wider">
+                        <Paperclip size={13} className="text-zinc-400" />
+                        <span>Notebook Sources ({notebookSources.length})</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const evt = new CustomEvent('nk-open-sources-modal', { detail: { subject: selectedContext.subject } });
+                          window.dispatchEvent(evt);
+                        }}
+                        className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                      >
+                        <Plus size={12} />
+                        Add more
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                      {notebookSources.map((source, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between p-2.5 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm text-xs group hover:border-zinc-300 dark:hover:border-zinc-700 transition-all shadow-2xs"
+                        >
+                          <div className="flex items-center gap-2 min-w-0 pr-2">
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 shrink-0 border border-zinc-200/60 dark:border-zinc-700/60">
+                              {source.type.toUpperCase()}
+                            </span>
+                            <span className="truncate font-medium text-zinc-800 dark:text-zinc-200" title={source.title || source.name}>
+                              {source.title || source.name}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {formatFileSize(source.size) && (
+                              <span className="text-[10px] text-zinc-400 font-mono">
+                                {formatFileSize(source.size)}
+                              </span>
+                            )}
+                            <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              Indexed
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveSource(source.id || source.title || source.name || '')}
+                              className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/40 text-zinc-400 hover:text-red-500 transition-all"
+                              title="Remove source"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-full mt-4 mb-1 p-3 rounded-2xl border border-dashed border-zinc-200/80 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/20 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-400">
+                        <File size={14} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">No sources added yet</p>
+                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Add PDF, Doc, or Web links to ground responses in this notebook.</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const evt = new CustomEvent('nk-open-sources-modal', { detail: { subject: selectedContext.subject } });
+                        window.dispatchEvent(evt);
+                      }}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:opacity-90 transition-all shadow-xs"
+                    >
+                      Add source
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               /* Basic Chat Screen Heading & Subheading */
@@ -1841,16 +2085,17 @@ export default function ChatMainArea({
           </div>
         ) : (
           <div className="max-w-3xl mx-auto w-full px-4 py-6 pb-28 space-y-6">
-            {messages.map((msg) => (
+            {messages.map((msg, idx) => (
               <ChatMessageBubble
                 key={msg.id}
                 message={msg}
                 theme={theme}
                 onRegenerateImage={handleRegenerateImage}
                 onReinforce={handleReinforce}
+                isStreaming={isStreaming && idx === messages.length - 1 && msg.role === 'assistant'}
               />
             ))}
-            {isStreaming && <StreamingIndicator />}
+            {isStreaming && messages[messages.length - 1]?.role === 'user' && <StreamingIndicator />}
             <div ref={messagesEndRef} />
           </div>
         )}
@@ -1910,6 +2155,126 @@ export default function ChatMainArea({
         quiz={quizQuiz}
         onSubmit={handleQuizSubmission}
       />
+
+      {/* Sources Drawer Slide-over Modal for Active Chat Inspection */}
+      {showSourcesDrawer && (
+        <div className="fixed inset-0 z-[150] flex justify-end bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
+          <div
+            className="fixed inset-0"
+            onClick={() => setShowSourcesDrawer(false)}
+          />
+          <div className="relative w-full max-w-md h-full bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col z-10 animate-in slide-in-from-right duration-200">
+            <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-300">
+                  <Paperclip size={14} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                    Notebook Sources
+                  </h3>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {selectedContext.subject ? `Grounded in ${selectedContext.subject}` : 'Active session sources'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSourcesDrawer(false)}
+                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
+              {notebookSources.length === 0 ? (
+                <div className="text-center py-12 px-4 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl bg-zinc-50/50 dark:bg-zinc-900/20">
+                  <Paperclip size={24} className="mx-auto text-zinc-300 dark:text-zinc-600 mb-2" />
+                  <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                    No sources attached to this notebook
+                  </p>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 max-w-xs mx-auto mb-4">
+                    Add documents, notes, or web links to provide context for your questions.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowSourcesDrawer(false);
+                      const evt = new CustomEvent('nk-open-sources-modal', { detail: { subject: selectedContext.subject } });
+                      window.dispatchEvent(evt);
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-medium bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:opacity-90 transition-all"
+                  >
+                    + Add first source
+                  </button>
+                </div>
+              ) : (
+                notebookSources.map((source, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-start justify-between gap-3 group hover:border-zinc-300 dark:hover:border-zinc-700 transition-all"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-zinc-200/80 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 shrink-0">
+                          {source.type.toUpperCase()}
+                        </span>
+                        <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Indexed
+                        </span>
+                      </div>
+                      <h4 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate" title={source.title || source.name}>
+                        {source.title || source.name}
+                      </h4>
+                      {source.url && (
+                        <a
+                          href={source.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[11px] text-blue-600 dark:text-blue-400 truncate flex items-center gap-1 mt-0.5 hover:underline"
+                        >
+                          <ExternalLink size={10} />
+                          {source.url}
+                        </a>
+                      )}
+                      {formatFileSize(source.size) && (
+                        <p className="text-[10px] text-zinc-400 mt-0.5 font-mono">
+                          {formatFileSize(source.size)}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveSource(source.id || source.title || source.name || '')}
+                      className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-all shrink-0"
+                      title="Remove source"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSourcesDrawer(false);
+                  const evt = new CustomEvent('nk-open-sources-modal', { detail: { subject: selectedContext.subject } });
+                  window.dispatchEvent(evt);
+                }}
+                className="w-full py-2 rounded-xl text-xs font-semibold bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:opacity-90 transition-all flex items-center justify-center gap-1.5 shadow-xs"
+              >
+                <Plus size={14} />
+                <span>Add More Sources</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
