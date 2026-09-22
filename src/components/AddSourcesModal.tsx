@@ -359,7 +359,7 @@ export default function AddSourcesModal({ isOpen, onClose, subject: initialSubje
         ref={fileInputRef}
         onChange={handleFileUpload}
         multiple
-        accept=".pdf,.doc,.docx,.txt,.md,.png,.jpg,.jpeg"
+        accept=".pdf,.doc,.docx,.txt,.md,.json,.csv"
         className="hidden"
       />
 

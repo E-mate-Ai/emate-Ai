@@ -229,11 +229,65 @@ export async function parseDocx(buffer: Buffer, fileName: string, mimeType: stri
 
 // ── 3. PDF Parser (Powered by pdf-parse) ─────────────────────────────────────
 
+// Polyfill browser canvas globals required by pdfjs-dist / pdf-parse in serverless environments
+function ensureCanvasGlobals() {
+  if (typeof globalThis.DOMMatrix === 'undefined') {
+    (globalThis as any).DOMMatrix = class DOMMatrix {
+      a = 1; b = 0; c = 0; d = 1; e = 0; f = 0;
+      m11 = 1; m12 = 0; m13 = 0; m14 = 0;
+      m21 = 0; m22 = 1; m23 = 0; m24 = 0;
+      m31 = 0; m32 = 0; m33 = 1; m34 = 0;
+      m41 = 0; m42 = 0; m43 = 0; m44 = 1;
+      is2D = true;
+      isIdentity = true;
+      multiply() { return this; }
+      translate() { return this; }
+      scale() { return this; }
+      rotate() { return this; }
+      inverse() { return this; }
+      transformPoint(p: any) { return p; }
+    };
+  }
+  if (typeof globalThis.Path2D === 'undefined') {
+    (globalThis as any).Path2D = class Path2D {
+      addPath() {}
+      closePath() {}
+      moveTo() {}
+      lineTo() {}
+      bezierCurveTo() {}
+      quadraticCurveTo() {}
+      arc() {}
+      arcTo() {}
+      ellipse() {}
+      rect() {}
+    };
+  }
+  if (typeof globalThis.ImageData === 'undefined') {
+    (globalThis as any).ImageData = class ImageData {
+      data: Uint8ClampedArray;
+      width: number;
+      height: number;
+      constructor(widthOrData: any, height?: number) {
+        if (typeof widthOrData === 'number') {
+          this.width = widthOrData;
+          this.height = height || 0;
+          this.data = new Uint8ClampedArray(this.width * this.height * 4);
+        } else {
+          this.data = widthOrData;
+          this.width = height || 0;
+          this.height = this.data.length / (this.width * 4) || 0;
+        }
+      }
+    };
+  }
+}
+
 /**
  * Extracts text and per-page boundaries from PDF files using pdf-parse.
  */
 export async function parsePdf(buffer: Buffer, fileName: string, mimeType: string): Promise<ParsedDocument> {
   try {
+    ensureCanvasGlobals();
     const { PDFParse } = await import('pdf-parse');
     const parser = new PDFParse({ data: buffer });
     const result = await parser.getText();

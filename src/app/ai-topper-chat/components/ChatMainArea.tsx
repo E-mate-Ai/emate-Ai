@@ -625,12 +625,28 @@ export default function ChatMainArea({
   const convertFilesToBase64 = async (
     files: File[]
   ): Promise<{ data: string; mimeType: string; text?: string; fileName?: string }[]> => {
+    const resolveMimeType = (file: File) => {
+      if (file.type && file.type.trim().length > 0) return file.type;
+      const ext = file.name.toLowerCase().split('.').pop() || '';
+      if (ext === 'png') return 'image/png';
+      if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+      if (ext === 'webp') return 'image/webp';
+      if (ext === 'gif') return 'image/gif';
+      if (ext === 'svg') return 'image/svg+xml';
+      if (ext === 'pdf') return 'application/pdf';
+      if (ext === 'txt') return 'text/plain';
+      if (ext === 'md') return 'text/markdown';
+      if (ext === 'json') return 'application/json';
+      return 'application/octet-stream';
+    };
+
     return Promise.all(
       files.map((file) => {
         return new Promise<{ data: string; mimeType: string; text?: string; fileName?: string }>(
           (resolve, reject) => {
+            const detectedMime = resolveMimeType(file);
             const isTextFile =
-              file.type.startsWith('text/') ||
+              detectedMime.startsWith('text/') ||
               file.name.endsWith('.md') ||
               file.name.endsWith('.json') ||
               file.name.endsWith('.csv') ||
@@ -643,7 +659,7 @@ export default function ChatMainArea({
               const reader = new FileReader();
               reader.onload = () => {
                 const textContent = reader.result as string;
-                resolve({ data: '', mimeType: file.type, text: textContent, fileName: file.name });
+                resolve({ data: '', mimeType: detectedMime, text: textContent, fileName: file.name });
               };
               reader.onerror = reject;
               reader.readAsText(file);
@@ -651,8 +667,8 @@ export default function ChatMainArea({
               const reader = new FileReader();
               reader.onload = () => {
                 const result = reader.result as string;
-                const base64Data = result.split(',')[1];
-                resolve({ data: base64Data, mimeType: file.type, fileName: file.name });
+                const base64Data = result.includes(',') ? result.split(',')[1] : result;
+                resolve({ data: base64Data, mimeType: detectedMime, fileName: file.name });
               };
               reader.onerror = reject;
               reader.readAsDataURL(file);

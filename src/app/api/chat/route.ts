@@ -150,12 +150,33 @@ export async function POST(req: Request) {
       // Format last message (with attachments if present)
       (() => {
         if (attachments && attachments.length > 0) {
-          const contentArray: any[] = [{ type: 'text', text: lastUserMessage }];
+          const userPromptText = lastUserMessage.trim() || 'Please examine and explain the attached file/image in detail.';
+          const contentArray: any[] = [{ type: 'text', text: userPromptText }];
           attachments.forEach((att: any) => {
-            if (att.mimeType?.startsWith('image/') && att.data) {
+            const isImage =
+              Boolean(att.mimeType?.startsWith('image/')) ||
+              /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(att.fileName || '') ||
+              (typeof att.data === 'string' && att.data.startsWith('data:image/'));
+
+            if (isImage && att.data) {
+              const detectedMime =
+                att.mimeType?.startsWith('image/')
+                  ? att.mimeType
+                  : /\.(jpe?g)$/i.test(att.fileName || '')
+                    ? 'image/jpeg'
+                    : /\.(webp)$/i.test(att.fileName || '')
+                      ? 'image/webp'
+                      : /\.(gif)$/i.test(att.fileName || '')
+                        ? 'image/gif'
+                        : 'image/png';
+
+              const imageUrl = att.data.startsWith('data:')
+                ? att.data
+                : `data:${detectedMime};base64,${att.data}`;
+
               contentArray.push({
                 type: 'image_url',
-                image_url: { url: `data:${att.mimeType};base64,${att.data}` },
+                image_url: { url: imageUrl },
               });
             } else if (att.text) {
               const fileName = att.fileName || 'attached file';

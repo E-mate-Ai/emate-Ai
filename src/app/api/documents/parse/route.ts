@@ -5,6 +5,7 @@ import { storeDocumentAndChunks } from '@/lib/ingestion/chunkStorage';
 import { createClient as createSupabaseServer } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 /**
  * POST /api/documents/parse
