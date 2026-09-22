@@ -289,6 +289,22 @@ export async function parsePdf(buffer: Buffer, fileName: string, mimeType: strin
   try {
     ensureCanvasGlobals();
     const { PDFParse } = await import('pdf-parse');
+
+    // Configure worker location with fileURL for ESM compatibility, with inline fallback
+    try {
+      const { createRequire } = await import('module');
+      const { pathToFileURL } = await import('url');
+      const req = createRequire(import.meta.url);
+      const workerPath = req.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs');
+      PDFParse.setWorker(pathToFileURL(workerPath).href);
+    } catch {
+      try {
+        PDFParse.setWorker('');
+      } catch {
+        // Continue with default
+      }
+    }
+
     const parser = new PDFParse({ data: buffer });
     const result = await parser.getText();
 
@@ -302,11 +318,21 @@ export async function parsePdf(buffer: Buffer, fileName: string, mimeType: strin
 
     const fullText = (result.text || '').trim();
 
-    if (!fullText) {
-      throw new Error('PDF contains no extractable text (it may be scanned/image-only or encrypted).');
+    const cleanText = fullText.replace(/^(--\s*\d+\s*of\s*\d+\s*--\s*)+$/gm, '').trim();
+
+    if (!cleanText || pages.length === 0) {
+      throw new DocumentParsingError(
+        `PDF "${fileName}" contains no extractable text (it may be a scanned image or password-protected). Please upload a text-based PDF.`,
+        {
+          code: 'PDF_NO_TEXT',
+          fileName,
+          fileType: 'pdf',
+          statusCode: 422,
+        }
+      );
     }
 
-    const words = fullText.split(/\s+/).filter(Boolean).length;
+    const words = cleanText.split(/\s+/).filter(Boolean).length;
 
     return {
       fileName,
@@ -315,7 +341,7 @@ export async function parsePdf(buffer: Buffer, fileName: string, mimeType: strin
       fileSizeBytes: buffer.length,
       extractedText: fullText,
       pageMap: pages.length > 0 ? pages : undefined,
-      totalCharacters: fullText.length,
+      totalCharacters: cleanText.length,
       totalEstimatedWords: words,
       uploadedAt: new Date().toISOString(),
     };
@@ -323,7 +349,7 @@ export async function parsePdf(buffer: Buffer, fileName: string, mimeType: strin
     console.error('PDF parsing error detail:', err);
     if (err instanceof DocumentParsingError) throw err;
     throw new DocumentParsingError(
-      `Failed to parse PDF "${fileName}": ${err?.message || 'Corrupt or unsupported PDF file.'}`,
+      `Failed to parse PDF "${fileName}": ${err?.message || 'Corrupt or unsupported PDF format.'}`,
       {
         code: 'PDF_PARSE_FAILED',
         fileName,

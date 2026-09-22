@@ -12,6 +12,19 @@ const nextConfig = {
     
     serverExternalPackages: ['pdf-parse', 'pdfjs-dist', 'mammoth', '@napi-rs/canvas'],
     
+    // Explicitly trace pdfjs worker into Vercel/Next serverless function bundles
+    outputFileTracingIncludes: {
+        '/api/documents/parse': [
+            './node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs',
+            './node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs',
+            './node_modules/pdfjs-dist/build/pdf.worker.mjs',
+            './node_modules/pdfjs-dist/build/pdf.worker.min.mjs',
+        ],
+        '/api/**/*': [
+            './node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs',
+        ],
+    },
+    
     // Performance and compression
     compress: true,
     poweredByHeader: false,

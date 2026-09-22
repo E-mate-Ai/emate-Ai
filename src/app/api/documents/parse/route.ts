@@ -151,6 +151,15 @@ export async function POST(req: NextRequest) {
       { status: 415 }
     );
   } catch (error: any) {
+    console.error('[POST /api/documents/parse] Error details:', {
+      message: error?.message,
+      code: error?.code,
+      fileName: error?.fileName,
+      fileType: error?.fileType,
+      status: error?.statusCode || 500,
+      stack: error?.stack,
+    });
+
     if (error instanceof DocumentParsingError) {
       return NextResponse.json(
         {
@@ -158,6 +167,7 @@ export async function POST(req: NextRequest) {
           code: error.code,
           fileName: error.fileName,
           fileType: error.fileType,
+          detail: error.message,
         },
         { status: error.statusCode }
       );
@@ -167,6 +177,7 @@ export async function POST(req: NextRequest) {
       {
         error: error?.message || 'An unexpected error occurred while parsing the document.',
         code: 'INTERNAL_PARSE_ERROR',
+        detail: error?.message,
       },
       { status: 500 }
     );
