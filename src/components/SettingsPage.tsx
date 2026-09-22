@@ -106,6 +106,57 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
   const [walletBalance, setWalletBalanceState] = useState(100.0);
   const [autoRecharge, setAutoRechargeState] = useState(false); // Default OFF per user request
 
+  const [manualKeyInput, setManualKeyInput] = useState('');
+  const [isConnectingOpenRouter, setIsConnectingOpenRouter] = useState(false);
+
+  const handleOAuthConnect = () => {
+    const w = 600, h = 700;
+    const left = window.screenX + (window.outerWidth - w) / 2;
+    const top = window.screenY + (window.outerHeight - h) / 2;
+    window.open(
+      '/api/auth/openrouter/connect',
+      'OpenRouter Auth',
+      `width=${w},height=${h},left=${left},top=${top},toolbar=no,menubar=no`
+    );
+    setIsConnectingOpenRouter(true);
+  };
+
+  const handleSaveManualKey = (keyToSave?: string) => {
+    const k = (keyToSave ?? manualKeyInput).trim();
+    if (!k) {
+      toast.error('Please enter an API key');
+      return;
+    }
+    localStorage.setItem('user_openrouter_key', k);
+    const maxAge = 60 * 60 * 24 * 30; // 30 days
+    const secure = typeof location !== 'undefined' && location.protocol === 'https:' ? '; Secure' : '';
+    document.cookie = `user_openrouter_key=${encodeURIComponent(k)}; path=/; max-age=${maxAge}; SameSite=Lax${secure}`;
+    setOpenRouterKey(k);
+    setManualKeyInput('');
+    toast.success('OpenRouter API key saved successfully!');
+    fetchOpenRouterKeyInfo(k).then((info) => {
+      if (info) setOpenRouterKeyInfo(info);
+    });
+  };
+
+  useEffect(() => {
+    const handleMsg = (e: MessageEvent) => {
+      if (e.data?.type === 'OPENROUTER_AUTH_SUCCESS' && e.data.key) {
+        handleSaveManualKey(e.data.key);
+        setIsConnectingOpenRouter(false);
+      }
+    };
+    const handleOpenModal = () => {
+      handleOAuthConnect();
+    };
+    window.addEventListener('message', handleMsg);
+    window.addEventListener('nk-open-openrouter-modal', handleOpenModal);
+    return () => {
+      window.removeEventListener('message', handleMsg);
+      window.removeEventListener('nk-open-openrouter-modal', handleOpenModal);
+    };
+  }, []);
+
   // Sync real OpenRouter key, trial credits, tokens, and wallet balance
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -612,32 +663,77 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         {/* ── SECURE STORE TAB ───────────────────────────────────────────── */}
         {activeTab === 'secure_store' && (
           <div className="space-y-4">
-            <p className="text-xs text-zinc-500">Manage encrypted API keys and model credentials.</p>
-            <div className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 space-y-3">
+            <p className="text-xs text-zinc-500">Manage encrypted API keys and model credentials for unlimited access.</p>
+            <div className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 space-y-4">
               <div className="flex justify-between items-center text-xs">
                 <div>
                   <span className="font-semibold text-zinc-900 dark:text-white block">OpenRouter API Key</span>
                   <span className="font-mono text-zinc-400 text-[11px]">
                     {openRouterKey ? `sk-or-••••••••${openRouterKey.slice(-4)}` : 'Not connected'}
                   </span>
+                  {openRouterKeyInfo && (
+                    <div className="mt-1 flex items-center gap-2 text-[11px] text-zinc-500">
+                      <span>Usage: ${openRouterKeyInfo.usage.toFixed(4)} USD</span>
+                      <a
+                        href="https://openrouter.ai/settings/credits"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5"
+                      >
+                        Top up credits <ExternalLink size={10} />
+                      </a>
+                    </div>
+                  )}
                 </div>
-                <button
-                  onClick={() => {
-                    if (openRouterKey) {
-                      localStorage.removeItem('user_openrouter_key');
-                      // Also expire the cookie so the server stops reading it
-                      document.cookie = 'user_openrouter_key=; path=/; max-age=0; SameSite=Lax';
-                      setOpenRouterKey('');
-                      toast.success('OpenRouter API key disconnected');
-                    } else {
-                      window.dispatchEvent(new Event('nk-open-openrouter-modal'));
-                    }
-                  }}
-                  className="px-3.5 py-1.5 rounded-full text-xs font-medium bg-[#0060df] hover:bg-[#0052cc] text-white transition-all active:scale-95"
-                >
-                  {openRouterKey ? 'Disconnect' : 'Connect Key'}
-                </button>
+                <div className="flex items-center gap-2">
+                  {openRouterKey ? (
+                    <button
+                      onClick={() => {
+                        localStorage.removeItem('user_openrouter_key');
+                        document.cookie = 'user_openrouter_key=; path=/; max-age=0; SameSite=Lax';
+                        setOpenRouterKey('');
+                        setOpenRouterKeyInfo(null);
+                        toast.success('OpenRouter API key disconnected');
+                      }}
+                      className="px-3.5 py-1.5 rounded-full text-xs font-medium bg-red-600 hover:bg-red-700 text-white transition-all active:scale-95 cursor-pointer"
+                    >
+                      Disconnect
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleOAuthConnect}
+                      disabled={isConnectingOpenRouter}
+                      className="px-3.5 py-1.5 rounded-full text-xs font-medium bg-[#0060df] hover:bg-[#0052cc] text-white transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Sparkles size={13} />
+                      <span>{isConnectingOpenRouter ? 'Connecting...' : '1-Click Connect'}</span>
+                    </button>
+                  )}
+                </div>
               </div>
+
+              {/* Manual API Key Input */}
+              <div className="pt-2 border-t border-zinc-200/60 dark:border-zinc-800">
+                <label className="text-[11px] font-medium text-zinc-500 block mb-1.5">
+                  Or paste your OpenRouter API Key (sk-or-v1-...):
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="password"
+                    placeholder="sk-or-v1-..."
+                    value={manualKeyInput}
+                    onChange={(e) => setManualKeyInput(e.target.value)}
+                    className="flex-1 px-3 py-1.5 text-xs rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  <button
+                    onClick={() => handleSaveManualKey()}
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-medium bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:opacity-90 transition-all cursor-pointer"
+                  >
+                    Save Key
+                  </button>
+                </div>
+              </div>
+
               <div className="h-[1px] bg-zinc-200/70 dark:bg-zinc-800" />
               <div className="flex justify-between items-center text-xs">
                 <span className="font-semibold text-zinc-900 dark:text-white">Supabase Cloud Vector Key</span>

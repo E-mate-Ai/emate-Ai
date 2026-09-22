@@ -32,6 +32,7 @@ export async function POST(req: Request) {
       isGeneralChat,
       attachments,
       credits,
+      userApiKey,
     } = await req.json();
 
     // ── Extract authenticated user context from Supabase session ──────────
@@ -46,13 +47,17 @@ export async function POST(req: Request) {
 
     const cookieHeader = req.headers.get('cookie');
     const userKey =
+      (typeof userApiKey === 'string' && userApiKey.trim() ? userApiKey.trim() : undefined) ||
       getCookie(cookieHeader, 'user_openrouter_key') ||
       // Fallback: client can also pass the key via Authorization: Bearer header
       (() => {
         const auth = req.headers.get('authorization') || req.headers.get('x-openrouter-key');
-        if (auth?.startsWith('Bearer sk-or-')) return auth.slice(7).trim();
-        if (auth?.startsWith('sk-or-')) return auth.trim();
-        return undefined;
+        if (!auth) return undefined;
+        let token = auth.trim();
+        if (token.toLowerCase().startsWith('bearer ')) {
+          token = token.slice(7).trim();
+        }
+        return token || undefined;
       })();
     const serverKey = process.env.OPENROUTER_SERVER_FREE_KEY || process.env.OPENROUTER_API_KEY;
     const apiKey = userKey || serverKey;
@@ -212,7 +217,7 @@ export async function POST(req: Request) {
     };
 
     const baseBody = {
-      max_tokens: 1200, // Cap to minimise latency & cost
+      max_tokens: 500, // Safe default that fits tight credit reservations without 402 rejection
       temperature: 0.7,
       transforms: [], // Skip OpenRouter post-processing for zero added latency
       provider: {
@@ -222,10 +227,10 @@ export async function POST(req: Request) {
     };
 
     /**
-     * Task 4 — Automatic fallback: attempt the requested model; on a transient
+     * Automatic fallback: attempt the requested model; on a transient
      * provider/quota fault (429/5xx) transparently retry the same payload against
      * the model's own fallbackId (if any), then the global lightweight
-     * fallback models (gpt-4o-mini → gemini-2.0-flash) before surfacing an error.
+     * fallback models before surfacing an error.
      */
     const modelFallback = getModelFallbackId(selectedModel);
     const attemptOrder = [selectedModel, ...[modelFallback, ...FALLBACK_MODELS].filter(
@@ -242,16 +247,47 @@ export async function POST(req: Request) {
           messages: formattedMessages as any,
           stream: true,
           temperature: 0.7,
-          max_tokens: 1200,
+          max_tokens: 500,
           extraBody: baseBody,
         });
         break;
       } catch (err) {
         const oe = err as OpenRouterError;
-        // Non-retryable errors (401/402) are surfaced immediately.
+        // If 402 occurred because of max_tokens limit ("can only afford X" or "fewer max_tokens"), auto-recover
+        if (oe.status === 402 && oe.message && /afford\s+(\d+)/i.test(oe.message)) {
+          const affordMatch = oe.message.match(/afford\s+(\d+)/i);
+          const affordTokens = affordMatch ? parseInt(affordMatch[1], 10) : 0;
+          if (affordTokens > 60) {
+            try {
+              const retryTokens = Math.min(affordTokens - 15, 400);
+              upstreamRes = await openRouterCompletionStream(apiKey, {
+                model: candidate,
+                messages: formattedMessages as any,
+                stream: true,
+                temperature: 0.7,
+                max_tokens: retryTokens,
+                extraBody: { ...baseBody, max_tokens: retryTokens },
+              });
+              break;
+            } catch (retryErr) {
+              // fall through to standard error handling
+            }
+          }
+        }
+
+        // Non-retryable errors (401/402) are surfaced immediately with clean user-friendly messaging
         if (!oe.retryable) {
+          const isUserKey = Boolean(userKey);
+          let friendlyMsg = oe.message || 'OpenRouter request failed.';
+          if (oe.status === 402) {
+            friendlyMsg = isUserKey
+              ? 'Your connected OpenRouter account has insufficient credits ($0 balance). Please top up your credits at https://openrouter.ai/settings/credits to continue.'
+              : 'OpenRouter credits exhausted. Please connect your OpenRouter account in Settings to continue.';
+          } else if (oe.status === 401) {
+            friendlyMsg = 'Invalid OpenRouter API key. Please check your key in Settings.';
+          }
           return new Response(
-            JSON.stringify({ error: oe.message || 'OpenRouter request failed.' }),
+            JSON.stringify({ error: friendlyMsg, code: oe.status === 402 ? 'insufficient_credits' : 'invalid_key' }),
             { status: oe.status || 500, headers: { 'Content-Type': 'application/json' } }
           );
         }

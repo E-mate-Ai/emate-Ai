@@ -1,9 +1,8 @@
 /**
  * Session ID manager.
  * Generates and maintains a unique session_id for every user (guest or signed-in)
- * and syncs active session records to Supabase (`user_sessions` table).
+ * and safely syncs active session records via internal API route.
  */
-import { createClient } from '@/lib/supabase/client';
 
 const SESSION_KEY = 'nk_user_session_id';
 
@@ -20,29 +19,22 @@ export function getOrCreateSessionId(): string {
   return sessionId;
 }
 
-/** Track and sync active session ID to Supabase `user_sessions` table */
+/** Track and sync active session ID cleanly without PostgREST RLS 403 errors */
 export async function trackUserSession(): Promise<string> {
   const sessionId = getOrCreateSessionId();
   if (!sessionId || typeof window === 'undefined') return sessionId;
 
   try {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    const { error } = await supabase.from('user_sessions').upsert(
-      {
-        session_id: sessionId,
-        user_id: user?.id || null,
-        is_guest: !user,
-        user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
-        last_active_at: new Date().toISOString(),
-      },
-      { onConflict: 'session_id' }
-    );
-    if (error) {
-      // user_sessions table may not exist in user schema — log as debug and ignore
-    }
-  } catch (err) {
+    fetch('/api/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId,
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+      }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
     // Non-blocking background sync
   }
 

@@ -756,17 +756,29 @@ export default function ChatMessageBubble({
           </div>
         )}
 
-        {/* Interactive OpenRouter Connect CTA button for error messages */}
+        {/* Interactive OpenRouter CTA button for error messages */}
         {message.content.toLowerCase().includes('openrouter') && (
-          <div className="mt-3">
-            <button
-              type="button"
-              onClick={() => window.dispatchEvent(new Event('nk-open-openrouter-modal'))}
-              className="px-5 py-2.5 rounded-full bg-[#0060df] hover:bg-[#0052cc] text-white text-xs sm:text-sm font-medium inline-flex items-center gap-2 transition-all cursor-pointer shadow-xs active:scale-95"
-            >
-              <Plus size={16} />
-              <span>Connect OpenRouter Account</span>
-            </button>
+          <div className="mt-3 flex items-center gap-2">
+            {message.content.toLowerCase().includes('credit') || message.content.toLowerCase().includes('balance') ? (
+              <a
+                href="https://openrouter.ai/settings/credits"
+                target="_blank"
+                rel="noreferrer"
+                className="px-5 py-2.5 rounded-full bg-[#0060df] hover:bg-[#0052cc] text-white text-xs sm:text-sm font-medium inline-flex items-center gap-2 transition-all cursor-pointer shadow-xs active:scale-95"
+              >
+                <Sparkles size={16} />
+                <span>Add Credits on OpenRouter</span>
+              </a>
+            ) : (
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new Event('nk-open-openrouter-modal'))}
+                className="px-5 py-2.5 rounded-full bg-[#0060df] hover:bg-[#0052cc] text-white text-xs sm:text-sm font-medium inline-flex items-center gap-2 transition-all cursor-pointer shadow-xs active:scale-95"
+              >
+                <Plus size={16} />
+                <span>Connect OpenRouter Account</span>
+              </button>
+            )}
           </div>
         )}
 

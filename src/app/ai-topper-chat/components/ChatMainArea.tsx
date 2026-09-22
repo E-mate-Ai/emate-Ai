@@ -1217,6 +1217,7 @@ export default function ChatMainArea({
           isGeneralChat: !isStudyMode,
           attachments: base64Attachments,
           credits: guestCreditsSent, // sent for the server-side guest guard
+          userApiKey: byokKey || undefined,
         }),
       });
 
@@ -1573,7 +1574,9 @@ export default function ChatMainArea({
         {selectedContext.subject && (
           <button
             type="button"
-            onClick={() => setShowSourcesDrawer(true)}
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('nk-open-sources-modal', { detail: { subject: selectedContext.subject } }));
+            }}
             className="h-9 px-3.5 rounded-full bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs font-semibold shadow-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
             title="View sources referenced by AI in this notebook"
           >
