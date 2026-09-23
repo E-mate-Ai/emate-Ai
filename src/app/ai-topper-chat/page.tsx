@@ -2,13 +2,15 @@ import React, { Suspense } from 'react';
 import type { Metadata } from 'next';
 import AppLayout from '@/components/AppLayout';
 import AITopperChatScreen from './components/AITopperChatScreen';
-
 import SkeletonLoader from '@/components/SkeletonLoader';
 
 export const metadata: Metadata = {
-  title: 'Workspace — e-Mate AI',
+  title: 'AI Study Workspace & Exam Copilot — e-Mate AI',
   description:
-    'Chat with e-Mate AI copilot, generate active recall study sets, and run RAG workflows.',
+    'Interactive AI study workspace with syllabus context anchoring, smart flashcards, practice quizzes, and real-time document explanations.',
+  alternates: {
+    canonical: '/ai-topper-chat',
+  },
 };
 
 export default function AITopperPage() {
@@ -20,4 +22,3 @@ export default function AITopperPage() {
     </AppLayout>
   );
 }
-

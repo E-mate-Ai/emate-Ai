@@ -27,7 +27,7 @@ const AppLogo = memo(function AppLogo({
   if (src) {
     return (
       <div className={containerClassName} onClick={onClick}>
-        <img src={src} alt="Logo" width={size} height={size} className="flex-shrink-0 rounded-md" />
+        <img src={src} alt="e-Mate AI Logo" width={size} height={size} className="flex-shrink-0 rounded-md" />
       </div>
     );
   }

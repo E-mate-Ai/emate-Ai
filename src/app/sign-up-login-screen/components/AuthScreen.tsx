@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, Loader2, X, ArrowLeft, Mail, CheckCircle2, Sparkles, ShieldCheck, Zap, BookOpen } from 'lucide-react';
+import { Eye, EyeOff, Loader2, X, ArrowLeft, Mail, CheckCircle2, Sparkles, ShieldCheck, Zap, BookOpen, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import { clearGuestModeEnabled, setGuestModeEnabled } from '@/lib/guest-mode';
@@ -309,7 +309,7 @@ export default function AuthScreen() {
             >
               <img
                 src="/asset/images/e.svg"
-                alt=""
+                alt="e-Mate AI Logo"
                 className="h-full w-full object-contain"
               />
             </div>
@@ -364,7 +364,7 @@ export default function AuthScreen() {
               className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl border"
               style={{ borderColor: 'rgba(15,23,42,0.08)', background: '#f8f9fa' }}
             >
-              <img src="/asset/images/e.svg" alt="" className="h-full w-full object-contain" />
+              <img src="/asset/images/e.svg" alt="e-Mate AI Logo" className="h-full w-full object-contain" />
             </div>
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-zinc-500">
               e-Mate AI
@@ -516,10 +516,21 @@ export default function AuthScreen() {
                     placeholder="you@university.edu"
                     value={email}
                     autoComplete="email"
-                    onChange={(e) => setEmail(e.target.value)}
-                    className={inputClass}
-                    style={{ borderColor: inputBorder, color: fg, backgroundColor: inputBg }}
+                    aria-invalid={!!error}
+                    aria-describedby={error ? "auth-email-error" : undefined}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (error) setError(null);
+                    }}
+                    className={`${inputClass} ${error ? '!border-red-500 !ring-red-500/20' : ''}`}
+                    style={{ borderColor: error ? '#ef4444' : inputBorder, color: fg, backgroundColor: inputBg }}
                   />
+                  {error && (
+                    <p id="auth-email-error" className="text-xs text-red-500 dark:text-red-400 mt-1.5 flex items-center gap-1 font-medium animate-in fade-in duration-150">
+                      <AlertCircle size={13} className="shrink-0" />
+                      <span>{error}</span>
+                    </p>
+                  )}
                 </div>
                 <button
                   type="submit"
@@ -623,9 +634,14 @@ export default function AuthScreen() {
                       placeholder={isSignUp ? 'Min 6 characters' : 'Enter your password'}
                       value={password}
                       autoComplete={isSignUp ? 'new-password' : 'current-password'}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className={`${inputClass} pr-12`}
-                      style={{ borderColor: inputBorder, color: fg, backgroundColor: inputBg }}
+                      aria-invalid={!!error}
+                      aria-describedby={error ? "auth-password-error" : undefined}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (error) setError(null);
+                      }}
+                      className={`${inputClass} pr-12 ${error ? '!border-red-500 !ring-red-500/20' : ''}`}
+                      style={{ borderColor: error ? '#ef4444' : inputBorder, color: fg, backgroundColor: inputBg }}
                     />
                     <button
                       type="button"
@@ -637,6 +653,12 @@ export default function AuthScreen() {
                       {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
                   </div>
+                  {error && (
+                    <p id="auth-password-error" className="text-xs text-red-500 dark:text-red-400 mt-1.5 flex items-center gap-1 font-medium animate-in fade-in duration-150">
+                      <AlertCircle size={13} className="shrink-0" />
+                      <span>{error}</span>
+                    </p>
+                  )}
                 </div>
 
                 <button

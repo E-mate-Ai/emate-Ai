@@ -376,7 +376,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
               <div className="flex items-center gap-3.5 min-w-0">
                 <div className="w-10 h-10 rounded-xl bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center shrink-0 overflow-hidden text-zinc-700 dark:text-zinc-200">
                   {avatarUrl ? (
-                    <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                    <img src={avatarUrl} alt={`${profileName || 'User'} avatar`} className="w-full h-full object-cover" />
                   ) : (
                     <User size={20} />
                   )}
@@ -818,14 +818,19 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
           <div className="space-y-4">
             <div className="p-5 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 space-y-3 text-xs">
               <h4 className="font-semibold text-sm text-zinc-900 dark:text-white">Direct Support Contact</h4>
-              <p className="text-zinc-500 leading-relaxed">Reach out to our engineering team for instant assistance.</p>
+              <p className="text-zinc-500 leading-relaxed">Reach out to our engineering and student support team for instant assistance.</p>
               <div className="flex flex-col sm:flex-row gap-2 pt-1">
-                <a href="mailto:isachinbisht@gmail.com" className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold">
-                  <Mail size={14} /> isachinbisht@gmail.com
+                <a href="mailto:support@emate-ai.com" className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold hover:bg-blue-500/20 transition-colors">
+                  <Mail size={14} /> support@emate-ai.com
                 </a>
-                <a href="tel:+918860911070" className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-200/60 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-semibold">
+                <a href="tel:+918860911070" className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-200/60 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-semibold hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">
                   <Phone size={14} /> +91 8860911070
                 </a>
+              </div>
+              <div className="pt-3 border-t border-zinc-200/60 dark:border-zinc-800/80 text-zinc-500 space-y-1">
+                <span className="font-semibold text-zinc-700 dark:text-zinc-300 block">Registered Corporate Office</span>
+                <p>e-Mate AI Technologies, Plot 42, Sector 18, Institutional Area, Gurugram, Delhi NCR 122015, India</p>
+                <p className="text-[11px] text-zinc-400">Hours: Mon – Sat, 9:00 AM – 7:00 PM IST</p>
               </div>
             </div>
           </div>
@@ -834,10 +839,19 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         {/* ── LEGAL INFO TAB ────────────────────────────────────────────── */}
         {activeTab === 'legal' && (
           <div className="space-y-3 text-xs text-zinc-500">
-            <div className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 space-y-2">
+            <div className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 space-y-3">
               <h4 className="font-semibold text-zinc-900 dark:text-white">e-Mate Artificial Intelligence System</h4>
-              <p>Version 2.4.0 (Build 2026.09)</p>
-              <p>© 2026 e-Mate AI. All rights reserved.</p>
+              <p>Version 2.4.0 (Production Build 2026.09)</p>
+              <p>© 2026 e-Mate AI Technologies. All rights reserved.</p>
+              <div className="pt-2 border-t border-zinc-200/60 dark:border-zinc-800 flex items-center gap-3">
+                <a href="/privacy" target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
+                  Privacy Policy <ArrowUpRight size={12} />
+                </a>
+                <span>•</span>
+                <a href="/terms" target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
+                  Terms of Service <ArrowUpRight size={12} />
+                </a>
+              </div>
             </div>
           </div>
         )}

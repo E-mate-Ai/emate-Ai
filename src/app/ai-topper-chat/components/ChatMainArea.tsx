@@ -34,6 +34,13 @@ import {
   Trash2,
   ExternalLink,
   File,
+  ArrowRight,
+  Hourglass,
+  Layers,
+  ListChecks,
+  Target,
+  HelpCircle,
+  CheckCircle2,
 } from 'lucide-react';
 import ChatMessageBubble from './ChatMessageBubble';
 import StreamingIndicator from './StreamingIndicator';
@@ -70,6 +77,7 @@ import {
 } from '@/lib/credits';
 import { toast } from 'sonner';
 import dynamic from 'next/dynamic';
+import StickyMobileCTA from '@/components/StickyMobileCTA';
 
 const MCQAssessmentContainer = dynamic(() => import('@/components/MCQAssessmentContainer'), {
   ssr: false,
@@ -77,43 +85,237 @@ const MCQAssessmentContainer = dynamic(() => import('@/components/MCQAssessmentC
 import type { MCQQuiz, MCQSubmission } from '@/lib/agents/types';
 import { generateAnalyzerReport } from '@/lib/agents/studyAnalyzer';
 
-// Study quick actions are built dynamically inside the component from selectedContext.
+interface SuggestionItem {
+  icon: React.ElementType;
+  text: string;
+  prompt: string;
+}
 
-const GENERAL_QUICK_ACTIONS = [
+interface SuggestionCategory {
+  id: string;
+  label: string;
+  icon: React.ElementType;
+  items: SuggestionItem[];
+}
+
+const STUDY_CATEGORIES: SuggestionCategory[] = [
   {
-    icon: Code2,
-    label: 'Code & algorithms',
-    prompt: 'Help me write, debug, or optimize code for: ',
+    id: 'suggested',
+    label: 'Suggested',
+    icon: Lightbulb,
+    items: [
+      {
+        icon: Hourglass,
+        text: 'A 15-minute high-yield study sprint plan for my next exam',
+        prompt: 'Create a 15-minute high-yield study sprint plan for my next exam: ',
+      },
+      {
+        icon: Layers,
+        text: 'Explain this concept step-by-step with exam-ready clarity',
+        prompt: 'Explain this concept step-by-step with exam-ready clarity: ',
+      },
+      {
+        icon: BookOpen,
+        text: '5 active recall flashcards with test questions and answers',
+        prompt: 'Generate 5 active recall flashcards with test questions and answers on: ',
+      },
+    ],
   },
   {
-    icon: PenLine,
-    label: 'Refine notes & drafts',
-    prompt: 'Help me polish and structure this study draft: ',
+    id: 'sprint',
+    label: 'Study Sprint',
+    icon: Zap,
+    items: [
+      {
+        icon: FileText,
+        text: 'Rapid revision cheat-sheet with core formulas and definitions',
+        prompt: 'Create a rapid revision one-pager with essential formulas and definitions for: ',
+      },
+      {
+        icon: Target,
+        text: 'Identify the top 3 most common exam traps and pitfalls',
+        prompt: 'What are the top 3 most common exam traps, misconceptions, and mistakes students make in: ',
+      },
+      {
+        icon: Hourglass,
+        text: 'Break down this chapter into a 3-day spaced repetition cycle',
+        prompt: 'Break down this chapter into an efficient 3-day spaced repetition review schedule: ',
+      },
+    ],
   },
   {
-    icon: Brain,
-    label: 'Brainstorm study plan',
-    prompt: 'Help me design a high-efficiency study plan for: ',
+    id: 'flashcards',
+    label: 'Flashcards',
+    icon: BookOpen,
+    items: [
+      {
+        icon: Layers,
+        text: 'Active recall Q&A flashcards with difficulty ratings',
+        prompt: 'Generate 5 high-yield active recall flashcard pairs (Question & Answer) with difficulty levels for: ',
+      },
+      {
+        icon: HelpCircle,
+        text: 'Quick self-test quiz on essential terms and concepts',
+        prompt: 'Quiz me on the 5 most critical foundational concepts and terms in: ',
+      },
+      {
+        icon: CheckCircle2,
+        text: 'Formula flashcards for equations, variables, and units',
+        prompt: 'Create quick-reference formula flashcards explaining each variable, unit, and condition for: ',
+      },
+    ],
   },
   {
+    id: 'examprep',
+    label: 'Exam Prep',
+    icon: GraduationCap,
+    items: [
+      {
+        icon: ListChecks,
+        text: 'Draft 3 multiple-choice practice questions with detailed solutions',
+        prompt: 'Generate 3 exam-style multiple-choice questions (MCQs) with four options and thorough explanations for: ',
+      },
+      {
+        icon: PenLine,
+        text: 'Simulate a 5-mark short answer question with marking rubric',
+        prompt: 'Provide a realistic 5-mark university exam question along with a model answer and step-by-step marking scheme for: ',
+      },
+      {
+        icon: Target,
+        text: 'Predict high-probability exam questions from this topic',
+        prompt: 'What are the highest probability exam questions and core derivations typically asked from: ',
+      },
+    ],
+  },
+  {
+    id: 'deepdive',
+    label: 'Deep Dive',
     icon: Compass,
-    label: 'Step-by-step breakdown',
-    prompt: 'Break down this complex topic into clear, easy steps: ',
+    items: [
+      {
+        icon: Lightbulb,
+        text: 'Explain the intuition behind this concept like I am 5',
+        prompt: 'Explain the core intuition and real-world analogy behind this concept as simply as possible: ',
+      },
+      {
+        icon: Code2,
+        text: 'Help me write, trace, or optimize algorithm code',
+        prompt: 'Help me write, trace, and analyze the time/space complexity for: ',
+      },
+      {
+        icon: Compass,
+        text: 'Compare and contrast two competing theories or methods',
+        prompt: 'Compare and contrast the key trade-offs, advantages, and limitations between: ',
+      },
+    ],
   },
 ];
 
-// Guests get targeted study quick actions: step-by-step breakdown and high-yield summary.
-const GUEST_QUICK_ACTIONS = [
+const GENERAL_CATEGORIES: SuggestionCategory[] = [
   {
-    icon: Compass,
-    label: 'Step-by-step breakdown',
-    prompt: 'Explain this topic step-by-step with exam-ready clarity: ',
+    id: 'suggested',
+    label: 'Suggested',
+    icon: Lightbulb,
+    items: [
+      {
+        icon: Brain,
+        text: 'Brainstorm creative solutions and fresh perspectives for a project',
+        prompt: 'Help me brainstorm creative solutions and fresh perspectives for: ',
+      },
+      {
+        icon: Code2,
+        text: 'Debug, explain, or optimize a piece of code',
+        prompt: 'Help me debug, optimize, and explain this code: ',
+      },
+      {
+        icon: PenLine,
+        text: 'Draft or polish an important message, proposal, or document',
+        prompt: 'Help me write and refine a clear, compelling draft for: ',
+      },
+    ],
   },
   {
-    icon: Sparkles,
-    label: 'High-yield summary',
-    prompt: 'Summarize this into high-yield, exam-focused key points: ',
+    id: 'coding',
+    label: 'Code & Dev',
+    icon: Code2,
+    items: [
+      {
+        icon: Code2,
+        text: 'Write a clean, production-ready function with error handling',
+        prompt: 'Write a clean, well-tested, production-ready function for: ',
+      },
+      {
+        icon: Layers,
+        text: 'Analyze time & space complexity with step-by-step optimization',
+        prompt: 'Analyze the algorithmic time and space complexity of this approach: ',
+      },
+      {
+        icon: CheckCircle2,
+        text: 'Review logic for potential edge cases and security issues',
+        prompt: 'Perform a thorough code review looking for edge cases, performance bottlenecks, and bugs: ',
+      },
+    ],
   },
+  {
+    id: 'writing',
+    label: 'Writing',
+    icon: PenLine,
+    items: [
+      {
+        icon: FileText,
+        text: 'Polish draft to be more engaging, crisp, and professional',
+        prompt: 'Rewrite and polish this text to sound more engaging, crisp, and professional: ',
+      },
+      {
+        icon: ListChecks,
+        text: 'Summarize long content into 3 actionable key takeaways',
+        prompt: 'Summarize the following text into 3 high-impact, actionable takeaways: ',
+      },
+      {
+        icon: Lightbulb,
+        text: 'Reframe complex ideas into clear analogies and bullet points',
+        prompt: 'Explain and reframe this complex idea using clear real-world analogies: ',
+      },
+    ],
+  },
+  {
+    id: 'brainstorm',
+    label: 'Brainstorm',
+    icon: Brain,
+    items: [
+      {
+        icon: Target,
+        text: 'Generate 5 innovative angles or strategic ideas',
+        prompt: 'Generate 5 innovative, out-of-the-box ideas for: ',
+      },
+      {
+        icon: Hourglass,
+        text: 'Create a structured step-by-step roadmap to achieve a goal',
+        prompt: 'Create a realistic, milestone-based step-by-step roadmap for: ',
+      },
+      {
+        icon: Compass,
+        text: 'Weigh the trade-offs, pros, and cons of different options',
+        prompt: 'Give me a structured comparative trade-off analysis of: ',
+      },
+    ],
+  },
+];
+
+const GENERAL_QUESTIONS = [
+  "what's on your mind today?",
+  'what would you like to explore today?',
+  'how can I help you right now?',
+  'what are we working on today?',
+  'what idea is on your mind?',
+];
+
+const STUDY_QUESTIONS = [
+  'what are you studying today?',
+  'what topic are we tackling today?',
+  'ready to master a new concept?',
+  'what would you like to revise today?',
+  'what subject are we conquering today?',
 ];
 
 interface ChatMainAreaProps {
@@ -133,10 +335,8 @@ const getTimeGreeting = (date = new Date()) => {
   const hour = date.getHours();
 
   if (hour >= 5 && hour < 12) return 'Good morning';
-  if (hour >= 12 && hour < 14) return 'Good noon';
-  if (hour >= 14 && hour < 17) return 'Good afternoon';
-  if (hour >= 17 && hour < 21) return 'Good evening';
-  return 'Good night';
+  if (hour >= 12 && hour < 17) return 'Good afternoon';
+  return 'Good evening';
 };
 
 export default function ChatMainArea({
@@ -163,7 +363,45 @@ export default function ChatMainArea({
   const [isSupabaseSignedUp, setIsSupabaseSignedUp] = useState(false);
   const [notebookSessions, setNotebookSessions] = useState<ChatHistoryItem[]>([]);
   const [notebookSources, setNotebookSources] = useState<SourceItem[]>([]);
+  const [activeSuggestionCategory, setActiveSuggestionCategory] = useState('suggested');
+  const [randomQuestionIdx, setRandomQuestionIdx] = useState(0);
   const popupRef = useRef<Window | null>(null);
+
+  useEffect(() => {
+    // Pick random question index on client mount to keep SSR hydration stable
+    setRandomQuestionIdx(Math.floor(Math.random() * GENERAL_QUESTIONS.length));
+  }, []);
+
+  // Reset active suggestion tab when mode toggles
+  useEffect(() => {
+    setActiveSuggestionCategory('suggested');
+  }, [isStudyMode]);
+
+  const availableCategories = isStudyMode ? STUDY_CATEGORIES : GENERAL_CATEGORIES;
+
+  const currentCategory = useMemo(() => {
+    return (
+      availableCategories.find((c) => c.id === activeSuggestionCategory) ||
+      availableCategories[0]
+    );
+  }, [availableCategories, activeSuggestionCategory]);
+
+  const welcomeHeadline = useMemo(() => {
+    const greeting = getTimeGreeting();
+    if (!isStudyMode) {
+      const q = GENERAL_QUESTIONS[randomQuestionIdx] || "what's on your mind today?";
+      return `${greeting}! ${q.charAt(0).toUpperCase() + q.slice(1)}`;
+    }
+    const q = STUDY_QUESTIONS[randomQuestionIdx] || 'what are you studying today?';
+    return `${greeting}! ${q.charAt(0).toUpperCase() + q.slice(1)}`;
+  }, [isStudyMode, randomQuestionIdx]);
+
+  const welcomeSubtitle = useMemo(() => {
+    if (!isStudyMode) {
+      return 'Ask anything, brainstorm creative ideas, debug code, or draft thoughts.';
+    }
+    return 'Generate flashcards, practice exam quizzes, summarize notes, or break down difficult topics.';
+  }, [isStudyMode]);
 
   // Keep notebook chat history in sync for the active subject
   useEffect(() => {
@@ -1616,7 +1854,7 @@ export default function ChatMainArea({
               <div className="w-full flex justify-center mb-3">
                 <img
                   src="/images/3d_blue_gift_box.jpg"
-                  alt="Gift Box"
+                  alt="3D Blue Referral Gift Box for Study Tokens"
                   className="w-32 h-32 object-contain"
                 />
               </div>
@@ -1914,9 +2152,14 @@ export default function ChatMainArea({
                   📔
                 </div>
                 <div className="flex items-center justify-between w-full">
-                  <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100 capitalize">
-                    {selectedContext.subject}
-                  </h1>
+                  <div>
+                    <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100 capitalize">
+                      {selectedContext.subject}
+                    </h1>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                      {greetingLabel}! What would you like to study in this notebook today?
+                    </p>
+                  </div>
                   <button
                     type="button"
                     onClick={() => {
@@ -1928,17 +2171,15 @@ export default function ChatMainArea({
                     <span>Add sources</span>
                   </button>
                 </div>
-
-
               </div>
             ) : (
               /* Basic Chat Screen Heading & Subheading */
-              <div className="text-center mb-6 max-w-xl mx-auto">
+              <div className="text-center mb-5 max-w-xl mx-auto">
                 <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100 text-center mb-2">
-                  What are you studying today?
+                  {welcomeHeadline}
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 text-center max-w-md mx-auto leading-relaxed">
-                  Ask questions, analyze study notes, debug code, or create visual diagrams.
+                  {welcomeSubtitle}
                 </p>
               </div>
             )}
@@ -1960,15 +2201,82 @@ export default function ChatMainArea({
               models={isGuest ? ['Gemini 2.0 Flash'] : MODELS.map((m) => m.name)}
               efforts={['Quick', 'Balanced', 'Deep']}
               allowAttachments={!isGuest}
-              placeholder="Ask e-Mate a question, paste notes, or type / for commands..."
-              className="mx-auto w-full max-w-2xl mb-4"
+              placeholder={
+                !isStudyMode
+                  ? "Ask anything, brainstorm ideas, debug code, or type / for commands..."
+                  : "Ask a study question, paste notes, or type / for commands..."
+              }
+              className="mx-auto w-full max-w-2xl mb-3.5"
               imageGenMode={imageGenMode}
               onImageGenToggle={!isGuest ? () => setImageGenMode((v) => !v) : undefined}
             />
 
-            {/* Below PromptInput: Render Notebook Chat History when in notebook mode; render GENERAL_QUICK_ACTIONS when in standard chat mode */}
-            {selectedContext.subject ? (
-              /* Notebook Chat History Section — Left Aligned, Faded list on lower side */
+            {/* Framer AI / v0 Inspired Pre-Suggestion Card with Category Tabs & Hover Arrows */}
+            <div className="w-full max-w-2xl mx-auto rounded-3xl border border-zinc-200/80 dark:border-zinc-800/80 bg-zinc-50/70 dark:bg-zinc-900/40 backdrop-blur-md p-3 sm:p-3.5 shadow-2xs transition-all">
+              {/* Category Pills Header */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 mb-2 scroll-smooth">
+                {availableCategories.map((cat) => {
+                  const isActive = activeSuggestionCategory === cat.id;
+                  const Icon = cat.icon;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setActiveSuggestionCategory(cat.id)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-all cursor-pointer select-none shrink-0 ${
+                        isActive
+                          ? 'bg-zinc-200/90 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-semibold shadow-2xs'
+                          : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 font-medium'
+                      }`}
+                    >
+                      <Icon
+                        size={13}
+                        className={isActive ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-400'}
+                      />
+                      <span>{cat.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Suggestions List */}
+              <div className="space-y-1">
+                {currentCategory.items.map((item, idx) => {
+                  const ItemIcon = item.icon;
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setInputValue(item.prompt);
+                        setTimeout(() => {
+                          const ta = document.querySelector('textarea');
+                          if (ta) ta.focus();
+                        }, 50);
+                      }}
+                      className="w-full text-left flex items-center justify-between p-2.5 sm:p-3 rounded-2xl hover:bg-zinc-200/60 dark:hover:bg-zinc-800/60 transition-all group cursor-pointer active:scale-[0.99]"
+                    >
+                      <div className="flex items-center gap-3 min-w-0 pr-2">
+                        <ItemIcon
+                          size={15}
+                          className="text-zinc-400 group-hover:text-zinc-700 dark:group-hover:text-zinc-200 shrink-0 transition-colors"
+                        />
+                        <span className="text-xs sm:text-[13px] text-zinc-700 dark:text-zinc-300 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors truncate">
+                          {item.text}
+                        </span>
+                      </div>
+                      <ArrowRight
+                        size={14}
+                        className="text-zinc-400 group-hover:text-zinc-800 dark:group-hover:text-zinc-100 opacity-0 group-hover:opacity-100 transition-all transform group-hover:translate-x-0.5 shrink-0"
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Below Suggestions: Notebook Chat History if active subject and chats exist */}
+            {selectedContext.subject && notebookSessions.length > 0 && (
               <div className="w-full max-w-2xl mt-4 px-1 text-left">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 flex items-center gap-1.5">
@@ -1976,68 +2284,39 @@ export default function ChatMainArea({
                     <span>Chat history</span>
                   </h3>
                 </div>
-
-                {notebookSessions.length === 0 ? (
-                  <div className="p-3.5 rounded-2xl border border-dashed border-zinc-200/80 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/30">
-                    <p className="text-xs text-zinc-400 dark:text-zinc-500 leading-relaxed">
-                      No chat history in this notebook yet. Chats you start here will be stored in <span className="font-semibold text-zinc-600 dark:text-zinc-300">{selectedContext.subject}</span>.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
-                    {notebookSessions.map((session) => (
-                      <button
-                        key={session.id}
-                        type="button"
-                        onClick={() => {
-                          const transcript = getChatTranscript(session.id);
-                          window.dispatchEvent(
-                            new CustomEvent('nk-chat-load', {
-                              detail: {
-                                id: session.id,
-                                subject: session.subject,
-                                unit: session.unit,
-                                mode: session.mode,
-                                messages: transcript,
-                              },
-                            })
-                          );
-                        }}
-                        className="w-full text-left p-3 rounded-2xl bg-zinc-100/60 dark:bg-zinc-900/50 hover:bg-zinc-200/70 dark:hover:bg-zinc-800/70 border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 transition-all flex items-center justify-between group cursor-pointer"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0 pr-3">
-                          <MessageSquare size={14} className="text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300 shrink-0 transition-colors" />
-                          <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-100 truncate">
-                            {session.title || 'Untitled notebook chat'}
-                          </span>
-                        </div>
-                        <span className="text-[11px] text-zinc-400 dark:text-zinc-500 shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
-                          {formatChatTime(session.timestamp)}
+                <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                  {notebookSessions.map((session) => (
+                    <button
+                      key={session.id}
+                      type="button"
+                      onClick={() => {
+                        const transcript = getChatTranscript(session.id);
+                        window.dispatchEvent(
+                          new CustomEvent('nk-chat-load', {
+                            detail: {
+                              id: session.id,
+                              subject: session.subject,
+                              unit: session.unit,
+                              mode: session.mode,
+                              messages: transcript,
+                            },
+                          })
+                        );
+                      }}
+                      className="w-full text-left p-3 rounded-2xl bg-zinc-100/60 dark:bg-zinc-900/50 hover:bg-zinc-200/70 dark:hover:bg-zinc-800/70 border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800 transition-all flex items-center justify-between group cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 pr-3">
+                        <MessageSquare size={14} className="text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300 shrink-0 transition-colors" />
+                        <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-100 truncate">
+                          {session.title || 'Untitled notebook chat'}
                         </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              /* General Chat Quick Actions (when on basic screen) */
-              <div className="w-full max-w-2xl grid grid-cols-2 sm:flex sm:flex-wrap items-center justify-center gap-2">
-                {GENERAL_QUICK_ACTIONS.map((action) => (
-                  <button
-                    key={action.label}
-                    type="button"
-                    onClick={() => {
-                      if (action.prompt) {
-                        setInputValue(action.prompt);
-                        setTimeout(() => centerInputRef.current?.focus(), 50);
-                      }
-                    }}
-                    className="w-full sm:w-auto px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors flex items-center justify-center sm:justify-start gap-2 shadow-2xs"
-                  >
-                    <action.icon size={14} strokeWidth={1.75} className="text-zinc-400 shrink-0" />
-                    <span>{action.label}</span>
-                  </button>
-                ))}
+                      </div>
+                      <span className="text-[11px] text-zinc-400 dark:text-zinc-500 shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
+                        {formatChatTime(session.timestamp)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -2115,7 +2394,13 @@ export default function ChatMainArea({
       />
 
 
-
+      {/* Sticky Mobile CTA fixed at bottom on mobile devices */}
+      <StickyMobileCTA
+        onQuickPrompt={(p) => {
+          setInputValue(p);
+          setTimeout(() => centerInputRef.current?.focus(), 50);
+        }}
+      />
     </div>
   );
 }

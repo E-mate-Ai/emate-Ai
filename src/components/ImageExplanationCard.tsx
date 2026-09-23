@@ -118,7 +118,7 @@ export default function ImageExplanationCard({
           <div className="relative w-full bg-blue-100 dark:bg-blue-900 rounded-lg overflow-hidden">
             <img
               src={preview}
-              alt="Selected"
+              alt="Uploaded study diagram preview"
               className="w-full max-h-48 object-cover"
             />
             <button

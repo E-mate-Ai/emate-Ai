@@ -400,7 +400,7 @@ export default function Sidebar({
               >
                 <img
                   src="/asset/images/e.svg"
-                  alt="e-Mate"
+                  alt="e-Mate AI Logo"
                   className="h-full w-full object-contain"
                 />
               </div>
@@ -724,7 +724,7 @@ export default function Sidebar({
                   {avatarUrl ? (
                     <img
                       src={avatarUrl}
-                      alt={profileName}
+                      alt={profileName || 'User profile'}
                       className="w-full h-full object-cover"
                       onError={(e) => {
                         (e.target as HTMLImageElement).style.display = 'none';
