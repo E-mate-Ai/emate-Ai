@@ -51,6 +51,7 @@
     },
     "dependencies": {
         "@base-ui/react": "^1.8.0",
+        "@clerk/nextjs": "^7.9.7",
         "@dhiwise/component-tagger": "^1.0.16",
         "@heroicons/react": "^2.2.0",
         "@openrouter/sdk": "^1.2.37",

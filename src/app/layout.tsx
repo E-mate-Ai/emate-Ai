@@ -1,3 +1,4 @@
+import { ClerkProvider } from '@clerk/nextjs';
 import React from 'react';
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
@@ -7,7 +8,7 @@ import '../styles/tailwind.css';
 import RouteTracker from '@/components/RouteTracker';
 import { AuthListener } from '@/components/AuthListener';
 import CookieBanner from '@/components/CookieBanner';
-import { cn } from "@/lib/utils";
+import { cn } from '@/lib/utils';
 
 const outfit = Outfit({
   subsets: ['latin'],
@@ -77,9 +78,7 @@ export const metadata: Metadata = {
       { url: '/android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
       { url: '/android-chrome-512x512.png', sizes: '512x512', type: 'image/png' },
     ],
-    apple: [
-      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
-    ],
+    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
     other: [
       {
         rel: 'mask-icon',
@@ -128,7 +127,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={cn("overflow-x-hidden w-full max-w-[100vw]", "font-sans", geist.variable)} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={cn('overflow-x-hidden w-full max-w-[100vw]', 'font-sans', geist.variable)}
+      suppressHydrationWarning
+    >
       <head>
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
@@ -150,37 +153,35 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         suppressHydrationWarning={true}
         className={`${geist.className} ${geist.variable} ${outfit.variable} ${jetbrainsMono.variable} overflow-x-hidden w-full max-w-[100vw] antialiased min-h-screen bg-background text-foreground`}
       >
-        <AuthListener />
-        <RouteTracker />
-        {children}
-        <CookieBanner />
-        <Toaster
-          position="bottom-right"
-          theme="system"
-          closeButton
-          richColors
-          toastOptions={{
-            className: 'font-sans text-sm rounded-xl backdrop-blur-md border shadow-xl',
-            style: {
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border)',
-              color: 'var(--text-primary)',
-              fontFamily: 'var(--font-sans)',
-              fontSize: '0.875rem',
-            },
-          }}
-        />
+        <ClerkProvider>
+          <AuthListener />
+          <RouteTracker />
+          {children}
+          <CookieBanner />
+          <Toaster
+            position="bottom-right"
+            theme="system"
+            closeButton
+            richColors
+            toastOptions={{
+              className: 'font-sans text-sm rounded-xl backdrop-blur-md border shadow-xl',
+              style: {
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border)',
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-sans)',
+                fontSize: '0.875rem',
+              },
+            }}
+          />
 
-        <Script
-          src="https://static.rocket.new/rocket-web.js?_cfg=https%3A%2F%2Femate9631back.builtwithrocket.new&_be=https%3A%2F%2Fappanalytics.rocket.new&_v=0.1.20"
-          strategy="lazyOnload"
-        />
-        <Script
-          src="https://static.rocket.new/rocket-shot.js?v=0.0.2"
-          strategy="lazyOnload"
-        />
+          <Script
+            src="https://static.rocket.new/rocket-web.js?_cfg=https%3A%2F%2Femate9631back.builtwithrocket.new&_be=https%3A%2F%2Fappanalytics.rocket.new&_v=0.1.20"
+            strategy="lazyOnload"
+          />
+          <Script src="https://static.rocket.new/rocket-shot.js?v=0.0.2" strategy="lazyOnload" />
+        </ClerkProvider>
       </body>
     </html>
   );
 }
-
