@@ -44,7 +44,7 @@ import {
   User,
   UserPlus,
 } from 'lucide-react';
-import { SignInButton, SignUpButton, Show, UserButton } from '@clerk/nextjs';
+import { useAuth, useUser, UserButton } from '@clerk/nextjs';
 import ChatMessageBubble from './ChatMessageBubble';
 import StreamingIndicator from './StreamingIndicator';
 import { PromptInput } from '@/components/ui/ai-chat-input';
@@ -362,9 +362,10 @@ export default function ChatMainArea({
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [isConnectingOpenRouter, setIsConnectingOpenRouter] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const { isSignedIn, isLoaded: clerkLoaded } = useAuth();
+  const { user: clerkUser } = useUser();
   const [guestCredits, setGuestCreditsState] = useState(GUEST_LIMIT);
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [isSupabaseSignedUp, setIsSupabaseSignedUp] = useState(false);
   const [notebookSessions, setNotebookSessions] = useState<ChatHistoryItem[]>([]);
   const [notebookSources, setNotebookSources] = useState<SourceItem[]>([]);
   const [activeSuggestionCategory, setActiveSuggestionCategory] = useState('suggested');
@@ -463,29 +464,6 @@ export default function ChatMainArea({
     return () => window.removeEventListener('nk-subjects-changed', sync);
   }, []);
 
-  // Track Supabase auth state & unique session ID
-  useEffect(() => {
-    let authSub: { unsubscribe: () => void } | null = null;
-    const checkSupabase = async () => {
-      try {
-        const { trackUserSession } = await import('@/lib/session');
-        await trackUserSession();
-
-        const { createClient } = await import('@/lib/supabase/client');
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        setIsSupabaseSignedUp(!!user);
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-          setIsSupabaseSignedUp(!!session?.user);
-          trackUserSession();
-        });
-        authSub = subscription;
-      } catch { setIsSupabaseSignedUp(false); }
-    };
-    checkSupabase();
-    return () => { authSub?.unsubscribe(); };
-  }, []);
-
   const handleRemoveSource = (titleOrId: string) => {
     if (!selectedContext.subject) return;
     const current = getNotebook(selectedContext.subject);
@@ -512,8 +490,8 @@ export default function ChatMainArea({
     window.dispatchEvent(new CustomEvent('nk-sources-updated', { detail: { subject: selectedContext.subject } }));
   };
 
-  // Identity: signed-up users (Supabase) OR connected OpenRouter users get full unlocked access!
-  const isAuthenticated = isSupabaseSignedUp || isOpenRouterConnected;
+  // Identity: Clerk signed-in users OR connected OpenRouter users get full unlocked access!
+  const isAuthenticated = isSignedIn || isOpenRouterConnected;
   const isGuest = !isAuthenticated;
 
   // Guests are locked to the fast free model.
@@ -1872,25 +1850,9 @@ export default function ChatMainArea({
             <span>Invite</span>
           </button>
 
-          {/* Clerk Auth Controls */}
+          {/* Clerk Auth Controls - UserButton handles both signed-in and signed-out states */}
           <div className="flex items-center gap-2 ml-2">
-            <Show when="signed-out">
-              <SignInButton mode="modal">
-                <button className="h-9 px-4 rounded-full bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 text-xs sm:text-sm font-semibold shadow-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all flex items-center gap-2 cursor-pointer active:scale-95">
-                  <User size={16} className="text-zinc-800 dark:text-zinc-200" />
-                  <span>Sign In</span>
-                </button>
-              </SignInButton>
-              <SignUpButton mode="modal">
-                <button className="h-9 px-4 rounded-full bg-[#0060df] hover:bg-[#0052cc] text-white text-xs sm:text-sm font-semibold shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-95">
-                  <UserPlus size={16} />
-                  <span>Sign Up</span>
-                </button>
-              </SignUpButton>
-            </Show>
-            <Show when="signed-in">
-              <UserButton afterSignOutUrl="/" />
-            </Show>
+            <UserButton afterSignOutUrl="/" appearance={{ theme: 'dark' }} />
           </div>
 
           {/* Invite Hover Card Popup */}
