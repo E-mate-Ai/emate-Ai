@@ -20,11 +20,23 @@ const isPublicRoute = createRouteMatcher([
 ]);
 
 // Routes that should always be accessible (static assets, Clerk routes)
+// Note: createRouteMatcher uses path-to-regexp, so we use glob patterns, not regex
 const isIgnoredRoute = createRouteMatcher([
   '/_next(.*)',
   '/__clerk(.*)',
   '/favicon.ico',
-  '/.*\\.(?:svg|png|jpg|jpeg|gif|webp|css|js|woff2?|ttf|ico)$',
+  '/*.svg',
+  '/*.png',
+  '/*.jpg',
+  '/*.jpeg',
+  '/*.gif',
+  '/*.webp',
+  '/*.css',
+  '/*.js',
+  '/*.woff',
+  '/*.woff2',
+  '/*.ttf',
+  '/*.ico',
 ]);
 
 export default clerkMiddleware(async (auth, request: NextRequest) => {
