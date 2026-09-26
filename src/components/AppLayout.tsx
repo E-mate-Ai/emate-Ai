@@ -4,8 +4,12 @@ import React, { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { PanelLeft } from 'lucide-react';
+import SidebarSkeleton from './SidebarSkeleton';
 
-const Sidebar = dynamic(() => import('./Sidebar'), { ssr: false });
+const Sidebar = dynamic(() => import('./Sidebar'), {
+  ssr: false,
+  loading: ({ }) => <SidebarSkeleton width={248} />,
+});
 const SettingsPage = dynamic(() => import('./SettingsPage'), { ssr: false });
 const NotebookOverlay = dynamic(() => import('./NotebookOverlay'), { ssr: false });
 const SignUpPopup = dynamic(() => import('./SignUpPopup'), { ssr: false });
@@ -17,6 +21,10 @@ interface AppLayoutProps {
 
 export default function AppLayout({ children }: AppLayoutProps) {
   const router = useRouter();
+  // `mounted` guards against hydration mismatch — all localStorage-derived
+  // state is applied in a single effect after the first paint, then the
+  // component fades in so there is no visible layout shift.
+  const [mounted, setMounted] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(248);
   const [isResizing, setIsResizing] = useState(false);
@@ -73,29 +81,44 @@ export default function AppLayout({ children }: AppLayoutProps) {
     return () => window.removeEventListener('nk-open-signup-popup', handleOpenPopup);
   }, []);
 
+  // Single effect that reads all localStorage state synchronously so the
+  // very first rendered frame already has the correct sidebar open/width
+  // values — this eliminates the sidebar layout-shift flicker.
   useEffect(() => {
-    // Detect mobile viewport size
+    const mobile = window.innerWidth < 768;
+    setIsMobile(mobile);
+
+    // Sidebar open state — respect saved preference, default closed on mobile
+    const savedSidebarOpen = localStorage.getItem('nk-sidebar-open');
+    if (savedSidebarOpen !== null) {
+      setSidebarOpen(mobile ? false : savedSidebarOpen === 'true');
+    } else {
+      setSidebarOpen(!mobile);
+    }
+
+    // Sidebar width
+    const savedWidth = localStorage.getItem('nk-sidebar-width');
+    if (savedWidth) setSidebarWidth(parseInt(savedWidth, 10));
+
+    // Theme
+    const savedTheme = localStorage.getItem('nk-theme') as 'light' | 'dark' | null;
+    if (savedTheme === 'dark' || savedTheme === 'light') setTheme(savedTheme);
+
+    // Mark as mounted — triggers the fade-in animation
+    setMounted(true);
+
     const handleResize = () => {
-      const mobile = window.innerWidth < 768;
-      setIsMobile(mobile);
-      if (mobile) {
-        setSidebarOpen(false); // Close sidebar on mobile load
-      } else {
-        setSidebarOpen(true);
-      }
+      const mob = window.innerWidth < 768;
+      setIsMobile(mob);
+      if (mob) setSidebarOpen(false);
     };
-    handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Sync sidebar open state with children and other tabs
+  // Sync sidebar open state with children and other tabs (event-driven only
+  // after mount — initial state is read above in the first effect).
   useEffect(() => {
-    const savedSidebar = localStorage.getItem('nk-sidebar-open');
-    if (savedSidebar !== null) {
-      setSidebarOpen(savedSidebar === 'true');
-    }
-
     const handleSidebarEvent = () => {
       const saved = localStorage.getItem('nk-sidebar-open');
       if (saved !== null) setSidebarOpen(saved === 'true');
@@ -124,19 +147,17 @@ export default function AppLayout({ children }: AppLayoutProps) {
   };
 
   useEffect(() => {
-    // Sync theme and sidebar width from localStorage after hydration
-    const savedTheme = localStorage.getItem('nk-theme') as 'light' | 'dark' | null;
-    if (savedTheme === 'dark' || savedTheme === 'light') setTheme(savedTheme);
-
-    const savedWidth = localStorage.getItem('nk-sidebar-width');
-    if (savedWidth) setSidebarWidth(parseInt(savedWidth, 10));
-
+    // Theme updates from other tabs / settings page
     const updateTheme = () => {
       const t = localStorage.getItem('nk-theme') as 'light' | 'dark' | null;
       setTheme(t || 'light');
     };
     window.addEventListener('storage', updateTheme);
-    return () => window.removeEventListener('storage', updateTheme);
+    window.addEventListener('nk-theme', updateTheme);
+    return () => {
+      window.removeEventListener('storage', updateTheme);
+      window.removeEventListener('nk-theme', updateTheme);
+    };
   }, []);
 
   // Persist last visited path so the landing page can redirect back
@@ -194,6 +215,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
         paddingBottom: 'env(safe-area-inset-bottom)',
         paddingLeft: 'env(safe-area-inset-left)',
         paddingRight: 'env(safe-area-inset-right)',
+        // Fade in the entire layout once localStorage state is applied
+        opacity: mounted ? 1 : 0,
+        transition: 'opacity 0.18s ease, background-color 0.3s ease',
       }}
     >
       {/* ── Sidebar ─────────────────────────────────────────────────────────
@@ -205,7 +229,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       <div
         className={[
           // Mobile: fixed off-canvas drawer
-          'fixed inset-y-0 left-0 z-50 will-change-transform transition-all duration-300 ease-in-out overflow-hidden',
+          'fixed inset-y-0 left-0 z-50 will-change-transform overflow-hidden',
           // Desktop: static inline panel that smoothly shrinks its width
           'md:relative md:inset-auto md:z-auto md:flex-shrink-0 md:h-full',
           // Transform for mobile slide-in
@@ -213,6 +237,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
         ].join(' ')}
         style={{
           width: isMobile ? '288px' : sidebarOpen ? `${sidebarWidth}px` : '0px',
+          // Use max-width transition for smooth collapse on desktop
+          transition: 'width 0.28s cubic-bezier(0.4,0,0.2,1), transform 0.28s cubic-bezier(0.4,0,0.2,1)',
           opacity: sidebarOpen ? 1 : 0,
         }}
       >

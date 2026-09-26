@@ -746,13 +746,13 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
 
     const handleSubmit = () => {
       if (value.trim() === '' && !hasAttachments) return;
+      const currentAttachments = [...attachments];
       onSubmit?.(value, {
         model: selectedModel,
         effort: efforts[effortIndex],
-        attachments: attachments.map((a) => a.file),
+        attachments: currentAttachments.map((a) => a.file),
       });
       handleValueChange('');
-      attachments.forEach((a) => URL.revokeObjectURL(a.url));
       setAttachments([]);
       setIsModelSelectOpen(false);
       setIsAttachMenuOpen(false);
@@ -774,6 +774,34 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
       e.stopPropagation();
       setEffortIndex((prev) => (prev + 1) % efforts.length);
     };
+
+    const addAttachment = useCallback(
+      (
+        file: File,
+        url: string,
+        width: number,
+        height: number,
+        kind: 'image' | 'doc'
+      ) => {
+        const id = `${file.name}-${file.lastModified}-${Math.random().toString(36).slice(2, 8)}`;
+        setAttachments((prev) => {
+          // Avoid duplicate files
+          if (
+            prev.some(
+              (a) =>
+                a.file === file ||
+                (a.file.name === file.name &&
+                  a.file.size === file.size &&
+                  a.file.lastModified === file.lastModified)
+            )
+          ) {
+            return prev;
+          }
+          return [...prev, { id, file, url, name: file.name, width, height, kind }];
+        });
+      },
+      []
+    );
 
     const handleFilesChosen = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const kind = uploadKindRef.current;
@@ -806,17 +834,6 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
       }
     };
 
-    const addAttachment = (
-      file: File,
-      url: string,
-      width: number,
-      height: number,
-      kind: 'image' | 'doc'
-    ) => {
-      const id = `${file.name}-${file.lastModified}-${Math.random().toString(36).slice(2, 8)}`;
-      setAttachments((prev) => [...prev, { id, file, url, name: file.name, width, height, kind }]);
-    };
-
     const processFiles = useCallback(
       (incomingFiles: File[]) => {
         if (!allowAttachments) return;
@@ -841,8 +858,20 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
           }
         }
       },
-      [allowAttachments, attachments.length, maxAttachments]
+      [allowAttachments, attachments.length, maxAttachments, addAttachment]
     );
+
+    // Listen for window-level drag-drop attachments via custom event
+    useEffect(() => {
+      const handleGlobalAttach = (e: Event) => {
+        const customEvent = e as CustomEvent<{ files: File[] }>;
+        if (customEvent.detail?.files?.length) {
+          processFiles(customEvent.detail.files);
+        }
+      };
+      window.addEventListener('nk-attach-files', handleGlobalAttach);
+      return () => window.removeEventListener('nk-attach-files', handleGlobalAttach);
+    }, [processFiles]);
 
     const handlePaste = useCallback(
       (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -912,14 +941,16 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
       [allowAttachments, processFiles]
     );
 
-    const removeAttachment = (id: string) => {
+    const removeAttachment = useCallback((id: string) => {
       setAttachments((prev) => {
         const target = prev.find((a) => a.id === id);
-        if (target) URL.revokeObjectURL(target.url);
+        if (target) {
+          URL.revokeObjectURL(target.url);
+        }
         return prev.filter((a) => a.id !== id);
       });
       thumbRefs.current.delete(id);
-    };
+    }, []);
 
     // Calculate action button states
     const showArrow = hasValue && !isRecording;
@@ -943,7 +974,7 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/*,application/pdf,.txt,.md,.json,.csv"
             multiple
             onChange={handleFilesChosen}
             className="hidden"
@@ -952,107 +983,193 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
           />
           <div
             ref={ref}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
             className={cn(
-              'relative w-full max-w-2xl mx-auto rounded-full border border-zinc-200/90 dark:border-zinc-800/90 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl px-4 py-2 shadow-xl flex items-center justify-between gap-3 min-h-[50px] transition-all duration-300 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500/40',
+              // When previews exist, switch from pill to a rounded rectangle so
+              // the preview strip has room to breathe above the input row.
+              hasAttachments
+                ? 'relative w-full max-w-2xl mx-auto rounded-[22px] border border-zinc-200/90 dark:border-zinc-800/90 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl px-4 pt-3 pb-2 shadow-xl flex flex-col gap-2 transition-all duration-200 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500/40'
+                : 'relative w-full max-w-2xl mx-auto rounded-full border border-zinc-200/90 dark:border-zinc-800/90 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl px-4 py-2 shadow-xl flex items-center justify-between gap-3 min-h-[50px] transition-all duration-200 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500/40',
+              isDraggingOver && 'border-dashed !border-blue-500 dark:!border-blue-400 ring-2 ring-blue-500/20',
               className
             )}
           >
-            {/* Model Selector pill on left */}
-            <div className="relative shrink-0 flex items-center" ref={modelSelectRef}>
-              <button
-                type="button"
-                onClick={() => setIsModelSelectOpen((v) => !v)}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-              >
-                <ModelIcon model={selectedModel} className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline text-[11px]">{selectedModel}</span>
-                <ChevronDown className="w-3 h-3 text-zinc-400" />
-              </button>
+            {/* Drag overlay */}
+            {isDraggingOver && allowAttachments && (
+              <div className="absolute inset-0 z-30 rounded-[22px] bg-blue-50/90 dark:bg-zinc-900/90 backdrop-blur-xs flex flex-col items-center justify-center pointer-events-none animate-in fade-in">
+                <UploadCloud className="w-6 h-6 text-blue-600 dark:text-blue-400 animate-bounce mb-1" />
+                <p className="text-xs font-semibold text-blue-900 dark:text-blue-100">Drop to attach</p>
+              </div>
+            )}
 
-              {isModelSelectOpen && (
-                <div className="absolute bottom-full left-0 mb-2 w-48 p-1.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xl z-50 animate-in fade-in zoom-in-95">
-                  {models.map((m) => (
+            {/* ── Attachment Preview Strip ─────────────────────────────── */}
+            {hasAttachments && (
+              <div className="flex items-center gap-2 overflow-x-auto prompt-scrollbar pb-1 w-full">
+                {attachments.map((attachment) => (
+                  <div
+                    key={attachment.id}
+                    className="relative flex-shrink-0 group"
+                    style={{ width: 52, height: 52 }}
+                  >
+                    {attachment.kind === 'image' ? (
+                      // Image thumbnail
+                      <div className="w-full h-full rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 shadow-sm">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={attachment.url}
+                          alt={attachment.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      // Doc thumbnail
+                      <div className="w-full h-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 shadow-sm flex flex-col items-center justify-center gap-0.5 px-1">
+                        <svg className="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span className="text-[8px] text-zinc-400 truncate w-full text-center leading-tight">
+                          {attachment.name.split('.').pop()?.toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                    {/* Remove button */}
                     <button
-                      key={m}
                       type="button"
-                      onClick={() => {
-                        setSelectedModel(m);
-                        setIsModelSelectOpen(false);
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
                       }}
-                      className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs text-left transition-colors ${
-                        selectedModel === m
-                          ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-semibold'
-                          : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-                      }`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        removeAttachment(attachment.id);
+                      }}
+                      className="absolute -top-1.5 -right-1.5 w-[18px] h-[18px] rounded-full bg-zinc-800 dark:bg-zinc-200 text-white dark:text-zinc-900 flex items-center justify-center opacity-90 sm:opacity-0 group-hover:opacity-100 transition-opacity shadow-md z-10 hover:scale-110 cursor-pointer"
+                      aria-label={`Remove ${attachment.name}`}
                     >
-                      <ModelIcon model={m} className="w-3.5 h-3.5" />
-                      <span>{m}</span>
+                      <svg className="w-2.5 h-2.5" viewBox="0 0 10 10" fill="currentColor">
+                        <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                      </svg>
                     </button>
-                  ))}
-                </div>
-              )}
-            </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
-            {/* Center: Text Input */}
-            <div className="flex-1 flex items-center min-w-0">
-              <textarea
-                ref={textareaRef}
-                value={value}
-                onChange={(e) => {
-                  handleInput(e);
-                  handleValueChange(e.target.value);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSubmit();
-                  }
-                }}
-                placeholder={placeholder || 'Ask follow-up or search...'}
-                disabled={isRecording}
-                className="w-full bg-transparent border-0 outline-none focus:ring-0 text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 placeholder:text-left text-left px-1 py-0 resize-none leading-relaxed overflow-y-auto min-h-[24px] max-h-[72px] prompt-scrollbar my-auto"
-                rows={1}
-              />
-            </div>
-
-            {/* Right: Mic & Action buttons */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              {allowAttachments && (
+            {/* ── Main input row ──────────────────────────────────────── */}
+            <div className={cn('flex items-center gap-3 w-full', hasAttachments && 'min-h-[32px]')}>
+              {/* Model Selector pill on left */}
+              <div className="relative shrink-0 flex items-center" ref={modelSelectRef}>
                 <button
                   type="button"
-                  onClick={() => {
-                    uploadKindRef.current = 'image';
-                    fileInputRef.current?.click();
-                  }}
-                  className="p-1.5 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center justify-center"
-                  title="Attach image"
+                  onClick={() => setIsModelSelectOpen((v) => !v)}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
                 >
-                  <Paperclip className="w-3.5 h-3.5 -rotate-45" />
+                  <ModelIcon model={selectedModel} className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline text-[11px]">{selectedModel}</span>
+                  <ChevronDown className="w-3 h-3 text-zinc-400" />
                 </button>
-              )}
 
-              <button
-                type="button"
-                onClick={onActionButtonClick}
-                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                  hasValue || isRecording
-                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs'
-                    : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-                }`}
-              >
-                {showStop ? (
-                  <StopIcon />
-                ) : showArrow ? (
-                  <ArrowUpIcon />
-                ) : (
-                  <Mic className="w-3.5 h-3.5" />
+                {isModelSelectOpen && (
+                  <div className="absolute bottom-full left-0 mb-2 w-48 p-1.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xl z-50 animate-in fade-in zoom-in-95">
+                    {models.map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => {
+                          setSelectedModel(m);
+                          setIsModelSelectOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs text-left transition-colors ${
+                          selectedModel === m
+                            ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-semibold'
+                            : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                        }`}
+                      >
+                        <ModelIcon model={m} className="w-3.5 h-3.5" />
+                        <span>{m}</span>
+                      </button>
+                    ))}
+                  </div>
                 )}
-              </button>
+              </div>
+
+              {/* Center: Text Input */}
+              <div className="flex-1 flex items-center min-w-0">
+                <textarea
+                  ref={textareaRef}
+                  value={value}
+                  onChange={(e) => {
+                    handleInput(e);
+                    handleValueChange(e.target.value);
+                  }}
+                  onPaste={handlePaste}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSubmit();
+                    }
+                  }}
+                  placeholder={placeholder || 'Ask follow-up or search...'}
+                  disabled={isRecording}
+                  className="w-full bg-transparent border-0 outline-none focus:ring-0 text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 placeholder:text-left text-left px-1 py-0 resize-none leading-relaxed overflow-y-auto min-h-[24px] max-h-[72px] prompt-scrollbar my-auto"
+                  rows={1}
+                />
+              </div>
+
+              {/* Right: Attach + Send buttons */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                {allowAttachments && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      uploadKindRef.current = 'image';
+                      fileInputRef.current?.click();
+                    }}
+                    className={cn(
+                      'p-1.5 rounded-full transition-colors flex items-center justify-center',
+                      hasAttachments
+                        ? 'text-blue-500 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-950/60'
+                        : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                    )}
+                    title="Attach image or file"
+                  >
+                    <Paperclip className="w-3.5 h-3.5 -rotate-45" />
+                    {hasAttachments && (
+                      <span className="ml-0.5 text-[10px] font-bold tabular-nums leading-none">
+                        {attachments.length}
+                      </span>
+                    )}
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={onActionButtonClick}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                    hasValue || isRecording
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs'
+                      : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                  }`}
+                >
+                  {showStop ? (
+                    <StopIcon />
+                  ) : showArrow ? (
+                    <ArrowUpIcon />
+                  ) : (
+                    <Mic className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </>
       );
     }
+
 
     return (
       <>

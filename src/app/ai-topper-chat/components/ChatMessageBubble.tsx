@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Copy, Check, RotateCcw, BookMarked, Sparkles, Loader2, ChevronRight, Plus } from 'lucide-react';
+import { Copy, Check, RotateCcw, BookMarked, Sparkles, Loader2, ChevronRight, Plus, FileText, ExternalLink } from 'lucide-react';
 import type { ChatMessage } from './AITopperChatScreen';
 import { appendToNotebook } from '@/lib/notebook';
 import { toast } from 'sonner';
@@ -668,10 +668,57 @@ export default function ChatMessageBubble({
 
   if (isUser) {
     return (
-      <div className="flex flex-col items-end w-full fade-in-up my-1">
-        <div className="bg-[#cbe2ff] dark:bg-[#1e3a8a]/70 text-[#1a1a1a] dark:text-[#f0f0f0] px-4 py-2 rounded-full max-w-[80%] inline-block text-xs sm:text-sm font-normal shadow-2xs">
-          {message.content}
-        </div>
+      <div className="flex flex-col items-end w-full fade-in-up my-1.5">
+        {/* Render attached images / documents if present */}
+        {message.attachments && message.attachments.length > 0 && (
+          <div className="flex flex-wrap gap-2 justify-end mb-2 max-w-[85%] sm:max-w-[70%]">
+            {message.attachments.map((att, idx) => {
+              const isImage =
+                att.kind === 'image' ||
+                att.type?.startsWith('image/') ||
+                att.url?.startsWith('data:image') ||
+                att.url?.startsWith('blob:') ||
+                /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(att.name || '');
+
+              if (isImage && att.url) {
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => window.open(att.url, '_blank')}
+                    className="relative group rounded-2xl overflow-hidden border border-black/10 dark:border-white/10 shadow-sm cursor-pointer hover:shadow-md hover:scale-[1.01] transition-all max-w-[280px] max-h-[220px] bg-zinc-100 dark:bg-zinc-800"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={att.url}
+                      alt={att.name || 'Attached preview'}
+                      className="w-full h-full object-cover max-h-[220px] rounded-2xl"
+                    />
+                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-semibold backdrop-blur-[2px]">
+                      <ExternalLink size={13} />
+                      <span>View full image</span>
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <div
+                  key={idx}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-200/80 dark:bg-zinc-800/90 text-xs font-medium text-zinc-800 dark:text-zinc-200 shadow-2xs border border-zinc-300/50 dark:border-zinc-700/50"
+                >
+                  <FileText size={15} className="text-zinc-500" />
+                  <span className="truncate max-w-[180px]">{att.name}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {message.content && (
+          <div className="bg-[#cbe2ff] dark:bg-[#1e3a8a]/70 text-[#1a1a1a] dark:text-[#f0f0f0] px-4 py-2.5 rounded-2xl max-w-[85%] sm:max-w-[70%] inline-block text-xs sm:text-sm font-normal shadow-2xs leading-relaxed">
+            {message.content}
+          </div>
+        )}
       </div>
     );
   }

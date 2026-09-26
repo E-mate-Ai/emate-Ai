@@ -39,6 +39,7 @@ import {
 import { toast } from 'sonner';
 import { applyTheme } from '@/lib/theme';
 import { fetchOpenRouterKeyInfo, type OpenRouterKeyInfo } from '@/lib/openrouter';
+import { fetchUserQuota, type UserQuota } from '@/lib/user-quota';
 import {
   getGuestCredits,
   getUserTokens,
@@ -57,6 +58,7 @@ import {
   Subject,
   NotebookEntry,
 } from '@/lib/notebook';
+import { detectDevice, getDeviceDescription, type DeviceInfo } from '@/lib/device-detector';
 import { isGuestModeEnabled, clearGuestModeEnabled } from '@/lib/guest-mode';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -108,6 +110,25 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
 
   const [manualKeyInput, setManualKeyInput] = useState('');
   const [isConnectingOpenRouter, setIsConnectingOpenRouter] = useState(false);
+  const [quotaLoading, setQuotaLoading] = useState(false);
+
+  const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null);  // Refresh quota from API
+  const refreshQuota = async () => {
+    setQuotaLoading(true);
+    try {
+      const quota = await fetchUserQuota();
+      if (quota) {
+        setRemainingCredits(quota.freePlan.remaining);
+        setUserTokensState(quota.additionalTokens);
+        setWalletBalanceState(quota.walletBalance);
+        setAutoRechargeState(quota.autoRecharge);
+      }
+    } catch (error) {
+      console.error('Error refreshing quota:', error);
+    } finally {
+      setQuotaLoading(false);
+    }
+  };
 
   const handleOAuthConnect = () => {
     const w = 600, h = 700;
@@ -175,6 +196,12 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
     }
   }, []);
 
+  // Detect device info on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setDeviceInfo(detectDevice());
+    }
+  }, []);
   // Connectors state
   const connectors = [
     {
@@ -216,11 +243,16 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
     return () => window.removeEventListener('storage', updateTheme);
   }, []);
 
+  // Set up periodic quota refresh (every 30 seconds)
   useEffect(() => {
-    const handleSubjectsChanged = () => setSubjects(getSubjects());
-    window.addEventListener('nk-subjects-changed', handleSubjectsChanged);
-    return () => window.removeEventListener('nk-subjects-changed', handleSubjectsChanged);
-  }, []);
+    const interval = setInterval(() => {
+      if (!isGuest) {
+        refreshQuota();
+      }
+    }, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [isGuest]);
 
   useEffect(() => {
     if (activeTab === 'notebook' && selectedSubject) {
@@ -252,6 +284,15 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         setUserTokensState(getUserTokens(false));
         setWalletBalanceState(getWalletBalance(false));
         setProfileLoading(false);
+
+        // Fetch real-time quota data from API
+        const quota = await fetchUserQuota();
+        if (quota) {
+          setRemainingCredits(quota.freePlan.remaining);
+          setUserTokensState(quota.additionalTokens);
+          setWalletBalanceState(quota.walletBalance);
+          setAutoRechargeState(quota.autoRecharge);
+        }
         return;
       }
       setIsGuest(true);
@@ -770,16 +811,31 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         {/* ── DEVICES TAB ───────────────────────────────────────────────── */}
         {activeTab === 'devices' && (
           <div className="space-y-3">
-            <div className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-3">
-                <Laptop size={18} className="text-blue-500" />
-                <div>
-                  <h5 className="font-semibold text-zinc-900 dark:text-white">Current Mac Workstation</h5>
-                  <p className="text-[11px] text-zinc-400">Safari · macOS · Active Now</p>
+            {deviceInfo && (
+              <div className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-3">
+                  {deviceInfo.deviceType === 'mobile' && <Smartphone size={18} className="text-blue-500" />}
+                  {deviceInfo.deviceType === 'tablet' && <Laptop size={18} className="text-blue-500" />}
+                  {deviceInfo.deviceType === 'desktop' && <Laptop size={18} className="text-blue-500" />}
+                  <div>
+                    <h5 className="font-semibold text-zinc-900 dark:text-white">Current {deviceInfo.deviceName}</h5>
+                    <p className="text-[11px] text-zinc-400">{getDeviceDescription(deviceInfo)}</p>
+                  </div>
+                </div>
+                <span className="text-xs font-semibold text-blue-500">This Device</span>
+              </div>
+            )}
+            {!deviceInfo && (
+              <div className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-3">
+                  <Laptop size={18} className="text-blue-500" />
+                  <div>
+                    <h5 className="font-semibold text-zinc-900 dark:text-white">Device Information</h5>
+                    <p className="text-[11px] text-zinc-400">Loading...</p>
+                  </div>
                 </div>
               </div>
-              <span className="text-xs font-semibold text-blue-500">This Device</span>
-            </div>
+            )}
           </div>
         )}
 

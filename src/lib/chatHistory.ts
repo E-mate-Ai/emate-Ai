@@ -23,6 +23,14 @@ export interface GeneratedImage {
   status?: 'generating' | 'done' | 'error';
 }
 
+export interface ChatAttachment {
+  name: string;
+  url: string;
+  kind?: 'image' | 'doc';
+  type?: string;
+  size?: number;
+}
+
 /** A chat message. Defined here (single source of truth) and re-exported by
  *  the chat screen so both the lib and components share one type. */
 export interface ChatMessage {
@@ -37,6 +45,8 @@ export interface ChatMessage {
   citations?: import('@/lib/prompts').Citation[];
   /** Generated images rendered live from React state. Never persisted. */
   images?: GeneratedImage[];
+  /** User-attached files or images rendered in message bubble */
+  attachments?: ChatAttachment[];
   /** Quiz analyzer report rendered inline. In-memory only, never persisted. */
   analyzerReport?: import('@/lib/agents/types').StudyAnalyzerReport;
 }
@@ -186,6 +196,16 @@ function stripEphemeral(m: ChatMessage): ChatMessage {
   const copy = { ...m };
   delete copy.images;
   delete copy.analyzerReport;
+  if (copy.attachments) {
+    // Drop heavy base64 or blob URLs from local history cache so it doesn't blow quota
+    copy.attachments = copy.attachments.map((a) => ({
+      name: a.name,
+      url: a.url?.startsWith('data:') && a.url.length < 50000 ? a.url : '',
+      kind: a.kind,
+      type: a.type,
+      size: a.size,
+    }));
+  }
   return copy;
 }
 

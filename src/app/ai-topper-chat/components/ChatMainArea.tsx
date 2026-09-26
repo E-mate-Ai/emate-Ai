@@ -329,7 +329,8 @@ interface ChatMainAreaProps {
   setSelectedModel: (m: string) => void;
 }
 
-let msgCounter = 1;
+const generateMsgId = (role: 'user' | 'assistant' | 'sys' | 'msg' = 'msg') =>
+  `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${role}`;
 
 const getTimeGreeting = (date = new Date()) => {
   const hour = date.getHours();
@@ -395,13 +396,6 @@ export default function ChatMainArea({
     const q = STUDY_QUESTIONS[randomQuestionIdx] || 'what are you studying today?';
     return `${greeting}! ${q.charAt(0).toUpperCase() + q.slice(1)}`;
   }, [isStudyMode, randomQuestionIdx]);
-
-  const welcomeSubtitle = useMemo(() => {
-    if (!isStudyMode) {
-      return 'Ask anything, brainstorm creative ideas, debug code, or draft thoughts.';
-    }
-    return 'Generate flashcards, practice exam quizzes, summarize notes, or break down difficult topics.';
-  }, [isStudyMode]);
 
   // Keep notebook chat history in sync for the active subject
   useEffect(() => {
@@ -741,11 +735,9 @@ export default function ChatMainArea({
       );
       if (validFiles.length === 0) return;
 
-      setAttachedFiles((prev) => [...prev, ...validFiles]);
-      setPreviewUrls((prev) => [
-        ...prev,
-        ...validFiles.map((f) => (f.type.startsWith('image/') ? URL.createObjectURL(f) : '')),
-      ]);
+      window.dispatchEvent(
+        new CustomEvent('nk-attach-files', { detail: { files: validFiles } })
+      );
       toast.success(`${validFiles.length} file(s) attached`);
     },
     [isGuest]
@@ -939,7 +931,7 @@ export default function ChatMainArea({
     };
 
     const userMsg: ChatMessage = {
-      id: `msg-${String(msgCounter++).padStart(3, '0')}`,
+      id: generateMsgId('user'),
       role: 'user',
       content: prompt,
       mode,
@@ -951,7 +943,7 @@ export default function ChatMainArea({
 
     const imageId = `img-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const assistantMsg: ChatMessage = {
-      id: `msg-${String(msgCounter++).padStart(3, '0')}`,
+      id: generateMsgId('assistant'),
       role: 'assistant',
       content: '',
       mode,
@@ -1022,6 +1014,24 @@ export default function ChatMainArea({
       }
 
       const { imageUrl } = (await res.json()) as { imageUrl: string };
+
+      // ── Save to Image Library ──────────────────────────────────────────
+      // Persist the generated image so it shows up in the Library panel.
+      try {
+        const existing = JSON.parse(localStorage.getItem('nk-image-library') || '[]') as Array<{
+          id: string; url: string; prompt: string; timestamp: number; subject?: string;
+        }>;
+        const newEntry = {
+          id: imageId,
+          url: imageUrl,
+          prompt,
+          timestamp: Date.now(),
+          subject: selectedContext.subject || undefined,
+        };
+        const updated = [newEntry, ...existing].slice(0, 200); // keep last 200 images
+        localStorage.setItem('nk-image-library', JSON.stringify(updated));
+        window.dispatchEvent(new Event('nk-image-library-updated'));
+      } catch { /* non-critical — ignore storage errors */ }
 
       // Patch the assistant message's image to done state.
       setMessages((prev) =>
@@ -1265,8 +1275,9 @@ export default function ChatMainArea({
     // Support legacy call-site: handleSend(prompt, true) where second arg is the flag
     const isSystemAction = _systemAction === true || attachmentOverride === true;
     const actualAttachments = Array.isArray(attachmentOverride) ? attachmentOverride : undefined;
+    const sendAttachments = actualAttachments ?? [];
     const content = (text ?? inputValue).trim();
-    if (!content || isStreaming) return;
+    if ((!content && sendAttachments.length === 0) || isStreaming) return;
 
     // Resolve or generate active target chat ID
     const targetChatId =
@@ -1361,14 +1372,23 @@ export default function ChatMainArea({
       }
     };
 
+    const userAttachments: import('@/lib/chatHistory').ChatAttachment[] = sendAttachments.map((f) => ({
+      name: f.name,
+      url: f.type.startsWith('image/') ? URL.createObjectURL(f) : '',
+      kind: f.type.startsWith('image/') ? 'image' : 'doc',
+      type: f.type,
+      size: f.size,
+    }));
+
     const userMsg: ChatMessage = {
-      id: `msg-${String(msgCounter++).padStart(3, '0')}`,
+      id: generateMsgId('user'),
       role: 'user',
       content,
       mode,
       timestamp: formatTimestamp(),
       subject: selectedContext.subject,
       isGeneralChat: !isStudyMode,
+      attachments: userAttachments.length > 0 ? userAttachments : undefined,
     };
 
     const newMessages = [...messages, userMsg];
@@ -1411,16 +1431,21 @@ export default function ChatMainArea({
       }
     };
 
-    const assistantMsgId = `msg-${String(msgCounter++).padStart(3, '0')}`;
+    const assistantMsgId = generateMsgId('assistant');
 
     try {
       const notebookContext = isStudyMode ? buildNotebookContext(selectedContext.subject) : '';
-      // actualAttachments lets the PromptInput pass fresh attachments that haven't
-      // flushed to React state yet when handleSend is called synchronously.
-      const sendAttachments = actualAttachments ?? attachedFiles;
       const base64Attachments =
         sendAttachments.length > 0 ? await convertFilesToBase64(sendAttachments) : [];
       const finalPayloadMessages = [...newMessages];
+
+      // Ensure last user message content is non-empty for OpenRouter when attachments exist
+      if (base64Attachments.length > 0) {
+        const lastMsg = finalPayloadMessages[finalPayloadMessages.length - 1];
+        if (!lastMsg.content) {
+          lastMsg.content = 'Please analyze this attached file.';
+        }
+      }
 
       // If we have attachments, modify the last user message to include them
       if (base64Attachments.length > 0) {
@@ -2178,9 +2203,6 @@ export default function ChatMainArea({
                 <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100 text-center mb-2">
                   {welcomeHeadline}
                 </h1>
-                <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 text-center max-w-md mx-auto leading-relaxed">
-                  {welcomeSubtitle}
-                </p>
               </div>
             )}
 
@@ -2192,10 +2214,6 @@ export default function ChatMainArea({
                 // Map the display name back to a real model id for the API
                 const model = MODELS.find((m) => m.name === meta.model);
                 if (model) setSelectedModel(model.id);
-                if (meta.attachments.length) {
-                  setAttachedFiles(meta.attachments);
-                  setPreviewUrls(meta.attachments.map((f) => URL.createObjectURL(f)));
-                }
                 handleSend(text, meta.attachments);
               }}
               models={isGuest ? ['Gemini 2.0 Flash'] : MODELS.map((m) => m.name)}
@@ -2324,7 +2342,7 @@ export default function ChatMainArea({
           <div className="max-w-3xl mx-auto w-full px-4 py-6 pb-28 space-y-6">
             {messages.map((msg, idx) => (
               <ChatMessageBubble
-                key={msg.id}
+                key={`${msg.id || 'msg'}-${idx}`}
                 message={msg}
                 theme={theme}
                 onRegenerateImage={handleRegenerateImage}
@@ -2347,10 +2365,6 @@ export default function ChatMainArea({
               onSubmit={(text, meta) => {
                 const model = MODELS.find((m) => m.name === meta.model);
                 if (model) setSelectedModel(model.id);
-                if (meta.attachments.length) {
-                  setAttachedFiles(meta.attachments);
-                  setPreviewUrls(meta.attachments.map((f) => URL.createObjectURL(f)));
-                }
                 handleSend(text, meta.attachments);
               }}
               models={isGuest ? ['Gemini 2.0 Flash'] : MODELS.map((m) => m.name)}

@@ -26,6 +26,7 @@ import {
 import dynamic from 'next/dynamic';
 
 const ChatSearchModal = dynamic(() => import('./ChatSearchModal'), { ssr: false });
+const ImageLibraryModal = dynamic(() => import('./ImageLibraryModal'), { ssr: false });
 import {
   Search,
   Image,
@@ -101,9 +102,16 @@ export default function Sidebar({
   const [newSubjectType, setNewSubjectType] = useState('');
   const [portalMounted, setPortalMounted] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [showLibraryModal, setShowLibraryModal] = useState(false);
 
   useEffect(() => {
     setPortalMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const handleOpenLibrary = () => setShowLibraryModal(true);
+    window.addEventListener('nk-open-library', handleOpenLibrary);
+    return () => window.removeEventListener('nk-open-library', handleOpenLibrary);
   }, []);
 
   // Global Cmd/Ctrl+K shortcut to open chat search.
@@ -468,8 +476,8 @@ export default function Sidebar({
 
             <button
               type="button"
-              className="flex items-center gap-2.5 w-full rounded-lg px-3 py-2 text-xs font-medium transition-colors"
-              style={{ color: theme === 'dark' ? '#71717a' : '#71717a' }}
+              onClick={() => setShowLibraryModal(true)}
+              className="flex items-center gap-2.5 w-full rounded-lg px-3 py-2 text-xs font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer text-zinc-600 dark:text-zinc-300"
             >
               <BookOpen size={14} />
               <span>Library</span>
@@ -1250,6 +1258,13 @@ export default function Sidebar({
             })
           );
         }}
+      />
+
+      {/* Visual / Image Library Modal */}
+      <ImageLibraryModal
+        isOpen={showLibraryModal}
+        onClose={() => setShowLibraryModal(false)}
+        theme={theme}
       />
     </>
   );

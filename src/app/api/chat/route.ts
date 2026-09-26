@@ -92,6 +92,38 @@ export async function POST(req: Request) {
       );
     }
 
+    // ── Consume token from real-time quota system ───────────────────────────
+    // For authenticated users, deduct from Supabase-backed quota
+    if (authenticatedUserId && !isGuest) {
+      try {
+        const consumeRes = await fetch(
+          `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/user/consume-token`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Cookie': req.headers.get('cookie') || '',
+            },
+            body: JSON.stringify({ cost: 1 }),
+          }
+        );
+
+        if (!consumeRes.ok) {
+          const errorData = await consumeRes.json();
+          return new Response(
+            JSON.stringify({
+              error: errorData.error || 'Quota exceeded. Please upgrade or add tokens.',
+              code: errorData.code || 'quota_exceeded',
+            }),
+            { status: consumeRes.status, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+      } catch (err) {
+        console.warn('[Chat] Token consumption check failed, proceeding with caution:', err);
+        // Don't block the request if consumption endpoint fails
+      }
+    }
+
     // Prefer user-chosen model, fall back to ultra-fast primary
     const selectedModel = model || PRIMARY_MODEL;
 
