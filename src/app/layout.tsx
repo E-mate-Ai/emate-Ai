@@ -1,4 +1,5 @@
 import { ClerkProvider } from '@clerk/nextjs';
+import { shadcn } from '@clerk/ui/themes';
 import React from 'react';
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
@@ -153,7 +154,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         suppressHydrationWarning={true}
         className={`${geist.className} ${geist.variable} ${outfit.variable} ${jetbrainsMono.variable} overflow-x-hidden w-full max-w-[100vw] antialiased min-h-screen bg-background text-foreground`}
       >
-        <ClerkProvider>
+        <ClerkProvider appearance={{ theme: shadcn }}>
           <AuthListener />
           <RouteTracker />
           {children}

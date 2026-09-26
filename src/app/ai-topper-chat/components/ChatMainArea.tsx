@@ -41,7 +41,10 @@ import {
   Target,
   HelpCircle,
   CheckCircle2,
+  User,
+  UserPlus,
 } from 'lucide-react';
+import { SignInButton, SignUpButton, Show, UserButton } from '@clerk/nextjs';
 import ChatMessageBubble from './ChatMessageBubble';
 import StreamingIndicator from './StreamingIndicator';
 import { PromptInput } from '@/components/ui/ai-chat-input';
@@ -1868,6 +1871,27 @@ export default function ChatMainArea({
             <Gift size={16} className="text-zinc-800 dark:text-zinc-200" />
             <span>Invite</span>
           </button>
+
+          {/* Clerk Auth Controls */}
+          <div className="flex items-center gap-2 ml-2">
+            <Show when="signed-out">
+              <SignInButton mode="modal">
+                <button className="h-9 px-4 rounded-full bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 text-xs sm:text-sm font-semibold shadow-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all flex items-center gap-2 cursor-pointer active:scale-95">
+                  <User size={16} className="text-zinc-800 dark:text-zinc-200" />
+                  <span>Sign In</span>
+                </button>
+              </SignInButton>
+              <SignUpButton mode="modal">
+                <button className="h-9 px-4 rounded-full bg-[#0060df] hover:bg-[#0052cc] text-white text-xs sm:text-sm font-semibold shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-95">
+                  <UserPlus size={16} />
+                  <span>Sign Up</span>
+                </button>
+              </SignUpButton>
+            </Show>
+            <Show when="signed-in">
+              <UserButton afterSignOutUrl="/" />
+            </Show>
+          </div>
 
           {/* Invite Hover Card Popup */}
           {showInviteHover && (

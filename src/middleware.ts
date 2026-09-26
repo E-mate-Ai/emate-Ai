@@ -1,36 +1,23 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { updateSession } from '@/lib/supabase/middleware';
+import { clerkMiddleware } from '@clerk/nextjs/server';
 
-export async function middleware(request: NextRequest) {
-  // Always refresh the Supabase session cookie first so server-side
-  // auth clients in API routes can call getUser() without an extra round-trip.
-  await updateSession(request);
+export default clerkMiddleware(async (auth, request: NextRequest) => {
   const pathname = request.nextUrl.pathname;
-
-  // Inspect cookies for active authentication or guest sessions
-  const allCookies = request.cookies.getAll();
-  const hasSupabaseAuth = allCookies.some(
-    (c) =>
-      c.name.startsWith('sb-') &&
-      (c.name.includes('-auth-token') || c.name.includes('access-token')) &&
-      Boolean(c.value)
-  );
-
-  const hasNextAuth =
-    Boolean(request.cookies.get('next-auth.session-token')?.value) ||
-    Boolean(request.cookies.get('__Secure-next-auth.session-token')?.value);
-
-  const hasOpenRouterKey = Boolean(request.cookies.get('user_openrouter_key')?.value);
+  const { userId } = await auth();
 
   const isGuestMode =
     request.cookies.get('guest_mode')?.value === 'true' ||
     request.cookies.get('is_guest_user')?.value === 'true';
 
-  const isAuthenticated = hasSupabaseAuth || hasNextAuth || hasOpenRouterKey;
+  const hasOpenRouterKey = Boolean(request.cookies.get('user_openrouter_key')?.value);
+  const isAuthenticated = Boolean(userId) || hasOpenRouterKey;
   const isAllowedUser = isAuthenticated || isGuestMode;
 
   const isAuthPage =
-    pathname.startsWith('/sign-up-login-screen') || pathname.startsWith('/auth');
+    pathname.startsWith('/sign-in') ||
+    pathname.startsWith('/sign-up') ||
+    pathname.startsWith('/sign-up-login-screen') ||
+    pathname.startsWith('/auth');
   const isSandboxRoute = pathname.startsWith('/sandbox');
 
   // If a guest lands on sandbox, route to workspace
@@ -55,10 +42,12 @@ export async function middleware(request: NextRequest) {
   }
 
   return NextResponse.next();
-}
+});
 
 export const config = {
   matcher: [
     '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/(api|trpc)(.*)',
+    '/__clerk/:path*',
   ],
 };
