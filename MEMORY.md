@@ -99,6 +99,12 @@
 
 **Build Status**: ✅ Passed (Next.js 15.5 production build clean, First Load JS 234 kB for chat route)
 
+**Deployment**: ✅ Vercel build completed successfully (2026-09-26)
+- Build completed in 60s on Vercel (iad1)
+- Clerk sign-in/sign-up routes deployed: `/sign-in/[[...sign-in]]`, `/sign-up/[[...sign-up]]`
+- Middleware size: 92.4 kB
+- All 22 pages generated successfully
+
 ---
 
 ## Current Work-in-Progress
