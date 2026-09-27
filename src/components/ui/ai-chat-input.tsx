@@ -450,6 +450,8 @@ export interface PromptInputProps {
   maxAttachments?: number;
   /** When false, hides the attach-image button (e.g. for guest users). */
   allowAttachments?: boolean;
+  /** When false, hides the model selector from the input UI. */
+  modelSelectorEnabled?: boolean;
   /** When true, the input is in "Image Gen Mode" — subtitle + placeholder swap. */
   imageGenMode?: boolean;
   /** Fired when the user clicks the image-generation toggle. */
@@ -473,6 +475,7 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
       onChange,
       maxAttachments = 6,
       allowAttachments = true,
+      modelSelectorEnabled = true,
       imageGenMode = false,
       onImageGenToggle,
       imageGenPlaceholder = 'Describe the diagram, chart, or visual you want e-Mate to generate...',
@@ -943,7 +946,7 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/*,.pdf,.doc,.docx,.txt,.md,.csv,.json,.xlsx,.ppt,.pptx"
             multiple
             onChange={handleFilesChosen}
             className="hidden"
@@ -952,67 +955,98 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
           />
           <div
             ref={ref}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
             className={cn(
-              'relative w-full max-w-2xl mx-auto rounded-full border border-zinc-200/90 dark:border-zinc-800/90 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl px-4 py-2 shadow-xl flex items-center justify-between gap-3 min-h-[50px] transition-all duration-300 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500/40',
+              'relative w-full max-w-2xl mx-auto rounded-full border border-zinc-200/90 dark:border-zinc-800/90 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl px-4 py-2 shadow-xl flex items-center gap-3 min-h-[50px] transition-all duration-300 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500/40',
+              isDraggingOver && 'border-dashed border-blue-500 dark:border-blue-400 ring-2 ring-blue-500/30',
               className
             )}
           >
-            {/* Model Selector pill on left */}
-            <div className="relative shrink-0 flex items-center" ref={modelSelectRef}>
-              <button
-                type="button"
-                onClick={() => setIsModelSelectOpen((v) => !v)}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-              >
-                <ModelIcon model={selectedModel} className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline text-[11px]">{selectedModel}</span>
-                <ChevronDown className="w-3 h-3 text-zinc-400" />
-              </button>
+            {isDraggingOver && allowAttachments && (
+              <div className="absolute inset-0 z-30 rounded-full bg-blue-50/90 dark:bg-zinc-900/90 backdrop-blur-xs flex flex-col items-center justify-center pointer-events-none transition-all duration-150 animate-in fade-in">
+                <UploadCloud className="w-5 h-5 text-blue-600 dark:text-blue-400 animate-bounce mb-1" />
+                <p className="text-[10px] font-semibold text-blue-900 dark:text-blue-100">Drop files</p>
+              </div>
+            )}
 
-              {isModelSelectOpen && (
-                <div className="absolute bottom-full left-0 mb-2 w-48 p-1.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xl z-50 animate-in fade-in zoom-in-95">
-                  {models.map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => {
-                        setSelectedModel(m);
-                        setIsModelSelectOpen(false);
-                      }}
-                      className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs text-left transition-colors ${
-                        selectedModel === m
-                          ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-semibold'
-                          : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-                      }`}
-                    >
-                      <ModelIcon model={m} className="w-3.5 h-3.5" />
-                      <span>{m}</span>
-                    </button>
+            {/* Model Selector pill on left */}
+            {modelSelectorEnabled && (
+              <div className="relative shrink-0 flex items-center" ref={modelSelectRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsModelSelectOpen((v) => !v)}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                >
+                  <ModelIcon model={selectedModel} className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline text-[11px]">{selectedModel}</span>
+                  <ChevronDown className="w-3 h-3 text-zinc-400" />
+                </button>
+
+                {isModelSelectOpen && (
+                  <div className="absolute bottom-full left-0 mb-2 w-48 p-1.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xl z-50 animate-in fade-in zoom-in-95">
+                    {models.map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => {
+                          setSelectedModel(m);
+                          setIsModelSelectOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs text-left transition-colors ${
+                          selectedModel === m
+                            ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-semibold'
+                            : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                        }`}
+                      >
+                        <ModelIcon model={m} className="w-3.5 h-3.5" />
+                        <span>{m}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className={cn('flex-1 min-w-0', hasAttachments && 'flex flex-col gap-2')}>
+              {hasAttachments && (
+                <div className="flex items-center gap-2 overflow-x-auto prompt-scrollbar pb-0.5">
+                  {attachments.map((attachment, index) => (
+                    <AttachmentThumb
+                      key={attachment.id}
+                      attachment={attachment}
+                      index={index}
+                      onRemove={removeAttachment}
+                      onOpen={(a, rect) => setActiveAttachment({ attachment: a, rect })}
+                      registerRef={(id, el) => thumbRefs.current.set(id, el)}
+                    />
                   ))}
                 </div>
               )}
-            </div>
 
-            {/* Center: Text Input */}
-            <div className="flex-1 flex items-center min-w-0">
-              <textarea
-                ref={textareaRef}
-                value={value}
-                onChange={(e) => {
-                  handleInput(e);
-                  handleValueChange(e.target.value);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSubmit();
-                  }
-                }}
-                placeholder={placeholder || 'Ask follow-up or search...'}
-                disabled={isRecording}
-                className="w-full bg-transparent border-0 outline-none focus:ring-0 text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 placeholder:text-left text-left px-1 py-0 resize-none leading-relaxed overflow-y-auto min-h-[24px] max-h-[72px] prompt-scrollbar my-auto"
-                rows={1}
-              />
+              <div className="flex items-center min-w-0">
+                <textarea
+                  ref={textareaRef}
+                  value={value}
+                  onChange={(e) => {
+                    handleInput(e);
+                    handleValueChange(e.target.value);
+                  }}
+                  onPaste={handlePaste}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSubmit();
+                    }
+                  }}
+                  placeholder={placeholder || 'Ask follow-up or search...'}
+                  disabled={isRecording}
+                  className="w-full bg-transparent border-0 outline-none focus:ring-0 text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 placeholder:text-left text-left px-1 py-0 resize-none leading-relaxed overflow-y-auto min-h-[24px] max-h-[72px] prompt-scrollbar my-auto"
+                  rows={1}
+                />
+              </div>
             </div>
 
             {/* Right: Mic & Action buttons */}
@@ -1364,60 +1398,62 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
                 </div>
               )}
 
-              <div className="relative" ref={modelSelectRef}>
-                <button
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsModelSelectOpen((prev) => !prev);
-                  }}
-                  className={cn(
-                    'group flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors outline-none cursor-pointer text-xs font-semibold',
-                    isModelSelectOpen ? 'ring-1 ring-zinc-300 dark:ring-zinc-700' : ''
-                  )}
-                  aria-label={`Select model. Current: ${selectedModel}`}
-                >
-                  <ModelIcon
-                    model={selectedModel}
-                    className="size-3.5 opacity-80 group-hover:opacity-100 transition-opacity"
-                  />
-                  <span className="text-xs font-semibold select-none">
-                    <MorphingText text={selectedModel} />
-                  </span>
-                </button>
+              {modelSelectorEnabled && (
+                <div className="relative" ref={modelSelectRef}>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsModelSelectOpen((prev) => !prev);
+                    }}
+                    className={cn(
+                      'group flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors outline-none cursor-pointer text-xs font-semibold',
+                      isModelSelectOpen ? 'ring-1 ring-zinc-300 dark:ring-zinc-700' : ''
+                    )}
+                    aria-label={`Select model. Current: ${selectedModel}`}
+                  >
+                    <ModelIcon
+                      model={selectedModel}
+                      className="size-3.5 opacity-80 group-hover:opacity-100 transition-opacity"
+                    />
+                    <span className="text-xs font-semibold select-none">
+                      <MorphingText text={selectedModel} />
+                    </span>
+                  </button>
 
-                {isModelSelectOpen && (
-                  <div className="absolute bottom-full left-0 mb-2 z-50 w-48 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 p-1.5 shadow-xl backdrop-blur-md flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-150">
-                    {models.map((model) => (
-                      <button
-                        key={model}
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedModel(model);
-                          setIsModelSelectOpen(false);
-                        }}
-                        className={cn(
-                          'group flex h-8 w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-left text-xs font-medium transition-colors cursor-pointer',
-                          model === selectedModel
-                            ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-semibold'
-                            : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 hover:text-zinc-900 dark:hover:text-zinc-100'
-                        )}
-                      >
-                        <span className="flex items-center gap-2">
-                          <ModelIcon
-                            model={model}
-                            className="size-3.5 opacity-85 group-hover:opacity-100 transition-opacity"
-                          />
-                          {model}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+                  {isModelSelectOpen && (
+                    <div className="absolute bottom-full left-0 mb-2 z-50 w-48 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 p-1.5 shadow-xl backdrop-blur-md flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-150">
+                      {models.map((model) => (
+                        <button
+                          key={model}
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedModel(model);
+                            setIsModelSelectOpen(false);
+                          }}
+                          className={cn(
+                            'group flex h-8 w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-left text-xs font-medium transition-colors cursor-pointer',
+                            model === selectedModel
+                              ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-semibold'
+                              : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 hover:text-zinc-900 dark:hover:text-zinc-100'
+                          )}
+                        >
+                          <span className="flex items-center gap-2">
+                            <ModelIcon
+                              model={model}
+                              className="size-3.5 opacity-85 group-hover:opacity-100 transition-opacity"
+                            />
+                            {model}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <button
                 type="button"

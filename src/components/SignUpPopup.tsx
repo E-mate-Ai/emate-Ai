@@ -47,11 +47,18 @@ export default function SignUpPopup({
     const base =
       typeof window !== 'undefined'
         ? window.location.origin
-        : process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:4028';
+        : process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://emate-ai.runs-on.dev';
     return `${base}/auth/callback?next=/`;
   };
 
+  const suppressPopup = () => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('nk-signup-popup-suppressed', 'true');
+    }
+  };
+
   const handleGoogleSignIn = async () => {
+    suppressPopup();
     setGoogleLoading(true);
     try {
       const supabase = createClient();
@@ -81,6 +88,7 @@ export default function SignUpPopup({
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    suppressPopup();
     const trimmed = email.trim();
     if (!trimmed) {
       toast.error('Please enter your email address');
@@ -101,6 +109,7 @@ export default function SignUpPopup({
   };
 
   const handleOpenAuthScreen = () => {
+    suppressPopup();
     if (onOpenFullAuth) {
       onOpenFullAuth();
     } else {
@@ -258,6 +267,7 @@ export default function SignUpPopup({
           <button
             onClick={(e) => {
               e.stopPropagation();
+              suppressPopup();
               // Enable guest mode so sidebar profile shows "Guest"
               import('@/lib/guest-mode').then(({ setGuestModeEnabled }) => {
                 setGuestModeEnabled(true);

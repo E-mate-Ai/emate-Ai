@@ -2,10 +2,18 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
 
 export async function middleware(request: NextRequest) {
-  // Always refresh the Supabase session cookie first so server-side
-  // auth clients in API routes can call getUser() without an extra round-trip.
-  await updateSession(request);
   const pathname = request.nextUrl.pathname;
+  const isAuthCallback = pathname.startsWith('/auth/callback');
+
+  // Always refresh the Supabase session cookie first so server-side auth clients can
+  // resolve their current user state before route guards run.
+  await updateSession(request);
+
+  // The OAuth callback is a transient exchange step. Never redirect it away while the
+  // server is still exchanging the code for a session; that creates the redirect loop.
+  if (isAuthCallback) {
+    return NextResponse.next();
+  }
 
   // Inspect cookies for active authentication or guest sessions
   const allCookies = request.cookies.getAll();

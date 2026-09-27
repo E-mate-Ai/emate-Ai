@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     process.env.NEXT_PUBLIC_SITE_URL ||
     process.env.NEXT_PUBLIC_APP_URL ||
     origin ||
-    (host ? `${protocol}://${host}` : "http://localhost:4028")
+    (host ? `${protocol}://${host}` : "https://emate-ai.runs-on.dev")
   ).replace(/\/+$/, "");
 
   const callbackUrl = `${baseUrl}/api/auth/openrouter/callback`;

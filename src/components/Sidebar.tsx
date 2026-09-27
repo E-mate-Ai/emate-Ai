@@ -24,6 +24,7 @@ import {
   type ChatMessage,
 } from '@/lib/chatHistory';
 import dynamic from 'next/dynamic';
+import { getLibraryItems, removeLibraryItem, type LibraryItem } from '@/lib/library';
 
 const ChatSearchModal = dynamic(() => import('./ChatSearchModal'), { ssr: false });
 import {
@@ -101,9 +102,16 @@ export default function Sidebar({
   const [newSubjectType, setNewSubjectType] = useState('');
   const [portalMounted, setPortalMounted] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
 
   useEffect(() => {
     setPortalMounted(true);
+    setLibraryItems(getLibraryItems());
+
+    const handleLibraryChange = () => setLibraryItems(getLibraryItems());
+    window.addEventListener('nk-library-change', handleLibraryChange);
+    return () => window.removeEventListener('nk-library-change', handleLibraryChange);
   }, []);
 
   // Global Cmd/Ctrl+K shortcut to open chat search.
@@ -468,7 +476,8 @@ export default function Sidebar({
 
             <button
               type="button"
-              className="flex items-center gap-2.5 w-full rounded-lg px-3 py-2 text-xs font-medium transition-colors"
+              onClick={() => setLibraryOpen(true)}
+              className="flex items-center gap-2.5 w-full rounded-lg px-3 py-2 text-xs font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5"
               style={{ color: theme === 'dark' ? '#71717a' : '#71717a' }}
             >
               <BookOpen size={14} />
@@ -793,6 +802,80 @@ export default function Sidebar({
           )}
         </div>
       </aside>
+
+      {libraryOpen && portalMounted && createPortal(
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/30 backdrop-blur-[2px]">
+          <div className="w-[min(760px,92vw)] max-h-[80vh] overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950">
+            <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-400">Library</p>
+                <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">e-Mate generated files</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLibraryOpen(false)}
+                className="rounded-full p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-white"
+                aria-label="Close library"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="max-h-[70vh] overflow-y-auto p-4">
+              {libraryItems.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 p-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900/40 dark:text-zinc-400">
+                  No generated files yet. Images, notes, or exports created by e-Mate will appear here.
+                </div>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {libraryItems.map((item) => (
+                    <div key={item.id} className="rounded-2xl border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900/60">
+                      <div className="mb-2 flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-zinc-900 dark:text-white">{item.title}</p>
+                          <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-400">{item.type}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeLibraryItem(item.id)}
+                          className="rounded-full p-1.5 text-zinc-500 transition hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-500/10"
+                          aria-label={`Remove ${item.title}`}
+                          title="Remove from library"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+
+                      {item.type === 'image' && item.url ? (
+                        <img src={item.url} alt={item.title} className="h-36 w-full rounded-xl object-cover" />
+                      ) : (
+                        <div className="flex h-36 items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-white text-center text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-950/50 dark:text-zinc-400">
+                          {item.type === 'document' ? item.fileName || 'Document' : item.content ? item.content.slice(0, 100) : 'Saved note'}
+                        </div>
+                      )}
+
+                      <div className="mt-3 flex items-center justify-between gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+                        <span>{new Date(item.createdAt).toLocaleDateString()}</span>
+                        {item.url && (
+                          <a
+                            href={item.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-medium text-blue-600 hover:underline dark:text-blue-400"
+                          >
+                            Open
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* All modals rendered via portal to escape sidebar overflow/transform */}
       {portalMounted &&

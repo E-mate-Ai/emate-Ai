@@ -4,7 +4,7 @@ export async function GET() {
   try {
     const res = await fetch('https://openrouter.ai/api/v1/models', {
       headers: {
-        'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:4028',
+        'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://emate-ai.runs-on.dev',
         'X-Title': 'e-Mate AI',
       },
       next: { revalidate: 3600 }, // Cache models list for 1 hour

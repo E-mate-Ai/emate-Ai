@@ -6,6 +6,7 @@ import { Cookie, X, Check, Shield } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics';
 
 const COOKIE_CONSENT_KEY = 'nk-cookie-consent-v1';
+const SIGNUP_POPUP_SUPPRESSED_KEY = 'nk-signup-popup-suppressed';
 
 export default function CookieBanner() {
   const [visible, setVisible] = useState(false);
@@ -27,6 +28,14 @@ export default function CookieBanner() {
     } catch (_) {}
   }, []);
 
+  const finishConsent = () => {
+    try {
+      localStorage.setItem(SIGNUP_POPUP_SUPPRESSED_KEY, 'true');
+    } catch (_) {}
+    window.dispatchEvent(new Event('nk-cookie-consent-changed'));
+    setVisible(false);
+  };
+
   const handleAcceptAll = () => {
     try {
       localStorage.setItem(
@@ -35,7 +44,7 @@ export default function CookieBanner() {
       );
     } catch (_) {}
     trackEvent('cookie_consent', { action: 'accept_all' });
-    setVisible(false);
+    finishConsent();
   };
 
   const handleDeclineOptional = () => {
@@ -46,7 +55,7 @@ export default function CookieBanner() {
       );
     } catch (_) {}
     trackEvent('cookie_consent', { action: 'decline_optional' });
-    setVisible(false);
+    finishConsent();
   };
 
   const handleSavePreferences = () => {
@@ -57,7 +66,7 @@ export default function CookieBanner() {
       );
     } catch (_) {}
     trackEvent('cookie_consent', { action: 'custom', ...preferences });
-    setVisible(false);
+    finishConsent();
   };
 
   if (!visible) return null;

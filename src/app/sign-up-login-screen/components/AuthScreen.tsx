@@ -38,7 +38,7 @@ export default function AuthScreen() {
     const base =
       typeof window !== 'undefined'
         ? window.location.origin
-        : process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:4028';
+        : process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://emate-ai.runs-on.dev';
     return `${base}/auth/callback?next=/`;
   };
 

@@ -212,7 +212,7 @@ export async function POST(req: Request) {
     const headers = {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://emate-ai.vercel.app',
+      'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://emate-ai.runs-on.dev',
       'X-Title': 'e-Mate AI',
     };
 

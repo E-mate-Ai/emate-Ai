@@ -131,7 +131,7 @@ export function sanitizeMessages(
 /** Build the standard OpenRouter request headers. */
 export function buildOpenRouterHeaders(
   apiKey: string,
-  referer = 'https://emate-ai.vercel.app',
+  referer = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://emate-ai.runs-on.dev',
   title = 'e-Mate AI'
 ): Record<string, string> {
   return {

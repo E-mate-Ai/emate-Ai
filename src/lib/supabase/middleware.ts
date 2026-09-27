@@ -20,11 +20,10 @@ export async function updateSession(request: NextRequest) {
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, {
               ...options,
-              // Set persistent duration (30 days in seconds)
               maxAge: 60 * 60 * 24 * 30,
-              path: "/",
-              sameSite: "lax",
-              secure: process.env.NODE_ENV === "production",
+              path: '/',
+              sameSite: 'lax',
+              secure: process.env.NODE_ENV === 'production',
             })
           );
         },
@@ -32,7 +31,8 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // Refresh user session state
+  // Refresh user session state while preserving the request so redirects are not evaluated
+  // until the cookie exchange is fully persisted.
   await supabase.auth.getUser();
 
   return supabaseResponse;

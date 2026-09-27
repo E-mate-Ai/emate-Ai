@@ -23,6 +23,17 @@ export interface GeneratedImage {
   status?: 'generating' | 'done' | 'error';
 }
 
+/** A file attachment rendered inline in a chat message. */
+export interface ChatAttachment {
+  id?: string;
+  fileName?: string;
+  mimeType?: string;
+  data?: string;
+  text?: string;
+  kind?: 'image' | 'doc';
+  size?: number;
+}
+
 /** A chat message. Defined here (single source of truth) and re-exported by
  *  the chat screen so both the lib and components share one type. */
 export interface ChatMessage {
@@ -33,6 +44,8 @@ export interface ChatMessage {
   timestamp: string;
   subject?: string;
   isGeneralChat?: boolean;
+  /** Uploaded files previewed inline with the message. */
+  attachments?: ChatAttachment[];
   /** Grounded citations attached to retrieved context chunks */
   citations?: import('@/lib/prompts').Citation[];
   /** Generated images rendered live from React state. Never persisted. */

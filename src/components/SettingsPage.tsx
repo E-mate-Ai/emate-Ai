@@ -109,6 +109,63 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
   const [manualKeyInput, setManualKeyInput] = useState('');
   const [isConnectingOpenRouter, setIsConnectingOpenRouter] = useState(false);
 
+  const deviceProfile = React.useMemo(() => {
+    if (typeof navigator === 'undefined') {
+      return {
+        label: 'Current Device',
+        subtitle: 'Browser · Unknown OS · Active Now',
+        icon: Laptop,
+        kind: 'desktop' as const,
+      };
+    }
+
+    const ua = navigator.userAgent;
+    const platform = navigator.platform || 'Unknown';
+    const maxTouch = navigator.maxTouchPoints || 0;
+    const isMobileDevice = /Mobi|Android|iPhone|iPad|iPod/i.test(ua) || maxTouch > 1;
+    const isMac = /Mac/i.test(ua) || platform === 'MacIntel';
+    const isWindows = /Windows/i.test(ua);
+    const isAndroid = /Android/i.test(ua);
+    const isIOS = /iPhone|iPad|iPod/i.test(ua) || (platform === 'MacIntel' && maxTouch > 1);
+    const isLinux = /Linux/i.test(ua);
+
+    let osName = 'Unknown OS';
+    if (isMac) osName = 'macOS';
+    else if (isWindows) osName = 'Windows';
+    else if (isIOS) osName = 'iOS';
+    else if (isAndroid) osName = 'Android';
+    else if (isLinux) osName = 'Linux';
+
+    let browserName = 'Browser';
+    if (/EdgA?\//i.test(ua) || /EdgiOS\//i.test(ua)) browserName = 'Edge';
+    else if (/OPR\//i.test(ua)) browserName = 'Opera';
+    else if (/Chrome\//i.test(ua)) browserName = 'Chrome';
+    else if (/Firefox\//i.test(ua)) browserName = 'Firefox';
+    else if (/Safari\//i.test(ua)) browserName = 'Safari';
+
+    let label = 'Current Device';
+    let kind: 'desktop' | 'mobile' = 'desktop';
+    if (isMobileDevice) {
+      kind = 'mobile';
+      if (isIOS) label = 'Current iPhone/iPad';
+      else if (isAndroid) label = 'Current Android Device';
+      else label = 'Current Mobile Device';
+    } else if (isMac) {
+      label = 'Current Mac Workstation';
+    } else if (isWindows) {
+      label = 'Current Windows PC';
+    } else if (isLinux) {
+      label = 'Current Linux Device';
+    }
+
+    return {
+      label,
+      subtitle: `${browserName} · ${osName} · Active Now`,
+      icon: isMobileDevice ? Smartphone : Laptop,
+      kind,
+    };
+  }, []);
+
   const handleOAuthConnect = () => {
     const w = 600, h = 700;
     const left = window.screenX + (window.outerWidth - w) / 2;
@@ -772,10 +829,10 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
           <div className="space-y-3">
             <div className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 flex items-center justify-between text-xs">
               <div className="flex items-center gap-3">
-                <Laptop size={18} className="text-blue-500" />
+                {React.createElement(deviceProfile.icon, { size: 18, className: 'text-blue-500' })}
                 <div>
-                  <h5 className="font-semibold text-zinc-900 dark:text-white">Current Mac Workstation</h5>
-                  <p className="text-[11px] text-zinc-400">Safari · macOS · Active Now</p>
+                  <h5 className="font-semibold text-zinc-900 dark:text-white">{deviceProfile.label}</h5>
+                  <p className="text-[11px] text-zinc-400">{deviceProfile.subtitle}</p>
                 </div>
               </div>
               <span className="text-xs font-semibold text-blue-500">This Device</span>

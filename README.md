@@ -115,7 +115,8 @@ npm install
 Create a `.env.local` file in the root directory and add the following:
 
 ```env
-NEXT_PUBLIC_APP_URL=http://localhost:4028
+NEXT_PUBLIC_APP_URL=https://emate-ai.runs-on.dev
+NEXT_PUBLIC_SITE_URL=https://emate-ai.runs-on.dev
 OPENROUTER_API_KEY=your_api_key_here
 DATABASE_URL=your_database_url_here
 # Add any additional keys your integrations require
@@ -158,7 +159,7 @@ emate-ai/
 | **Growth** | $8 / seat / month | Power learners who want full RAG, active agents, and unlimited momentum |
 | **Scale** | $25 / seat / month | Teams and enterprises needing dedicated infrastructure and SSO |
 
-Full pricing details available at [emate-ai.vercel.app](https://emate-ai.vercel.app/#pricing).
+Full pricing details available at [emate-ai.runs-on.dev](https://emate-ai.runs-on.dev/#pricing).
 
 ---
 
@@ -205,7 +206,7 @@ This project is licensed under the MIT License — see the [LICENSE](./LICENSE) 
 
 ## Contact
 
-- **Website:** [emate-ai.vercel.app](https://emate-ai.vercel.app)
+- **Website:** [emate-ai.runs-on.dev](https://emate-ai.runs-on.dev)
 - **Email:** [support@emate.ai](mailto:support@emate.ai)
 - **X (Twitter):** [@Try_Emate](https://x.com/Try_Emate)
 

@@ -37,7 +37,7 @@ export const viewport: Viewport = {
   ],
 };
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://emate-ai.vercel.app';
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://emate-ai.runs-on.dev';
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

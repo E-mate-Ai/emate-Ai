@@ -296,10 +296,10 @@ export default function AITopperChatScreen() {
   const ActiveIcon = steps[currentStep].icon;
 
   return (
-    <div className="relative flex h-screen min-h-screen overflow-hidden">
+    <div className="relative flex min-h-screen overflow-x-hidden">
 
-      <div className="flex-1 overflow-hidden">
-        <div className="flex h-full flex-col overflow-hidden">
+      <div className="flex-1 overflow-x-hidden">
+        <div className="flex min-h-screen flex-col overflow-x-hidden">
           <ChatMainArea
             messages={messages}
             setMessages={setMessages}

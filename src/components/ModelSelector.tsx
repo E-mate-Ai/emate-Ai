@@ -32,9 +32,27 @@ export function ModelSelector({
 }: ModelSelectorProps) {
   const [models, setModels] = useState<ModelOption[]>(STATIC_FREE_MODELS);
   const [isOpen, setIsOpen] = useState(false);
+  const [isEnabled, setIsEnabled] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const isDark = theme === 'dark';
   const isMinimal = variant === 'minimal';
+
+  useEffect(() => {
+    async function fetchModelSelectorFlag() {
+      try {
+        const res = await fetch('/api/admin?action=flags');
+        if (!res.ok) return;
+        const data = await res.json();
+        const flag = data?.flags?.find((item: { id: string; enabled: boolean }) => item.id === 'openrouterModelSelector');
+        if (flag) {
+          setIsEnabled(Boolean(flag.enabled));
+        }
+      } catch {
+        // Leave enabled by default for public use.
+      }
+    }
+    fetchModelSelectorFlag();
+  }, []);
 
   useEffect(() => {
     async function fetchFreeModels() {
@@ -64,6 +82,10 @@ export function ModelSelector({
   }, []);
 
   const selectedModelObj = models.find((m) => m.id === currentModel) || models[0];
+
+  if (!isEnabled) {
+    return null;
+  }
 
   return (
     <div className="relative inline-block" ref={dropdownRef}>

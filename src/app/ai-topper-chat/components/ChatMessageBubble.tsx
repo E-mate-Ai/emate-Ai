@@ -647,8 +647,10 @@ export default function ChatMessageBubble({
   const isUser = message.role === 'user';
   const isDark = theme === 'dark';
 
+  const contentText = typeof message.content === 'string' ? message.content : '';
+
   const handleCopy = () => {
-    navigator.clipboard.writeText(message.content);
+    navigator.clipboard.writeText(contentText);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
@@ -658,7 +660,7 @@ export default function ChatMessageBubble({
     const subj = message.subject || activeSubj || '';
     appendToNotebook(
       subj,
-      `Key concept: ${message.content.slice(0, 300)}${message.content.length > 300 ? '...' : ''}`,
+      `Key concept: ${contentText.slice(0, 300)}${contentText.length > 300 ? '...' : ''}`,
       'ai'
     );
     setSaved(true);
@@ -667,10 +669,45 @@ export default function ChatMessageBubble({
   };
 
   if (isUser) {
+    const userAttachments = message.attachments || [];
+    const hasUserAttachments = userAttachments.length > 0;
+
     return (
       <div className="flex flex-col items-end w-full fade-in-up my-1">
+        {hasUserAttachments && (
+          <div className="mb-2 flex max-w-[80%] flex-wrap justify-end gap-2">
+            {userAttachments.map((attachment, index) => {
+              const isImage = attachment.kind === 'image' || attachment.mimeType?.startsWith('image/');
+              const dataUrl = typeof attachment.data === 'string' ? attachment.data : '';
+              const imageSrc = isImage && dataUrl.trim() ? dataUrl : undefined;
+
+              return isImage && imageSrc ? (
+                <img
+                  key={`${attachment.fileName ?? 'attachment'}-${index}`}
+                  src={imageSrc}
+                  alt={attachment.fileName || 'Attached preview'}
+                  className="h-24 w-24 rounded-xl border border-zinc-200/80 object-cover shadow-sm"
+                />
+              ) : (
+                <div
+                  key={`${attachment.fileName ?? 'attachment'}-${index}`}
+                  className="flex max-w-[180px] items-center gap-2 rounded-xl border border-zinc-200/80 bg-white/70 px-2.5 py-2 text-left text-[11px] text-zinc-700 shadow-sm"
+                >
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-100 text-zinc-500">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M8 13h8M8 17h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                  </div>
+                  <span className="truncate">{attachment.fileName || 'Attached file'}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
         <div className="bg-[#cbe2ff] dark:bg-[#1e3a8a]/70 text-[#1a1a1a] dark:text-[#f0f0f0] px-4 py-2 rounded-full max-w-[80%] inline-block text-xs sm:text-sm font-normal shadow-2xs">
-          {message.content}
+          {contentText}
         </div>
       </div>
     );
@@ -690,9 +727,9 @@ export default function ChatMessageBubble({
           className="prose prose-zinc dark:prose-invert max-w-none text-xs sm:text-sm leading-relaxed font-normal"
           style={{ color: isDark ? '#f4f4f5' : '#1a1a1a' }}
         >
-          {message.content ? (
+          {contentText ? (
             <>
-              {renderMarkdown(message.content, theme)}
+              {renderMarkdown(contentText, theme)}
               {isStreaming && (
                 <span
                   className="inline-block w-1.5 h-3.5 ml-1 bg-blue-500 animate-pulse align-middle rounded-xs"
@@ -717,7 +754,7 @@ export default function ChatMessageBubble({
         )}
 
         {/* Connect your apps Action Card block */}
-        {(message.content.toLowerCase().includes('gmail') || message.content.toLowerCase().includes('inbox') || message.content.toLowerCase().includes('calendar')) && (
+        {(contentText.toLowerCase().includes('gmail') || contentText.toLowerCase().includes('inbox') || contentText.toLowerCase().includes('calendar')) && (
           <div className="mt-3 p-4 rounded-[22px] bg-[#dedede] dark:bg-zinc-800/90 max-w-xs space-y-3 border border-transparent">
             <h5 className="text-xs font-bold text-zinc-900 dark:text-white">Connect your apps</h5>
             <div className="space-y-2">
@@ -757,9 +794,9 @@ export default function ChatMessageBubble({
         )}
 
         {/* Interactive OpenRouter CTA button for error messages */}
-        {message.content.toLowerCase().includes('openrouter') && (
+        {contentText.toLowerCase().includes('openrouter') && (
           <div className="mt-3 flex items-center gap-2">
-            {message.content.toLowerCase().includes('credit') || message.content.toLowerCase().includes('balance') ? (
+            {contentText.toLowerCase().includes('credit') || contentText.toLowerCase().includes('balance') ? (
               <a
                 href="https://openrouter.ai/settings/credits"
                 target="_blank"
