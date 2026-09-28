@@ -13,7 +13,11 @@ export default function StickyMobileCTA({ onQuickPrompt }: StickyMobileCTAProps)
   const router = useRouter();
   const pathname = usePathname();
 
-  if (pathname === '/sign-up-login-screen' || pathname === '/thank-you') {
+  if (
+    pathname === '/sign-up-login-screen' ||
+    pathname === '/thank-you' ||
+    pathname === '/ai-topper-chat'
+  ) {
     return null;
   }
 

@@ -22,8 +22,22 @@ export function getLibraryItems(): LibraryItem[] {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
-    const parsed = JSON.parse(raw) as LibraryItem[];
-    return Array.isArray(parsed) ? parsed : [];
+
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed.filter((entry): entry is LibraryItem => {
+      if (!entry || typeof entry !== 'object') return false;
+
+      const item = entry as Record<string, unknown>;
+      return (
+        typeof item.id === 'string' &&
+        typeof item.title === 'string' &&
+        (item.type === 'image' || item.type === 'document' || item.type === 'note') &&
+        typeof item.createdAt === 'string' &&
+        (item.source === 'emate' || item.source === undefined)
+      );
+    }) as LibraryItem[];
   } catch {
     return [];
   }
@@ -34,8 +48,14 @@ export function saveLibraryItem(item: LibraryItem): LibraryItem[] {
 
   try {
     const items = getLibraryItems();
-    const next = [
-      { ...item, source: 'emate', createdAt: item.createdAt || new Date().toISOString() },
+    const normalizedItem: LibraryItem = {
+      ...item,
+      source: 'emate' as const,
+      createdAt: item.createdAt || new Date().toISOString(),
+    };
+
+    const next: LibraryItem[] = [
+      normalizedItem,
       ...items.filter((entry) => entry.id !== item.id),
     ].slice(0, MAX_ITEMS);
 

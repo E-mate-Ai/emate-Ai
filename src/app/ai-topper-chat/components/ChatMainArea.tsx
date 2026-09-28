@@ -1834,125 +1834,133 @@ export default function ChatMainArea({
       )}
 
       {/* ── Floating Top Overlay Components (no static section dividing the screen) ── */}
-      {/* Floating Left: Study / General Switcher Pill */}
-      <div className={`absolute top-4 ${!isSidebarOpen ? 'left-16' : 'left-6'} z-30 flex items-center p-1 rounded-full bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-800 shadow-md transition-all`}>
-        <button
-          onClick={() => {
-            if (!isStudyMode) {
-              setIsStudyMode(true);
-              window.dispatchEvent(new Event('nk-new-chat'));
-            }
-          }}
-          aria-pressed={isStudyMode}
-          className={`flex items-center gap-1.5 transition-all rounded-full px-3.5 py-1.5 text-xs ${
-            isStudyMode
-              ? 'bg-white dark:bg-zinc-700 text-gray-900 dark:text-zinc-100 font-semibold shadow-xs ring-1 ring-black/5 dark:ring-white/10'
-              : 'text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200'
-          }`}
-        >
-          <GraduationCap
-            size={13}
-            className={isStudyMode ? 'text-gray-900 dark:text-zinc-100' : 'text-zinc-400 dark:text-zinc-500'}
-          />
-          Study
-        </button>
-        <button
-          onClick={() => {
-            if (isStudyMode) {
-              setIsStudyMode(false);
-              window.dispatchEvent(new Event('nk-new-chat'));
-            }
-          }}
-          aria-pressed={!isStudyMode}
-          className={`flex items-center gap-1.5 transition-all rounded-full px-3.5 py-1.5 text-xs ${
-            !isStudyMode
-              ? 'bg-white dark:bg-zinc-700 text-gray-900 dark:text-zinc-100 font-semibold shadow-xs ring-1 ring-black/5 dark:ring-white/10'
-              : 'text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200'
-          }`}
-        >
-          <MessageSquare
-            size={13}
-            className={!isStudyMode ? 'text-gray-900 dark:text-zinc-100' : 'text-zinc-400 dark:text-zinc-500'}
-          />
-          General
-        </button>
-      </div>
-
-      {/* Floating Right: Sources Pill + Invite Button */}
-      <div className="absolute top-4 right-6 z-30 flex items-center gap-2">
-        {selectedContext.subject && (
-          <button
-            type="button"
-            onClick={() => {
-              window.dispatchEvent(new CustomEvent('nk-open-sources-modal', { detail: { subject: selectedContext.subject } }));
-            }}
-            className="h-9 px-3.5 rounded-full bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs font-semibold shadow-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
-            title="View sources referenced by AI in this notebook"
-          >
-            <Paperclip size={13} className="text-zinc-500 dark:text-zinc-400" />
-            <span>Sources</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-zinc-200/80 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold">
-              {notebookSources.length}
-            </span>
-          </button>
-        )}
-
+      <div className="absolute left-3 right-3 top-3 z-30 flex items-center justify-between gap-2 md:left-6 md:right-6 md:top-4">
+        {/* Floating Left: Study / General Switcher Pill */}
         <div
-          className="relative flex items-center"
-          onMouseEnter={handleInviteMouseEnter}
-          onMouseLeave={handleInviteMouseLeave}
+          className={`flex items-center rounded-full border border-zinc-200/80 bg-white/80 p-1 shadow-md backdrop-blur-md transition-all dark:border-zinc-800 dark:bg-zinc-900/80 ${
+            !isSidebarOpen ? 'md:ml-10' : ''
+          }`}
         >
           <button
-            type="button"
             onClick={() => {
-              if (typeof navigator !== 'undefined' && navigator.clipboard) {
-                navigator.clipboard.writeText(referralLink);
+              if (!isStudyMode) {
+                setIsStudyMode(true);
+                window.dispatchEvent(new Event('nk-new-chat'));
               }
-              toast.success('Referral link copied to clipboard!');
             }}
-            className="h-9 px-4 rounded-full bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 text-xs sm:text-sm font-semibold shadow-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+            aria-pressed={isStudyMode}
+            className={`flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[10px] transition-all sm:px-3.5 sm:text-xs ${
+              isStudyMode
+                ? 'bg-white font-semibold text-gray-900 shadow-xs ring-1 ring-black/5 dark:bg-zinc-700 dark:text-zinc-100 dark:ring-white/10'
+                : 'text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200'
+            }`}
           >
-            <Gift size={16} className="text-zinc-800 dark:text-zinc-200" />
-            <span>Invite</span>
+            <GraduationCap
+              size={12}
+              className={isStudyMode ? 'text-gray-900 dark:text-zinc-100' : 'text-zinc-400 dark:text-zinc-500'}
+            />
+            <span>Study</span>
           </button>
+          <button
+            onClick={() => {
+              if (isStudyMode) {
+                setIsStudyMode(false);
+                window.dispatchEvent(new Event('nk-new-chat'));
+              }
+            }}
+            aria-pressed={!isStudyMode}
+            className={`flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[10px] transition-all sm:px-3.5 sm:text-xs ${
+              !isStudyMode
+                ? 'bg-white font-semibold text-gray-900 shadow-xs ring-1 ring-black/5 dark:bg-zinc-700 dark:text-zinc-100 dark:ring-white/10'
+                : 'text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200'
+            }`}
+          >
+            <MessageSquare
+              size={12}
+              className={!isStudyMode ? 'text-gray-900 dark:text-zinc-100' : 'text-zinc-400 dark:text-zinc-500'}
+            />
+            <span>General</span>
+          </button>
+        </div>
 
-          {/* Invite Hover Card Popup */}
-          {showInviteHover && (
-            <div
-              onMouseEnter={handleInviteMouseEnter}
-              onMouseLeave={handleInviteMouseLeave}
-              className="absolute right-0 top-11 z-50 w-80 sm:w-96 p-6 rounded-[32px] bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-2xl text-zinc-900 dark:text-white animate-in fade-in slide-in-from-top-2 duration-200"
+        {/* Floating Right: Sources Pill + Invite Button */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {selectedContext.subject && (
+            <button
+              type="button"
+              onClick={() => {
+                window.dispatchEvent(
+                  new CustomEvent('nk-open-sources-modal', { detail: { subject: selectedContext.subject } })
+                );
+              }}
+              className="flex h-8 items-center gap-1 text-[9px] font-semibold text-zinc-800 shadow-xs transition-all hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800 sm:h-9 sm:gap-1.5 sm:text-xs"
+              title="View sources referenced by AI in this notebook"
             >
-              <div className="w-full flex justify-center mb-3">
-                <img
-                  src="/images/3d_blue_gift_box.jpg"
-                  alt="3D Blue Referral Gift Box for Study Tokens"
-                  className="w-32 h-32 object-contain"
-                />
-              </div>
-              <h4 className="text-lg font-bold text-zinc-900 dark:text-white mb-2 text-left">
-                Invite friends
-              </h4>
-              <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed text-left mb-4">
-                Stand a chance to win 1 billion e-Mate tokens when your friend redeems your invite code in Settings within 48 hours of joining. 30 uses left.
-              </p>
-              <div className="w-full py-3 px-4 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold text-sm text-center tracking-widest mb-3 select-all">
-                {referralCode}
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  if (typeof navigator !== 'undefined' && navigator.clipboard) {
-                    navigator.clipboard.writeText(referralLink);
-                  }
-                  toast.success('Referral link copied to clipboard!');
-                }}
-                className="w-full py-3.5 rounded-full bg-[#0060df] hover:bg-[#0052cc] text-white text-sm font-semibold transition-all shadow-xs cursor-pointer active:scale-95 flex items-center justify-center"
-              >
-                Copy invite link
-              </button>
-            </div>
+              <Paperclip size={12} className="text-zinc-500 dark:text-zinc-400" />
+              <span>Sources</span>
+              <span className="rounded-full bg-zinc-200/80 px-1.5 py-0.2 text-[8px] font-bold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                {notebookSources.length}
+              </span>
+            </button>
           )}
+
+          <div
+            className="relative flex items-center"
+            onMouseEnter={handleInviteMouseEnter}
+            onMouseLeave={handleInviteMouseLeave}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                  navigator.clipboard.writeText(referralLink);
+                }
+                toast.success('Referral link copied to clipboard!');
+              }}
+              className="flex h-8 items-center gap-1.5 rounded-full border border-zinc-200/80 bg-white/90 px-2.5 text-[10px] font-semibold text-zinc-900 shadow-xs transition-all hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900/90 dark:text-zinc-100 dark:hover:bg-zinc-800 sm:h-9 sm:gap-2 sm:px-4 sm:text-xs"
+            >
+              <Gift size={13} className="text-zinc-800 dark:text-zinc-200" />
+              <span>Invite</span>
+            </button>
+
+            {/* Invite Hover Card Popup */}
+            {showInviteHover && (
+              <div
+                onMouseEnter={handleInviteMouseEnter}
+                onMouseLeave={handleInviteMouseLeave}
+                className="absolute right-0 top-11 z-50 w-80 rounded-[32px] border border-zinc-200/80 bg-white p-6 text-zinc-900 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 dark:text-white sm:w-96"
+              >
+                <div className="mb-3 flex w-full justify-center">
+                  <img
+                    src="/images/3d_blue_gift_box.jpg"
+                    alt="3D Blue Referral Gift Box for Study Tokens"
+                    className="h-32 w-32 object-contain"
+                  />
+                </div>
+                <h4 className="mb-2 text-left text-lg font-bold text-zinc-900 dark:text-white">
+                  Invite friends
+                </h4>
+                <p className="mb-4 text-left text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+                  Stand a chance to win 1 billion e-Mate tokens when your friend redeems your invite code in Settings within 48 hours of joining. 30 uses left.
+                </p>
+                <div className="mb-3 w-full rounded-2xl bg-zinc-100 px-4 py-3 text-center text-sm font-bold tracking-widest text-zinc-900 select-all dark:bg-zinc-800 dark:text-white">
+                  {referralCode}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                      navigator.clipboard.writeText(referralLink);
+                    }
+                    toast.success('Referral link copied to clipboard!');
+                  }}
+                  className="flex w-full items-center justify-center rounded-full bg-[#0060df] px-3.5 py-3.5 text-sm font-semibold text-white shadow-xs transition-all hover:bg-[#0052cc] active:scale-95"
+                >
+                  Copy invite link
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -2464,15 +2472,6 @@ export default function ChatMainArea({
         }}
         quiz={quizQuiz}
         onSubmit={handleQuizSubmission}
-      />
-
-
-      {/* Sticky Mobile CTA fixed at bottom on mobile devices */}
-      <StickyMobileCTA
-        onQuickPrompt={(p) => {
-          setInputValue(p);
-          setTimeout(() => centerInputRef.current?.focus(), 50);
-        }}
       />
     </div>
   );

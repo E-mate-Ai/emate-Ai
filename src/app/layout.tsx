@@ -150,6 +150,28 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         suppressHydrationWarning={true}
         className={`${geist.className} ${geist.variable} ${outfit.variable} ${jetbrainsMono.variable} overflow-x-hidden w-full max-w-[100vw] antialiased min-h-screen bg-background text-foreground`}
       >
+        <Script
+          id="organization-schema"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'Organization',
+              name: 'e-Mate AI',
+              url: siteUrl,
+              logo: `${siteUrl}/asset/images/e.svg`,
+              sameAs: ['https://www.linkedin.com', 'https://x.com', 'https://instagram.com'],
+              contactPoint: {
+                '@type': 'ContactPoint',
+                contactType: 'customer support',
+                email: 'support@emate-ai.com',
+                telephone: '+918860911070',
+                areaServed: 'IN',
+                availableLanguage: ['English'],
+              },
+            }),
+          }}
+        />
         <AuthListener />
         <RouteTracker />
         {children}
