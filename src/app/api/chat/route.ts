@@ -20,6 +20,58 @@ function getCookie(cookieHeader: string | null, name: string): string | undefine
   return match ? decodeURIComponent(match.trim().slice(name.length + 1)) : undefined;
 }
 
+async function getLiveFreeFallbackModels(apiKey: string, excludedModels: string[]): Promise<string[]> {
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/models', {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://emate-ai.runs-on.dev',
+        'X-Title': 'e-Mate AI',
+      },
+      cache: 'no-store',
+    });
+    if (!response.ok) return [];
+
+    const data = (await response.json()) as {
+      data?: Array<{
+        id?: string;
+        context_length?: number;
+        pricing?: { prompt?: string | null; completion?: string | null };
+        architecture?: { input_modalities?: string[]; output_modalities?: string[] };
+      }>;
+    };
+    const excluded = new Set(excludedModels);
+    const bestFreeModels = (data.data || [])
+      .filter((candidate) => {
+        const inputModalities = candidate.architecture?.input_modalities;
+        const outputModalities = candidate.architecture?.output_modalities;
+        return Boolean(
+          candidate.id &&
+          !excluded.has(candidate.id) &&
+          typeof candidate.pricing?.prompt === 'string' &&
+          Number(candidate.pricing.prompt) === 0 &&
+          typeof candidate.pricing?.completion === 'string' &&
+          Number(candidate.pricing.completion) === 0 &&
+          (!inputModalities || inputModalities.includes('text')) &&
+          (!outputModalities || outputModalities.includes('text'))
+        );
+      })
+      .sort((a, b) => (b.context_length || 0) - (a.context_length || 0))
+      .slice(0, 8);
+
+    for (let index = bestFreeModels.length - 1; index > 0; index--) {
+      const randomIndex = Math.floor(Math.random() * (index + 1));
+      [bestFreeModels[index], bestFreeModels[randomIndex]] = [
+        bestFreeModels[randomIndex],
+        bestFreeModels[index],
+      ];
+    }
+    return bestFreeModels.slice(0, 3).flatMap((candidate) => candidate.id ? [candidate.id] : []);
+  } catch {
+    return [];
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const {
@@ -227,10 +279,8 @@ export async function POST(req: Request) {
     };
 
     /**
-     * Automatic fallback: attempt the requested model; on a transient
-     * provider/quota fault (429/5xx) transparently retry the same payload against
-     * the model's own fallbackId (if any), then the global lightweight
-     * fallback models before surfacing an error.
+      * Try configured fallbacks first, then a small randomized set of live free
+      * text models if those models are unavailable too.
      */
     const modelFallback = getModelFallbackId(selectedModel);
     const attemptOrder = [selectedModel, ...[modelFallback, ...FALLBACK_MODELS].filter(
@@ -239,8 +289,10 @@ export async function POST(req: Request) {
 
     let upstreamRes: Response | null = null;
     let lastError: OpenRouterError | null = null;
+    let liveFallbacksLoaded = false;
 
-    for (const candidate of attemptOrder.slice(0, 2)) {
+    for (let candidateIndex = 0; candidateIndex < attemptOrder.length; candidateIndex++) {
+      const candidate = attemptOrder[candidateIndex];
       try {
         upstreamRes = await openRouterCompletionStream(apiKey, {
           model: candidate,
@@ -294,6 +346,10 @@ export async function POST(req: Request) {
         // Transient: fall through and try the next candidate silently.
         upstreamRes = null;
         lastError = oe;
+        if (candidateIndex === attemptOrder.length - 1 && !liveFallbacksLoaded) {
+          liveFallbacksLoaded = true;
+          attemptOrder.push(...await getLiveFreeFallbackModels(apiKey, attemptOrder));
+        }
       }
     }
 
