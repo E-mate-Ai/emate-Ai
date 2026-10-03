@@ -99,8 +99,30 @@ function ModelSparkleIcon() {
 }
 
 function ModelIcon({ model, className }: { model: string; className?: string }) {
+  const norm = model.toLowerCase();
+
+  // Flagship e-Mate model logo — use actual brand logo
+  if (norm.includes('emate') || norm.includes('e-mate')) {
+    return (
+      <img
+        src="/asset/images/e.svg"
+        alt="e-Mate"
+        className={cn('w-4 h-4 object-contain shrink-0 rounded-[3px] select-none', className)}
+        title="e-Mate AI"
+      />
+    );
+  }
+
   const brandIcons: Record<string, string> = {
+    'e-Mate': '/asset/images/e.svg',
+    emate: '/asset/images/e.svg',
     'Gemini 2.0 Flash':
+      'https://res.cloudinary.com/drhx7imeb/image/upload/v1781695268/google-gemini-icon_l6kk5q.svg',
+    'Gemini 2.0 Flash (Free)':
+      'https://res.cloudinary.com/drhx7imeb/image/upload/v1781695268/google-gemini-icon_l6kk5q.svg',
+    'Gemini 2.0 Flash Exp':
+      'https://res.cloudinary.com/drhx7imeb/image/upload/v1781695268/google-gemini-icon_l6kk5q.svg',
+    'Gemini 2.0 Pro Exp':
       'https://res.cloudinary.com/drhx7imeb/image/upload/v1781695268/google-gemini-icon_l6kk5q.svg',
     'Gemini 2.5 Flash':
       'https://res.cloudinary.com/drhx7imeb/image/upload/v1781695268/google-gemini-icon_l6kk5q.svg',
@@ -114,6 +136,72 @@ function ModelIcon({ model, className }: { model: string; className?: string }) 
 
   if (brandIcons[model]) {
     return <img src={brandIcons[model]} alt={model} className={cn('object-contain', className)} />;
+  }
+
+  if (norm.includes('gemini') || norm.includes('google')) {
+    return (
+      <img
+        src="https://res.cloudinary.com/drhx7imeb/image/upload/v1781695268/google-gemini-icon_l6kk5q.svg"
+        alt={model}
+        className={cn('object-contain', className)}
+      />
+    );
+  }
+
+  if (norm.includes('llama') || norm.includes('meta')) {
+    return (
+      <div
+        className={cn(
+          'flex items-center justify-center rounded-[5px] font-bold text-white text-[9px] bg-blue-600 shrink-0 select-none',
+          className
+        )}
+        style={{ width: 16, height: 16 }}
+      >
+        M
+      </div>
+    );
+  }
+
+  if (norm.includes('deepseek')) {
+    return (
+      <div
+        className={cn(
+          'flex items-center justify-center rounded-[5px] font-bold text-white text-[9px] bg-sky-600 shrink-0 select-none',
+          className
+        )}
+        style={{ width: 16, height: 16 }}
+      >
+        D
+      </div>
+    );
+  }
+
+  if (norm.includes('qwen')) {
+    return (
+      <div
+        className={cn(
+          'flex items-center justify-center rounded-[5px] font-bold text-white text-[9px] bg-purple-600 shrink-0 select-none',
+          className
+        )}
+        style={{ width: 16, height: 16 }}
+      >
+        Q
+      </div>
+    );
+  }
+
+  if (norm.includes('mistral')) {
+    return (
+      <div
+        className={cn(
+          'flex items-center justify-center rounded-[5px] font-bold text-white text-[9px] bg-orange-600 shrink-0 select-none',
+          className
+        )}
+        style={{ width: 16, height: 16 }}
+      >
+        M
+      </div>
+    );
   }
 
   return <ModelSparkleIcon />;
@@ -986,7 +1074,7 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
                 </button>
 
                 {isModelSelectOpen && (
-                  <div className="absolute bottom-full left-0 mb-2 w-48 p-1.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xl z-50 animate-in fade-in zoom-in-95">
+                  <div className="absolute bottom-full left-0 mb-2 w-56 p-1.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xl z-50 animate-in fade-in zoom-in-95 max-h-72 overflow-y-auto">
                     {models.map((m) => (
                       <button
                         key={m}
@@ -995,14 +1083,14 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
                           setSelectedModel(m);
                           setIsModelSelectOpen(false);
                         }}
-                        className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs text-left transition-colors ${
+                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-left transition-colors ${
                           selectedModel === m
                             ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-semibold'
                             : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
                         }`}
                       >
-                        <ModelIcon model={m} className="w-3.5 h-3.5" />
-                        <span>{m}</span>
+                        <ModelIcon model={m} className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">{m}</span>
                       </button>
                     ))}
                   </div>

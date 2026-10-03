@@ -2,19 +2,20 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { Cpu, ChevronDown, Check } from 'lucide-react';
+import { ALL_FREE_MODELS } from '@/lib/modelConfig';
 
-export const STATIC_FREE_MODELS = [
-  { name: 'Auto (Best Available Free Model)', id: 'openrouter/auto', tag: 'Fast' },
-  { name: 'Google Gemma 2 9B', id: 'google/gemma-2-9b-it:free', tag: 'General' },
-  { name: 'Meta Llama 3.1 8B', id: 'meta-llama/llama-3.1-8b-instruct:free', tag: 'Chat' },
-  { name: 'Qwen 2.5 7B', id: 'qwen/qwen-2.5-7b-instruct:free', tag: 'Code & Math' },
-  { name: 'Mistral 7B Instruct', id: 'mistralai/mistral-7b-instruct:free', tag: 'Logic' },
-];
+export const STATIC_FREE_MODELS = ALL_FREE_MODELS.map((m) => ({
+  id: m.id,
+  name: m.name,
+  tag: m.badge,
+  isFlagship: m.isFlagship,
+}));
 
 interface ModelOption {
   id: string;
   name: string;
   tag?: string;
+  isFlagship?: boolean;
 }
 
 interface ModelSelectorProps {
@@ -22,6 +23,23 @@ interface ModelSelectorProps {
   onSelectModel: (modelId: string) => void;
   theme?: 'light' | 'dark';
   variant?: 'default' | 'minimal';
+}
+
+function EMateBadgeIcon() {
+  return (
+    <div
+      className="flex items-center justify-center rounded-[4px] font-black text-white shrink-0 select-none shadow-2xs"
+      style={{
+        width: 15,
+        height: 15,
+        background: 'linear-gradient(135deg, #10a37f 0%, #2563eb 100%)',
+        fontSize: 8,
+        lineHeight: 1,
+      }}
+    >
+      eM
+    </div>
+  );
 }
 
 export function ModelSelector({
@@ -94,7 +112,7 @@ export function ModelSelector({
         onClick={() => setIsOpen(!isOpen)}
         className={
           isMinimal
-            ? 'flex items-center gap-1 text-[11px] font-medium transition-all duration-200 hover:opacity-80 active:scale-95 focus:outline-none h-8'
+            ? 'flex items-center gap-1.5 text-[11px] font-medium transition-all duration-200 hover:opacity-80 active:scale-95 focus:outline-none h-8'
             : 'flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 hover:opacity-90 active:scale-95 border shadow-sm'
         }
         style={
@@ -109,7 +127,11 @@ export function ModelSelector({
               }
         }
       >
-        <Cpu size={12} className={isDark ? 'text-zinc-400' : 'text-zinc-500'} />
+        {selectedModelObj.id === 'emate' || selectedModelObj.name.toLowerCase().includes('emate') ? (
+          <EMateBadgeIcon />
+        ) : (
+          <Cpu size={12} className={isDark ? 'text-zinc-400' : 'text-zinc-500'} />
+        )}
         <span className="truncate max-w-[80px] sm:max-w-[120px]">{selectedModelObj.name}</span>
         <ChevronDown
           size={10}
@@ -119,7 +141,7 @@ export function ModelSelector({
 
       {isOpen && (
         <div
-          className="absolute right-0 mt-2 w-64 rounded-2xl py-1.5 shadow-2xl z-50 border backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150"
+          className="absolute right-0 mt-2 w-72 rounded-2xl py-1.5 shadow-2xl z-50 border backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150"
           style={{
             background: isDark ? 'rgba(18, 18, 20, 0.96)' : 'rgba(255, 255, 255, 0.98)',
             borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)',
@@ -130,12 +152,13 @@ export function ModelSelector({
             style={{ borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}
           >
             <p className="text-[10px] uppercase font-semibold tracking-wider text-zinc-400">
-              Select AI Model
+              Select Free AI Model
             </p>
           </div>
-          <div className="max-h-60 overflow-y-auto space-y-0.5 px-1">
+          <div className="max-h-64 overflow-y-auto space-y-0.5 px-1">
             {models.map((m) => {
               const isSelected = m.id === currentModel;
+              const isEmate = m.id === 'emate' || m.name.toLowerCase().includes('emate');
               return (
                 <button
                   key={m.id}
@@ -154,9 +177,20 @@ export function ModelSelector({
                     color: isDark ? '#ffffff' : '#000000',
                   }}
                 >
-                  <div className="flex flex-col min-w-0 pr-2">
-                    <span className="font-medium truncate">{m.name}</span>
-                    {m.tag && <span className="text-[10px] text-zinc-400 mt-0.5">{m.tag}</span>}
+                  <div className="flex items-center gap-2 min-w-0 pr-2">
+                    {isEmate ? (
+                      <EMateBadgeIcon />
+                    ) : (
+                      <div className="w-3.5 h-3.5 rounded-full bg-zinc-600/30 shrink-0 flex items-center justify-center text-[8px] font-bold text-zinc-400">
+                        •
+                      </div>
+                    )}
+                    <div className="flex flex-col min-w-0">
+                      <span className={`font-medium truncate ${isEmate ? 'text-blue-400 dark:text-blue-300 font-semibold' : ''}`}>
+                        {m.name}
+                      </span>
+                      {m.tag && <span className="text-[10px] text-zinc-400">{m.tag}</span>}
+                    </div>
                   </div>
                   {isSelected && <Check size={14} className="text-blue-500 shrink-0" />}
                 </button>

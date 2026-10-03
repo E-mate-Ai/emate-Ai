@@ -34,7 +34,7 @@ export async function generateStudyExplanation(
     notebookSection;
 
   const response = await openRouterCompletion(apiKey, {
-    model: 'google/gemini-2.0-flash',
+    model: 'google/gemini-2.0-flash:free',
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userMessage },

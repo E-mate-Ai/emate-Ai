@@ -1,53 +1,75 @@
 import { NextResponse } from 'next/server';
+import { ALL_FREE_MODELS, getAdminModelConfig } from '@/lib/modelConfig';
 
 export async function GET() {
+  const adminConfig = getAdminModelConfig();
+  const allowedSet = new Set(adminConfig.enabledModelIds);
+
   try {
     const res = await fetch('https://openrouter.ai/api/v1/models', {
       headers: {
         'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://emate-ai.runs-on.dev',
         'X-Title': 'e-Mate AI',
       },
-      next: { revalidate: 3600 }, // Cache models list for 1 hour
+      next: { revalidate: 1800 },
     });
 
-    if (!res.ok) {
-      throw new Error(`OpenRouter models API failed: ${res.statusText}`);
+    let liveFreeModels: Array<{ id: string; name: string; tag?: string }> = [];
+
+    if (res.ok) {
+      const data = await res.json();
+      liveFreeModels = (data.data || [])
+        .filter((model: any) => {
+          const pricing = model.pricing || {};
+          const isZeroCost = pricing.prompt === '0' && pricing.completion === '0';
+          const isFreeSlug = typeof model.id === 'string' && model.id.endsWith(':free');
+          return isZeroCost || isFreeSlug;
+        })
+        .map((m: any) => ({
+          id: m.id,
+          name: m.name || m.id,
+          tag: 'Free',
+        }));
     }
 
-    const data = await res.json();
+    // Merge static known free models with live free models (removing duplicates)
+    const modelMap = new Map<string, { id: string; name: string; tag?: string; isFlagship?: boolean }>();
 
-    // Filter models that cost 0 for both prompt (input) and completion (output)
-    const freeModels = (data.data || [])
-      .filter((model: any) => {
-        const pricing = model.pricing || {};
-        return pricing.prompt === '0' && pricing.completion === '0';
-      })
-      .map((m: any) => ({
-        id: m.id,
-        name: m.name || m.id,
-      }));
-
-    // Fallback curated free models list if filter returns empty
-    const curatedFreeModels = [
-      { id: 'openrouter/auto', name: 'Auto (Best Available Free Model)' },
-      { id: 'google/gemma-2-9b-it:free', name: 'Google Gemma 2 9B (General Knowledge)' },
-      { id: 'meta-llama/llama-3.1-8b-instruct:free', name: 'Meta Llama 3.1 8B (Fast Chat)' },
-      { id: 'qwen/qwen-2.5-7b-instruct:free', name: 'Qwen 2.5 7B (Coding & Math)' },
-      { id: 'mistralai/mistral-7b-instruct:free', name: 'Mistral 7B Instruct (Logic & Writing)' },
-    ];
-
-    const result = freeModels.length > 0 ? freeModels : curatedFreeModels;
-
-    return NextResponse.json({ models: result });
-  } catch (err: any) {
-    return NextResponse.json({
-      models: [
-        { id: 'openrouter/auto', name: 'Auto (Best Available Free Model)' },
-        { id: 'google/gemma-2-9b-it:free', name: 'Google Gemma 2 9B (General Knowledge)' },
-        { id: 'meta-llama/llama-3.1-8b-instruct:free', name: 'Meta Llama 3.1 8B (Fast Chat)' },
-        { id: 'qwen/qwen-2.5-7b-instruct:free', name: 'Qwen 2.5 7B (Coding & Math)' },
-        { id: 'mistralai/mistral-7b-instruct:free', name: 'Mistral 7B Instruct (Logic & Writing)' },
-      ],
+    // 1. Ensure e-Mate is always the primary flagship model
+    modelMap.set('emate', {
+      id: 'emate',
+      name: 'e-Mate',
+      tag: 'Flagship • Free',
+      isFlagship: true,
     });
+
+    // 2. Add our rich curated list of all free models
+    for (const m of ALL_FREE_MODELS) {
+      if (m.id !== 'emate' && allowedSet.has(m.id)) {
+        modelMap.set(m.id, {
+          id: m.id,
+          name: m.name,
+          tag: m.badge,
+        });
+      }
+    }
+
+    // 3. Add any additional live free models discovered from OpenRouter
+    for (const m of liveFreeModels) {
+      if (!modelMap.has(m.id) && (allowedSet.size === 0 || allowedSet.has(m.id))) {
+        modelMap.set(m.id, m);
+      }
+    }
+
+    return NextResponse.json({ models: Array.from(modelMap.values()) });
+  } catch {
+    // Robust fallback to ALL_FREE_MODELS
+    const fallbackList = ALL_FREE_MODELS.filter((m) => allowedSet.size === 0 || allowedSet.has(m.id)).map((m) => ({
+      id: m.id,
+      name: m.name,
+      tag: m.badge,
+      isFlagship: m.isFlagship,
+    }));
+    return NextResponse.json({ models: fallbackList });
   }
 }

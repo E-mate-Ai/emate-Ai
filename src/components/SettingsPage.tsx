@@ -732,12 +732,12 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                     <div className="mt-1 flex items-center gap-2 text-[11px] text-zinc-500">
                       <span>Usage: ${openRouterKeyInfo.usage.toFixed(4)} USD</span>
                       <a
-                        href="https://openrouter.ai/settings/credits"
+                        href="https://openrouter.ai/models?max_price=0"
                         target="_blank"
                         rel="noreferrer"
-                        className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5"
+                        className="text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-0.5"
                       >
-                        Top up credits <ExternalLink size={10} />
+                        Browse free models <ExternalLink size={10} />
                       </a>
                     </div>
                   )}

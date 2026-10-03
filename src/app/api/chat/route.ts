@@ -4,6 +4,7 @@ import {
   getModelFallbackId,
   type OpenRouterError,
 } from '@/lib/openrouter';
+import { getFreeModelCascade, resolveModelId } from '@/lib/modelConfig';
 import { createClient as createSupabaseServer } from '@/lib/supabase/server';
 import { toolRegistry, evaluateRetrievalConfidence } from '@/lib/tools';
 import { buildChatPrompt } from '@/lib/prompts';
@@ -279,13 +280,11 @@ export async function POST(req: Request) {
     };
 
     /**
-      * Try configured fallbacks first, then a small randomized set of live free
-      * text models if those models are unavailable too.
+     * e-Mate 17-Model Silent Auto-Switch Mesh:
+     * Tries the primary model first, then silently cascades through all other
+     * 16 free OpenRouter models if any model crashes or rate-limits.
      */
-    const modelFallback = getModelFallbackId(selectedModel);
-    const attemptOrder = [selectedModel, ...[modelFallback, ...FALLBACK_MODELS].filter(
-      (m): m is string => typeof m === 'string'
-    )].filter((m, i, arr) => arr.indexOf(m) === i);
+    const attemptOrder = getFreeModelCascade(selectedModel);
 
     let upstreamRes: Response | null = null;
     let lastError: OpenRouterError | null = null;
@@ -327,23 +326,17 @@ export async function POST(req: Request) {
           }
         }
 
-        // Non-retryable errors (401/402) are surfaced immediately with clean user-friendly messaging
-        if (!oe.retryable) {
-          const isUserKey = Boolean(userKey);
-          let friendlyMsg = oe.message || 'OpenRouter request failed.';
-          if (oe.status === 402) {
-            friendlyMsg = isUserKey
-              ? 'Your connected OpenRouter account has insufficient credits ($0 balance). Please top up your credits at https://openrouter.ai/settings/credits to continue.'
-              : 'OpenRouter credits exhausted. Please connect your OpenRouter account in Settings to continue.';
-          } else if (oe.status === 401) {
-            friendlyMsg = 'Invalid OpenRouter API key. Please check your key in Settings.';
-          }
+        // If API key is completely invalid (401), exit cleanly
+        if (oe.status === 401) {
           return new Response(
-            JSON.stringify({ error: friendlyMsg, code: oe.status === 402 ? 'insufficient_credits' : 'invalid_key' }),
-            { status: oe.status || 500, headers: { 'Content-Type': 'application/json' } }
+            JSON.stringify({ error: 'Invalid OpenRouter API key. Please check your key in Settings.', code: 'invalid_key' }),
+            { status: 401, headers: { 'Content-Type': 'application/json' } }
           );
         }
-        // Transient: fall through and try the next candidate silently.
+
+        // Silent auto-failover: if candidate fails for ANY reason (status, timeout, quota, 402, 429, 5xx),
+        // seamlessly switch to the next free model in the 17-model cascade without alerting user!
+        console.warn(`[e-Mate Auto-Mesh] Candidate ${candidate} (${candidateIndex + 1}/${attemptOrder.length}) failed (status ${oe.status}): ${oe.message}. Silently cascading to next model...`);
         upstreamRes = null;
         lastError = oe;
         if (candidateIndex === attemptOrder.length - 1 && !liveFallbacksLoaded) {
@@ -354,14 +347,18 @@ export async function POST(req: Request) {
     }
 
     if (!upstreamRes) {
-      // All candidates exhausted — surface a generic error.
+      // All candidates exhausted — surface a helpful error suggesting free models.
+      const errorMsg =
+        lastError?.status === 402
+          ? 'The selected model requires credits. Please switch to a free model (e.g. Gemini 2.0 Flash Free) to continue without credits.'
+          : lastError?.message ||
+            'OpenRouter is temporarily unavailable. Please try again in a moment, or switch to a free model.';
       return new Response(
         JSON.stringify({
-          error:
-            lastError?.message ||
-            'OpenRouter is temporarily unavailable. Please try again in a moment, or switch models.',
+          error: errorMsg,
+          code: lastError?.status === 402 ? 'switch_to_free_model' : 'model_unavailable',
         }),
-        { status: 502, headers: { 'Content-Type': 'application/json' } }
+        { status: lastError?.status || 502, headers: { 'Content-Type': 'application/json' } }
       );
     }
 

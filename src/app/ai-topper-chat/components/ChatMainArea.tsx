@@ -495,9 +495,24 @@ export default function ChatMainArea({
         const { data: { user } } = await supabase.auth.getUser();
         setCurrentUserId(user?.id ?? null);
         setIsSupabaseSignedUp(!!user);
+
+        // Check if user account was created more than 48 hours ago
+        if (user?.created_at) {
+          const accountCreatedMs = new Date(user.created_at).getTime();
+          if (!isNaN(accountCreatedMs) && Date.now() - accountCreatedMs >= 48 * 60 * 60 * 1000) {
+            setIsPast48Hours(true);
+          }
+        }
+
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
           setCurrentUserId(session?.user?.id ?? null);
           setIsSupabaseSignedUp(!!session?.user);
+          if (session?.user?.created_at) {
+            const accountCreatedMs = new Date(session.user.created_at).getTime();
+            if (!isNaN(accountCreatedMs) && Date.now() - accountCreatedMs >= 48 * 60 * 60 * 1000) {
+              setIsPast48Hours(true);
+            }
+          }
           trackUserSession();
         });
         authSub = subscription;
@@ -558,8 +573,8 @@ export default function ChatMainArea({
   const isAuthenticated = isSupabaseSignedUp || isOpenRouterConnected;
   const isGuest = !isAuthenticated;
 
-  // Guests are locked to the fast free model.
-  const GUEST_MODEL = 'google/gemini-2.0-flash';
+  // Guests are locked to the fast free flagship model.
+  const GUEST_MODEL = 'emate';
 
   // True once a guest has burned through the trial allowance. Drives the soft
   // conversion gate (sign-up CTA) while preserving their chat context.
@@ -693,13 +708,19 @@ export default function ChatMainArea({
     const handleOpenModal = () => {
       handleConnectOpenRouter();
     };
+    const handleSelectFreeModel = () => {
+      setSelectedModel('emate');
+      toast.success('Switched to flagship model: e-Mate');
+    };
     window.addEventListener('message', handleMessage);
     window.addEventListener('nk-open-openrouter-modal', handleOpenModal);
+    window.addEventListener('nk-select-free-model', handleSelectFreeModel);
     return () => {
       window.removeEventListener('message', handleMessage);
       window.removeEventListener('nk-open-openrouter-modal', handleOpenModal);
+      window.removeEventListener('nk-select-free-model', handleSelectFreeModel);
     };
-  }, [handleConnectOpenRouter]);
+  }, [handleConnectOpenRouter, setSelectedModel]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -722,6 +743,40 @@ export default function ChatMainArea({
   // Full-chat drag-and-drop state
   const [isWindowDragging, setIsWindowDragging] = useState(false);
   const windowDragCounterRef = useRef(0);
+
+  // 48-Hour Invite vs Upgrade switch logic
+  // After 48 hours of joining, the Invite button automatically switches to the Upgrade button
+  const [isPast48Hours, setIsPast48Hours] = useState(false);
+
+  useEffect(() => {
+    const checkJoinTime = () => {
+      // 1. Manual test/simulation override via query param ?test48h=true or localStorage
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('test48h') === 'true' || localStorage.getItem('nk-simulate-48h') === 'true') {
+          setIsPast48Hours(true);
+          return;
+        }
+      }
+
+      // 2. Persistent join timestamp in localStorage (set on first visit / registration)
+      let joinedAtStr = localStorage.getItem('nk-user-joined-at');
+      if (!joinedAtStr) {
+        joinedAtStr = localStorage.getItem('guest_created_at') || new Date().toISOString();
+        localStorage.setItem('nk-user-joined-at', joinedAtStr);
+      }
+
+      const joinedAtMs = new Date(joinedAtStr).getTime();
+      const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000;
+      if (!isNaN(joinedAtMs) && Date.now() - joinedAtMs >= FORTY_EIGHT_HOURS_MS) {
+        setIsPast48Hours(true);
+      } else {
+        setIsPast48Hours(false);
+      }
+    };
+
+    checkJoinTime();
+  }, []);
 
   // Invite hover pop-up card state
   const [showInviteHover, setShowInviteHover] = useState(false);
@@ -800,12 +855,19 @@ export default function ChatMainArea({
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const modelMenuRef = useRef<HTMLDivElement>(null);
 
+  // Free models only — e-Mate at the top routes across all 17 silently.
+  // Individual free models let power users pick a specific one.
   const MODELS = [
-    { id: 'google/gemini-2.0-flash', name: 'Gemini 2.0 Flash', badge: 'Fastest' },
-    { id: 'google/gemini-2.5-flash', name: 'Gemini 2.5 Flash', badge: 'Latest' },
-    { id: 'google/gemini-2.5-pro', name: 'Gemini 2.5 Pro', badge: 'Powerful' },
-    { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini', badge: 'Efficient' },
-    { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', badge: 'Smartest' },
+    { id: 'emate', name: 'e-Mate', badge: '17 Free Models • Auto Failover', isFlagship: true },
+    { id: 'google/gemini-2.0-flash:free', name: 'Gemini 2.0 Flash', badge: 'Free • Fastest' },
+    { id: 'google/gemini-2.0-flash-exp:free', name: 'Gemini 2.0 Flash Exp', badge: 'Free • Experimental' },
+    { id: 'google/gemini-2.0-pro-exp:free', name: 'Gemini 2.0 Pro', badge: 'Free • Deep Reasoning' },
+    { id: 'meta-llama/llama-3.3-70b-instruct:free', name: 'Llama 3.3 70B', badge: 'Free • Smart' },
+    { id: 'deepseek/deepseek-r1:free', name: 'DeepSeek R1', badge: 'Free • Math & STEM' },
+    { id: 'deepseek/deepseek-chat:free', name: 'DeepSeek V3', badge: 'Free • Chat' },
+    { id: 'qwen/qwen-2.5-coder-32b-instruct:free', name: 'Qwen 2.5 Coder', badge: 'Free • Code' },
+    { id: 'mistralai/mistral-small-3:free', name: 'Mistral Small 3', badge: 'Free • Logic' },
+    { id: 'microsoft/phi-3-medium-128k-instruct:free', name: 'Phi-3 Medium', badge: 'Free • 128k' },
   ];
 
   const activeModel = MODELS.find((m) => m.id === selectedModel) || MODELS[0];
@@ -1729,7 +1791,7 @@ export default function ChatMainArea({
       onDragLeave={handleWindowDragLeave}
       onDragOver={handleWindowDragOver}
       onDrop={handleWindowDrop}
-      className="flex-1 flex flex-col min-w-0 min-h-screen overflow-y-auto overflow-x-hidden relative transition-colors duration-500"
+      className="flex-1 flex flex-col min-w-0 h-full min-h-0 max-h-full overflow-hidden relative transition-colors duration-500"
       style={{
         background: theme === 'dark' ? '#080809' : '#f9f9fb',
         color: theme === 'dark' ? '#ffffff' : '#000000',
@@ -1904,63 +1966,77 @@ export default function ChatMainArea({
             </button>
           )}
 
-          <div
-            className="relative flex items-center"
-            onMouseEnter={handleInviteMouseEnter}
-            onMouseLeave={handleInviteMouseLeave}
-          >
+          {isPast48Hours ? (
+            /* Upgrade Button — automatically switches 48 hours after joining */
             <button
               type="button"
-              onClick={() => {
-                if (typeof navigator !== 'undefined' && navigator.clipboard) {
-                  navigator.clipboard.writeText(referralLink);
-                }
-                toast.success('Referral link copied to clipboard!');
-              }}
-              className="flex h-8 items-center gap-1.5 rounded-full border border-zinc-200/80 bg-white/90 px-2.5 text-[10px] font-semibold text-zinc-900 shadow-xs transition-all hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900/90 dark:text-zinc-100 dark:hover:bg-zinc-800 sm:h-9 sm:gap-2 sm:px-4 sm:text-xs"
+              onClick={() => router.push('/upgrade')}
+              className="flex h-8 items-center gap-1.5 rounded-full border border-blue-200/90 bg-gradient-to-r from-blue-50 to-indigo-50 px-2.5 text-[10px] font-semibold text-blue-600 shadow-xs transition-all hover:from-blue-100 hover:to-indigo-100 hover:shadow-sm dark:border-blue-900/60 dark:bg-gradient-to-r dark:from-blue-950/50 dark:to-indigo-950/50 dark:text-blue-400 dark:hover:from-blue-900/60 dark:hover:to-indigo-900/60 sm:h-9 sm:gap-2 sm:px-4 sm:text-xs active:scale-95 cursor-pointer"
+              title="Upgrade to e-Mate Plus"
             >
-              <Gift size={13} className="text-zinc-800 dark:text-zinc-200" />
-              <span>Invite</span>
+              <Sparkles size={13} className="text-blue-600 dark:text-blue-400" />
+              <span>Upgrade</span>
             </button>
-
-            {/* Invite Hover Card Popup */}
-            {showInviteHover && (
-              <div
-                onMouseEnter={handleInviteMouseEnter}
-                onMouseLeave={handleInviteMouseLeave}
-                className="absolute right-0 top-11 z-50 w-80 rounded-[32px] border border-zinc-200/80 bg-white p-6 text-zinc-900 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 dark:text-white sm:w-96"
+          ) : (
+            /* Invite Button with 48h reward card */
+            <div
+              className="relative flex items-center"
+              onMouseEnter={handleInviteMouseEnter}
+              onMouseLeave={handleInviteMouseLeave}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                    navigator.clipboard.writeText(referralLink);
+                  }
+                  toast.success('Referral link copied to clipboard!');
+                }}
+                className="flex h-8 items-center gap-1.5 rounded-full border border-zinc-200/80 bg-white/90 px-2.5 text-[10px] font-semibold text-zinc-900 shadow-xs transition-all hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900/90 dark:text-zinc-100 dark:hover:bg-zinc-800 sm:h-9 sm:gap-2 sm:px-4 sm:text-xs"
               >
-                <div className="mb-3 flex w-full justify-center">
-                  <img
-                    src="/images/3d_blue_gift_box.jpg"
-                    alt="3D Blue Referral Gift Box for Study Tokens"
-                    className="h-32 w-32 object-contain"
-                  />
-                </div>
-                <h4 className="mb-2 text-left text-lg font-bold text-zinc-900 dark:text-white">
-                  Invite friends
-                </h4>
-                <p className="mb-4 text-left text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
-                  Stand a chance to win 1 billion e-Mate tokens when your friend redeems your invite code in Settings within 48 hours of joining. 30 uses left.
-                </p>
-                <div className="mb-3 w-full rounded-2xl bg-zinc-100 px-4 py-3 text-center text-sm font-bold tracking-widest text-zinc-900 select-all dark:bg-zinc-800 dark:text-white">
-                  {referralCode}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-                      navigator.clipboard.writeText(referralLink);
-                    }
-                    toast.success('Referral link copied to clipboard!');
-                  }}
-                  className="flex w-full items-center justify-center rounded-full bg-[#0060df] px-3.5 py-3.5 text-sm font-semibold text-white shadow-xs transition-all hover:bg-[#0052cc] active:scale-95"
+                <Gift size={13} className="text-zinc-800 dark:text-zinc-200" />
+                <span>Invite</span>
+              </button>
+
+              {/* Invite Hover Card Popup */}
+              {showInviteHover && (
+                <div
+                  onMouseEnter={handleInviteMouseEnter}
+                  onMouseLeave={handleInviteMouseLeave}
+                  className="absolute right-0 top-11 z-50 w-80 rounded-[32px] border border-zinc-200/80 bg-white p-6 text-zinc-900 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 dark:text-white sm:w-96"
                 >
-                  Copy invite link
-                </button>
-              </div>
-            )}
-          </div>
+                  <div className="mb-3 flex w-full justify-center">
+                    <img
+                      src="/images/3d_blue_gift_box.jpg"
+                      alt="3D Blue Referral Gift Box for Study Tokens"
+                      className="h-32 w-32 object-contain"
+                    />
+                  </div>
+                  <h4 className="mb-2 text-left text-lg font-bold text-zinc-900 dark:text-white">
+                    Invite friends
+                  </h4>
+                  <p className="mb-4 text-left text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+                    Stand a chance to win 1 billion e-Mate tokens when your friend redeems your invite code in Settings within 48 hours of joining. 30 uses left.
+                  </p>
+                  <div className="mb-3 w-full rounded-2xl bg-zinc-100 px-4 py-3 text-center text-sm font-bold tracking-widest text-zinc-900 select-all dark:bg-zinc-800 dark:text-white">
+                    {referralCode}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                        navigator.clipboard.writeText(referralLink);
+                      }
+                      toast.success('Referral link copied to clipboard!');
+                    }}
+                    className="flex w-full items-center justify-center rounded-full bg-[#0060df] px-3.5 py-3.5 text-sm font-semibold text-white shadow-xs transition-all hover:bg-[#0052cc] active:scale-95"
+                  >
+                    Copy invite link
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -2279,7 +2355,7 @@ export default function ChatMainArea({
                 }
                 handleSend(text, meta.attachments);
               }}
-              models={isGuest ? ['Gemini 2.0 Flash'] : MODELS.map((m) => m.name)}
+              models={isGuest ? ['e-Mate'] : MODELS.map((m) => m.name)}
               efforts={['Quick', 'Balanced', 'Deep']}
               allowAttachments={!isGuest}
               placeholder={
@@ -2402,7 +2478,7 @@ export default function ChatMainArea({
             )}
           </div>
         ) : (
-          <div className="max-w-3xl mx-auto w-full px-4 py-6 pb-28 space-y-6">
+          <div className="max-w-3xl mx-auto w-full px-4 py-6 pb-36 space-y-6">
             {messages.map((msg, idx) => (
               <ChatMessageBubble
                 key={msg.id}
@@ -2419,9 +2495,9 @@ export default function ChatMainArea({
         )}
       </div>
 
-      {/* Floating Slim Pill Input Bar — shown at bottom when conversation is active */}
+      {/* Floating Slim Pill Input Bar — permanently stuck to bottom when conversation is active */}
       {hasMessages && (
-        <div className="absolute bottom-5 left-0 right-0 z-30 px-4 flex flex-col items-center justify-center pointer-events-none">
+        <div className="absolute bottom-0 left-0 right-0 z-30 pb-5 pt-8 px-4 flex flex-col items-center justify-center pointer-events-none bg-gradient-to-t from-[#f9f9fb] dark:from-[#080809] via-[#f9f9fb]/90 dark:via-[#080809]/90 to-transparent">
           <div className="w-full max-w-2xl pointer-events-auto">
             <PromptInput
               isSlim={true}
@@ -2434,7 +2510,7 @@ export default function ChatMainArea({
                 }
                 handleSend(text, meta.attachments);
               }}
-              models={isGuest ? ['Gemini 2.0 Flash'] : MODELS.map((m) => m.name)}
+              models={isGuest ? ['e-Mate'] : MODELS.map((m) => m.name)}
               efforts={['Quick', 'Balanced', 'Deep']}
               allowAttachments={!isGuest}
               placeholder={

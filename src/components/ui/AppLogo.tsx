@@ -11,7 +11,7 @@ interface AppLogoProps {
 }
 
 const AppLogo = memo(function AppLogo({
-  src,
+  src = '/asset/images/e.svg',
   iconName,
   size = 36,
   className = '',
@@ -24,27 +24,15 @@ const AppLogo = memo(function AppLogo({
     return classes.join(' ');
   }, [onClick, className]);
 
-  if (src) {
-    return (
-      <div className={containerClassName} onClick={onClick}>
-        <img src={src} alt="e-Mate AI Logo" width={size} height={size} className="flex-shrink-0 rounded-md" />
-      </div>
-    );
-  }
-
   return (
     <div className={containerClassName} onClick={onClick}>
-      <div
-        className="flex items-center justify-center rounded-xl font-black tracking-[-0.04em] text-white shadow-sm"
-        style={{
-          width: size,
-          height: size,
-          background: 'linear-gradient(135deg, #10a37f 0%, #2563eb 100%)',
-          fontSize: Math.max(14, size * 0.5),
-        }}
-      >
-        eM
-      </div>
+      <img
+        src={src || '/asset/images/e.svg'}
+        alt="e-Mate AI Logo"
+        width={size}
+        height={size}
+        className="flex-shrink-0 rounded-md object-contain"
+      />
     </div>
   );
 });

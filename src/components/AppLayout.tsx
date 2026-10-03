@@ -235,14 +235,15 @@ export default function AppLayout({ children }: AppLayoutProps) {
           className={[
             // Mobile: fixed off-canvas drawer
             'fixed inset-y-0 left-0 z-50 will-change-transform transition-all duration-300 ease-in-out overflow-hidden',
-            // Desktop: sticky sidebar that stays anchored while content scrolls
-            'md:sticky md:top-0 md:self-start md:inset-auto md:z-auto md:flex-shrink-0 md:h-screen',
-            // Transform for mobile slide-in
+            // Desktop: fixed sidebar — always anchored, never scrolls with content
+            'md:fixed md:top-0 md:bottom-0 md:left-0 md:z-30',
+            // Transform for mobile slide-in; on desktop only hide via width
             sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
           ].join(' ')}
           style={{
             width: isMobile ? '288px' : sidebarOpen ? `${sidebarWidth}px` : '0px',
-            opacity: sidebarOpen ? 1 : 0,
+            opacity: isMobile ? 1 : sidebarOpen ? 1 : 0,
+            pointerEvents: sidebarOpen ? 'auto' : 'none',
           }}
         >
           <Sidebar
@@ -265,19 +266,26 @@ export default function AppLayout({ children }: AppLayoutProps) {
           />
         )}
 
-        {/* Desktop-only resize handle between sidebar and main */}
+        {/* Desktop-only resize handle — fixed to match sidebar position */}
         {!isMobile && sidebarOpen && (
           <div
             onMouseDown={startResizing}
-            className="w-1 shrink-0 h-full select-none cursor-col-resize z-40 transition-colors hover:bg-sky-500/50 active:bg-sky-500"
-            style={{ background: isResizing ? '#0284c7' : 'transparent' }}
+            className="fixed top-0 bottom-0 z-40 w-1 select-none cursor-col-resize transition-colors hover:bg-sky-500/50 active:bg-sky-500"
+            style={{
+              left: `${sidebarWidth}px`,
+              background: isResizing ? '#0284c7' : 'transparent',
+            }}
           />
         )}
 
         {/* ── Main content column ─────────────────────────────────────────── */}
         <main
-          className="relative flex w-full min-h-screen min-w-0 flex-1 flex-col overflow-hidden bg-[#f5f6f8] md:bg-transparent"
-          style={{ background: theme === 'dark' ? '#000000' : '#f5f6f8' }}
+          className="relative flex w-full h-screen h-[100dvh] max-h-screen min-w-0 flex-1 flex-col overflow-y-auto bg-[#f5f6f8] md:bg-transparent transition-[padding] duration-300 ease-in-out"
+          style={{
+            background: theme === 'dark' ? '#000000' : '#f5f6f8',
+            // Push content right on desktop so it never sits under the fixed sidebar
+            paddingLeft: !isMobile && sidebarOpen ? `${sidebarWidth + 1}px` : undefined,
+          }}
         >
           {!sidebarOpen && (
             <button

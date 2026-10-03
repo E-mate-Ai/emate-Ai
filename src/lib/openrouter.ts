@@ -4,6 +4,8 @@
 // nodejs + edge runtimes) and from client components (tree-shaken per use).
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { ALL_FREE_MODELS, FREE_CASCADE_SLUGS, getFreeModelCascade, resolveModelId } from '@/lib/modelConfig';
+
 export const OPENROUTER_ENDPOINT =
   'https://openrouter.ai/api/v1/chat/completions';
 
@@ -12,6 +14,7 @@ export interface ModelOption {
   id: string;
   /** Active, non-deprecated slug to retry if `id` is rejected (e.g. 404). */
   fallbackId?: string;
+  isFlagship?: boolean;
 }
 
 /**
@@ -21,22 +24,33 @@ export interface ModelOption {
  */
 export const OPENROUTER_MODELS: ModelOption[] = [
   {
+    label: 'e-Mate',
+    id: 'emate',
+    fallbackId: 'google/gemini-2.0-flash:free',
+    isFlagship: true,
+  },
+  ...ALL_FREE_MODELS.filter((m) => m.id !== 'emate').map((m) => ({
+    label: m.name,
+    id: m.id,
+    fallbackId: 'google/gemini-2.0-flash:free',
+  })),
+  {
     label: 'Gemini 2.0 Flash',
     id: 'google/gemini-2.0-flash',
-    fallbackId: 'google/gemini-2.5-flash',
+    fallbackId: 'google/gemini-2.0-flash:free',
   },
   {
     label: 'Gemini 2.5 Flash',
     id: 'google/gemini-2.5-flash',
-    fallbackId: 'google/gemini-2.0-flash',
+    fallbackId: 'google/gemini-2.0-flash:free',
   },
   {
     label: 'Gemini 2.5 Pro',
     id: 'google/gemini-2.5-pro',
-    fallbackId: 'google/gemini-2.5-flash',
+    fallbackId: 'google/gemini-2.0-flash:free',
   },
-  { label: 'Claude 3.5 Sonnet', id: 'anthropic/claude-3.5-sonnet' },
-  { label: 'GPT-4o Mini', id: 'openai/gpt-4o-mini' },
+  { label: 'Claude 3.5 Sonnet', id: 'anthropic/claude-3.5-sonnet', fallbackId: 'google/gemini-2.0-flash:free' },
+  { label: 'GPT-4o Mini', id: 'openai/gpt-4o-mini', fallbackId: 'google/gemini-2.0-flash:free' },
 ];
 
 export type OpenRouterModelId = (typeof OPENROUTER_MODELS)[number]['id'];
@@ -46,8 +60,8 @@ export function getModelFallbackId(modelId: string): string | undefined {
   return OPENROUTER_MODELS.find((m) => m.id === modelId)?.fallbackId;
 }
 
-/** Lightweight, cheap failover models used when a heavy model is down/quota'd. */
-export const FALLBACK_MODELS = ['openai/gpt-4o-mini', 'google/gemini-2.0-flash'] as const;
+/** Lightweight, free failover models used when a model is quota'd or crashes. */
+export const FALLBACK_MODELS = FREE_CASCADE_SLUGS;
 
 export type OpenRouterRole = 'system' | 'user' | 'assistant';
 
@@ -81,7 +95,7 @@ export function getOpenRouterErrorMessage(status: number, modelId?: string): str
     case 401:
       return "Invalid or missing OpenRouter API key. Ensure your key starts with 'sk-or-v1-'.";
     case 402:
-      return 'Insufficient account balance or token credits on OpenRouter.';
+      return 'The selected model requires credits. Switch to one of our free models (e.g. Gemini 2.0 Flash Free).';
     case 404:
       return `Selected model ID '${modelId || 'unknown'}' is invalid or deprecated.`;
     case 429:
@@ -96,17 +110,11 @@ export function getOpenRouterErrorMessage(status: number, modelId?: string): str
 }
 
 /**
- * True for transient failures (429 quota/rate limit, 5xx provider outage) that
- * justify an automatic fallback to a lighter model.
- *
- * Hard 404 "Model Not Found" (and 400 Bad Request) on the Gemini slugs are also
- * treated as fallback-worthy: OpenRouter may still route a deprecated/unnested
- * `google/gemini-2.0-flash` to a dead endpoint, so retrying the same payload on
- * the model's own fallbackId (e.g. `google/gemini-2.5-flash`) usually recovers
- * the request where a hard abort would just surface an error.
+ * True for any HTTP error (quota, 402 credits, 404, 429 rate limit, 5xx server crash)
+ * that justifies an automatic, silent failover to the next model in the 17-model mesh.
  */
 export function shouldFallback(status: number): boolean {
-  return status === 400 || status === 404 || status === 429 || status === 500 || status === 502 || status === 503;
+  return status >= 400 && status !== 401;
 }
 
 /**
@@ -143,12 +151,8 @@ export function buildOpenRouterHeaders(
 }
 
 /**
- * Task 2 — Execute a single OpenRouter chat-completion request.
- *
- * Returns the parsed JSON body. Throws an `OpenRouterError` with a
- * user-friendly, status-aware message on non-2xx responses.
- */
-export async function openRouterCompletion(
+/** Single OpenRouter HTTP execution helper. */
+async function executeSingleOpenRouterCompletion(
   apiKey: string,
   options: OpenRouterCompletionOptions
 ): Promise<Record<string, unknown>> {
@@ -163,8 +167,9 @@ export async function openRouterCompletion(
     title,
   } = options;
 
+  const targetModel = model === 'emate' ? resolveModelId('emate') : model;
   const payload: Record<string, unknown> = {
-    model,
+    model: targetModel,
     messages: sanitizeMessages(messages),
   };
   if (temperature !== undefined) payload.temperature = temperature;
@@ -206,6 +211,40 @@ export async function openRouterCompletion(
   }
 
   return (await response.json()) as Record<string, unknown>;
+}
+
+/**
+ * Task 2 — Execute OpenRouter chat-completion with silent 17-model auto-failover.
+ * If one model crashes, 429s, or throws an error, it silently cascades through
+ * all 17 free models in the mesh without the caller noticing.
+ */
+export async function openRouterCompletion(
+  apiKey: string,
+  options: OpenRouterCompletionOptions
+): Promise<Record<string, unknown>> {
+  const attemptOrder = getFreeModelCascade(options.model);
+
+  let lastError: OpenRouterError | null = null;
+  for (let i = 0; i < attemptOrder.length; i++) {
+    const candidate = attemptOrder[i];
+    try {
+      return await executeSingleOpenRouterCompletion(apiKey, {
+        ...options,
+        model: candidate,
+      });
+    } catch (err) {
+      const oe = err as OpenRouterError;
+      lastError = oe;
+      console.warn(`[e-Mate Mesh] Model ${candidate} (${i + 1}/${attemptOrder.length}) failed (${oe.status}): ${oe.message}. Silently cascading to next free model...`);
+      // If error is 401 (invalid key entirely), abort immediately
+      if (oe.status === 401) {
+        throw oe;
+      }
+      // Otherwise, silently try the next model in the 17-model mesh
+    }
+  }
+
+  throw lastError || new Error('e-Mate free AI model mesh temporarily unavailable.');
 }
 
 /** The OpenRouter model id used for image generation — FLUX.1 Schnell for high-speed educational visuals. */
@@ -357,8 +396,9 @@ export async function openRouterCompletionStream(
     title,
   } = options;
 
+  const targetModel = model === 'emate' ? resolveModelId('emate') : model;
   const payload: Record<string, unknown> = {
-    model,
+    model: targetModel,
     messages: sanitizeMessages(messages),
     stream,
   };

@@ -46,7 +46,7 @@ export async function generateQuiz(
   let rawText = '';
   try {
     const response = await openRouterCompletion(apiKey, {
-      model: 'google/gemini-2.5-flash',
+      model: 'google/gemini-2.0-flash:free',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMessage },
@@ -72,7 +72,7 @@ export async function generateQuiz(
   // Attempt 2 (Automatic 1-attempt retry with stricter corrective prompt)
   console.log('[mcqAgent] Executing retry attempt for quiz generation...');
   const retryResponse = await openRouterCompletion(apiKey, {
-    model: 'google/gemini-2.5-flash',
+    model: 'google/gemini-2.0-flash:free',
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userMessage },

@@ -43,7 +43,7 @@ export default function AITopperChatScreen() {
     subject: '',
     unit: '',
   });
-  const [selectedModel, setSelectedModel] = useState('openrouter/auto');
+  const [selectedModel, setSelectedModel] = useState('emate');
   const [sessionId, setSessionId] = useState('chat-new');
 
   // Keep refs in sync with state so event-handler closures always see fresh values
@@ -296,10 +296,9 @@ export default function AITopperChatScreen() {
   const ActiveIcon = steps[currentStep].icon;
 
   return (
-    <div className="relative flex min-h-screen overflow-x-hidden">
-
-      <div className="flex-1 overflow-x-hidden">
-        <div className="flex min-h-screen flex-col overflow-x-hidden">
+    <div className="relative flex flex-1 h-full min-h-0 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+        <div className="flex flex-1 h-full min-h-0 flex-col overflow-hidden">
           <ChatMainArea
             messages={messages}
             setMessages={setMessages}

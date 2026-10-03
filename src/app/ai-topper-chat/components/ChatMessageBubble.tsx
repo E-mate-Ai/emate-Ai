@@ -796,16 +796,17 @@ export default function ChatMessageBubble({
         {/* Interactive OpenRouter CTA button for error messages */}
         {contentText.toLowerCase().includes('openrouter') && (
           <div className="mt-3 flex items-center gap-2">
-            {contentText.toLowerCase().includes('credit') || contentText.toLowerCase().includes('balance') ? (
-              <a
-                href="https://openrouter.ai/settings/credits"
-                target="_blank"
-                rel="noreferrer"
+            {contentText.toLowerCase().includes('credit') ||
+            contentText.toLowerCase().includes('balance') ||
+            contentText.toLowerCase().includes('free model') ? (
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('nk-select-free-model'))}
                 className="px-5 py-2.5 rounded-full bg-[#0060df] hover:bg-[#0052cc] text-white text-xs sm:text-sm font-medium inline-flex items-center gap-2 transition-all cursor-pointer shadow-xs active:scale-95"
               >
                 <Sparkles size={16} />
-                <span>Add Credits on OpenRouter</span>
-              </a>
+                <span>Switch to Free Model</span>
+              </button>
             ) : (
               <button
                 type="button"

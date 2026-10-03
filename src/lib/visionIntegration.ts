@@ -52,6 +52,7 @@ export function formatMultimodalMessage(
  * Vision-capable models on OpenRouter that support multimodal input.
  */
 export const VISION_MODELS = [
+  'google/gemini-2.0-flash:free',
   'google/gemini-2.5-flash',
   'google/gemini-2.5-pro',
   'google/gemini-2.0-flash',

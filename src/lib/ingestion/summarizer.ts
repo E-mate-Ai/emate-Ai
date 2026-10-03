@@ -52,7 +52,7 @@ ${sampledText.slice(0, 14000)}
 """`;
 
       const response = await openRouterCompletion(apiKey, {
-        model: options?.model || 'google/gemini-2.0-flash',
+        model: options?.model || 'google/gemini-2.0-flash:free',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.3,
         max_tokens: 600,

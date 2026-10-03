@@ -56,7 +56,7 @@ export async function POST(req: Request) {
 
     // Call vision model with multimodal content array
     const response = await openRouterCompletion(apiKey, {
-      model: 'google/gemini-2.5-flash', // Vision-capable model
+      model: 'google/gemini-2.0-flash:free', // Vision-capable free model
       messages: [
         {
           role: 'user',
