@@ -36,12 +36,10 @@ export default function AuthScreen() {
 
   const getRedirectUrl = () => {
     const base =
-      typeof window !== 'undefined'
-        ? window.location.origin
-        : process.env.NEXT_PUBLIC_SITE_URL ||
-          process.env.NEXT_PUBLIC_APP_URL ||
-          'https://emate-ai.runs-on.dev';
-    return `${base}/auth/callback?next=/`;
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      (typeof window !== 'undefined' ? window.location.origin : 'https://emate-ai.runs-on.dev');
+    return `${base}/auth/callback?next=/ai-topper-chat`;
   };
 
   /* ── Google OAuth ── */

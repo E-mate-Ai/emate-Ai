@@ -33,7 +33,9 @@ export async function updateSession(request: NextRequest) {
 
   // Refresh user session state while preserving the request so redirects are not evaluated
   // until the cookie exchange is fully persisted.
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  return supabaseResponse;
+  return { supabaseResponse, user };
 }

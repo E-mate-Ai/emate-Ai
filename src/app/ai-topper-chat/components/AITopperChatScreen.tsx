@@ -61,6 +61,15 @@ export default function AITopperChatScreen() {
   // It listens for SIGNED_IN events and merges remote data into the local cache.
 
 
+  // Safety net: if arrived with OAuth ?code= directly on /ai-topper-chat, forward to /auth/callback
+  // to exchange it for persistent session cookies
+  useEffect(() => {
+    const code = searchParams.get('code');
+    if (code) {
+      window.location.href = `/auth/callback?code=${encodeURIComponent(code)}&next=/ai-topper-chat`;
+    }
+  }, [searchParams]);
+
   // Sync active session when URL searchParam `chatId` changes.
   // Uses getChatTranscriptWithFallback which tries local cache first, then Supabase.
   useEffect(() => {
