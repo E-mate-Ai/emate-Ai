@@ -67,7 +67,13 @@ export async function signInWithGoogle() {
   const origin =
     process.env.NEXT_PUBLIC_SITE_URL ||
     process.env.NEXT_PUBLIC_APP_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://emate-ai.runs-on.dev');
+    // VERCEL_PROJECT_PRODUCTION_URL = always the canonical production domain (e.g. emate-ai.vercel.app)
+    // VERCEL_URL = current deployment URL (can be a preview like emate-ai-isachinbishts-projects.vercel.app)
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : 'https://emate-ai.runs-on.dev');
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
