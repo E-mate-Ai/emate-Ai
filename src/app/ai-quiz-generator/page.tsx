@@ -3,9 +3,9 @@ import Link from 'next/link';
 import AppLayout from '@/components/AppLayout';
 
 export const metadata: Metadata = {
-  title: 'AI Quiz Generator for Students | e-Mate',
+  title: 'AI Quiz Generator for Students — e-Mate AI',
   description:
-    'Turn your subject notes into smart practice quizzes with e-Mate and strengthen recall before your exams with active self-testing.',
+    'Turn your subject notes into smart practice quizzes with e-Mate AI and strengthen recall before your exams with active self-testing.',
   alternates: {
     canonical: '/ai-quiz-generator',
   },

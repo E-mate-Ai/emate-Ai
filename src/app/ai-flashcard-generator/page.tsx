@@ -3,9 +3,9 @@ import Link from 'next/link';
 import AppLayout from '@/components/AppLayout';
 
 export const metadata: Metadata = {
-  title: 'AI Flashcard Generator for Students | e-Mate',
+  title: 'AI Flashcard Generator for Students — e-Mate AI',
   description:
-    'Generate active-recall flashcards from your notes and topics with e-Mate and turn revision into a faster, more memorable study habit.',
+    'Generate active-recall flashcards from your notes and topics with e-Mate AI and turn revision into a faster, more memorable study habit.',
   alternates: {
     canonical: '/ai-flashcard-generator',
   },

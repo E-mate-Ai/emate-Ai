@@ -5,9 +5,9 @@ import AITopperChatScreen from './ai-topper-chat/components/AITopperChatScreen';
 import SkeletonLoader from '@/components/SkeletonLoader';
 
 export const metadata: Metadata = {
-  title: 'AI Study Assistant for Students | e-Mate',
+  title: 'e-Mate AI – AI Study Assistant for Students',
   description:
-    'e-Mate is an AI study assistant for students to build personalized study plans, revise smarter, practice with quizzes, and prepare for exams with more confidence.',
+    'e-Mate AI is an AI-powered study assistant that helps students plan their preparation, understand concepts, practice with quizzes, revise effectively, and prepare for exams.',
   alternates: {
     canonical: '/',
   },

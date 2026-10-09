@@ -41,6 +41,7 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
+  applicationName: 'e-Mate AI',
   title: {
     default: 'e-Mate AI — Smart Study Copilot & Academic Topper Workspace',
     template: '%s — e-Mate AI',
@@ -131,6 +132,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en" className={cn("overflow-x-hidden w-full max-w-[100vw]", "font-sans", geist.variable)} suppressHydrationWarning>
       <head>
         <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="icon" type="image/png" sizes="192x192" href="/android-chrome-192x192.png" />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
@@ -151,24 +153,62 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         className={`${geist.className} ${geist.variable} ${outfit.variable} ${jetbrainsMono.variable} overflow-x-hidden w-full max-w-[100vw] antialiased min-h-screen bg-background text-foreground`}
       >
         <Script
-          id="organization-schema"
+          id="structured-data-schema"
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               '@context': 'https://schema.org',
-              '@type': 'Organization',
-              name: 'e-Mate AI',
-              url: siteUrl,
-              logo: `${siteUrl}/asset/images/e.svg`,
-              sameAs: ['https://www.linkedin.com', 'https://x.com', 'https://instagram.com'],
-              contactPoint: {
-                '@type': 'ContactPoint',
-                contactType: 'customer support',
-                email: 'support@emate-ai.com',
-                telephone: '+918860911070',
-                areaServed: 'IN',
-                availableLanguage: ['English'],
-              },
+              '@graph': [
+                {
+                  '@type': 'WebSite',
+                  '@id': `${siteUrl}/#website`,
+                  url: siteUrl,
+                  name: 'e-Mate AI',
+                  alternateName: ['eMate AI', 'eMate', 'e-Mate'],
+                  description:
+                    'AI-powered study assistant that helps students plan their preparation, understand concepts, practice with quizzes, revise effectively, and prepare for exams.',
+                  publisher: {
+                    '@id': `${siteUrl}/#organization`,
+                  },
+                  inLanguage: 'en-US',
+                },
+                {
+                  '@type': 'Organization',
+                  '@id': `${siteUrl}/#organization`,
+                  name: 'e-Mate AI',
+                  url: siteUrl,
+                  logo: {
+                    '@type': 'ImageObject',
+                    url: `${siteUrl}/android-chrome-512x512.png`,
+                    width: 512,
+                    height: 512,
+                  },
+                  contactPoint: {
+                    '@type': 'ContactPoint',
+                    contactType: 'customer support',
+                    email: 'support@emate-ai.com',
+                    availableLanguage: ['English'],
+                  },
+                },
+                {
+                  '@type': 'SoftwareApplication',
+                  '@id': `${siteUrl}/#software`,
+                  name: 'e-Mate AI',
+                  applicationCategory: 'EducationalApplication',
+                  operatingSystem: 'Any',
+                  offers: {
+                    '@type': 'Offer',
+                    price: '0',
+                    priceCurrency: 'USD',
+                  },
+                  description:
+                    'AI-powered study workspace for interactive flashcards, quizzes, PDF summarization, and personalized revision workflows for students.',
+                  url: siteUrl,
+                  author: {
+                    '@id': `${siteUrl}/#organization`,
+                  },
+                },
+              ],
             }),
           }}
         />

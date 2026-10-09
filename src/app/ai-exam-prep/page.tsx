@@ -3,7 +3,7 @@ import Link from 'next/link';
 import AppLayout from '@/components/AppLayout';
 
 export const metadata: Metadata = {
-  title: 'AI Exam Preparation Assistant | e-Mate',
+  title: 'AI Exam Preparation Assistant — e-Mate AI',
   description:
     'Prepare for exams with AI-generated revision prompts, question practice, summaries, and strategic study workflows designed for exam readiness.',
   alternates: {
