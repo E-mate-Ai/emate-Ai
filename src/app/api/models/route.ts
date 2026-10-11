@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server';
-import { ALL_FREE_MODELS, getAdminModelConfig } from '@/lib/modelConfig';
+import { ALL_FREE_MODELS } from '@/lib/modelConfig';
+import { getAdminSettings } from '@/lib/adminSettings';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const adminConfig = getAdminModelConfig();
+  const { modelConfig, flags } = await getAdminSettings();
+  const adminConfig = modelConfig;
   const allowedSet = new Set(adminConfig.enabledModelIds);
+  const experimentalEnabled = flags.find((flag) => flag.id === 'experimentalAI')?.enabled ?? false;
 
   try {
     const res = await fetch('https://openrouter.ai/api/v1/models', {
@@ -45,6 +50,7 @@ export async function GET() {
 
     // 2. Add our rich curated list of all free models
     for (const m of ALL_FREE_MODELS) {
+      if (!experimentalEnabled && m.badge.toLowerCase().includes('experimental')) continue;
       if (m.id !== 'emate' && allowedSet.has(m.id)) {
         modelMap.set(m.id, {
           id: m.id,
@@ -56,20 +62,27 @@ export async function GET() {
 
     // 3. Add any additional live free models discovered from OpenRouter
     for (const m of liveFreeModels) {
-      if (!modelMap.has(m.id) && (allowedSet.size === 0 || allowedSet.has(m.id))) {
+      const isExperimental = /(?:^|[-/])[^/]*exp(?:erimental)?(?:[-/:]|$)/i.test(m.id);
+      if (!modelMap.has(m.id) && (allowedSet.size === 0 || allowedSet.has(m.id)) && (experimentalEnabled || !isExperimental)) {
         modelMap.set(m.id, m);
       }
     }
 
-    return NextResponse.json({ models: Array.from(modelMap.values()) });
+    return NextResponse.json(
+      { models: Array.from(modelMap.values()) },
+      { headers: { 'Cache-Control': 'no-store, max-age=0' } }
+    );
   } catch {
     // Robust fallback to ALL_FREE_MODELS
-    const fallbackList = ALL_FREE_MODELS.filter((m) => allowedSet.size === 0 || allowedSet.has(m.id)).map((m) => ({
+    const fallbackList = ALL_FREE_MODELS.filter((m) => (allowedSet.size === 0 || allowedSet.has(m.id)) && (experimentalEnabled || !m.badge.toLowerCase().includes('experimental'))).map((m) => ({
       id: m.id,
       name: m.name,
       tag: m.badge,
       isFlagship: m.isFlagship,
     }));
-    return NextResponse.json({ models: fallbackList });
+    return NextResponse.json(
+      { models: fallbackList },
+      { headers: { 'Cache-Control': 'no-store, max-age=0' } }
+    );
   }
 }

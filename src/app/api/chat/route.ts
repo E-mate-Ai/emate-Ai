@@ -4,7 +4,8 @@ import {
   getModelFallbackId,
   type OpenRouterError,
 } from '@/lib/openrouter';
-import { getFreeModelCascade, resolveModelId } from '@/lib/modelConfig';
+import { ALL_FREE_MODELS, getFreeModelCascade } from '@/lib/modelConfig';
+import { getAdminSettings } from '@/lib/adminSettings';
 import { createClient as createSupabaseServer } from '@/lib/supabase/server';
 import { toolRegistry, evaluateRetrievalConfidence } from '@/lib/tools';
 import { buildChatPrompt } from '@/lib/prompts';
@@ -75,6 +76,15 @@ async function getLiveFreeFallbackModels(apiKey: string, excludedModels: string[
 
 export async function POST(req: Request) {
   try {
+    const runtimeSettings = await getAdminSettings();
+    const maintenanceMode = runtimeSettings.flags.find((flag) => flag.id === 'maintenanceMode')?.enabled;
+    if (maintenanceMode) {
+      return new Response(
+        JSON.stringify({ error: 'e-Mate is temporarily unavailable while maintenance is in progress.', code: 'maintenance_mode' }),
+        { status: 503, headers: { 'Content-Type': 'application/json', 'Retry-After': '300' } }
+      );
+    }
+
     const {
       messages,
       mode,
@@ -146,7 +156,15 @@ export async function POST(req: Request) {
     }
 
     // Prefer user-chosen model, fall back to ultra-fast primary
-    const selectedModel = model || PRIMARY_MODEL;
+    const activeEngine = runtimeSettings.modelConfig.activeEngineForEmate;
+    const selectedModel = model === 'emate'
+      ? activeEngine
+      : model && (
+          !runtimeSettings.modelConfig.modelSelectorEnabled ||
+          (ALL_FREE_MODELS.some((item) => item.id === model) && !runtimeSettings.modelConfig.enabledModelIds.includes(model))
+        )
+        ? activeEngine
+        : model || PRIMARY_MODEL;
 
     // ── Semantic RAG Retrieval & Re-ranking via Tool-Calling Layer ──────────
     const lastUserMessageObj = messages.filter((m: any) => m.role === 'user').pop();

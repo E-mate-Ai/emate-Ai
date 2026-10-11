@@ -35,6 +35,7 @@ import {
   CreditCard,
   Zap,
   User,
+  Search,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { applyTheme } from '@/lib/theme';
@@ -86,6 +87,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
   const [selectedLanguage, setSelectedLanguage] = useState('English');
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+  const [settingsSearch, setSettingsSearch] = useState('');
 
   // Existing e-Mate states preserved
   const [subjects, setSubjects] = useState<Subject[]>(() => getSubjects());
@@ -356,40 +358,72 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
     { id: 'context', label: 'Study Context', icon: Compass },
     { id: 'notebook', label: 'My Notebook', icon: BookOpen },
   ];
+  const filteredNavItems = NAV_ITEMS.filter((item) =>
+    item.label.toLowerCase().includes(settingsSearch.trim().toLowerCase())
+  );
+  const TAB_DESCRIPTIONS: Record<SettingsTab, string> = {
+    general: 'Manage your account, usage, and appearance.',
+    connectors: 'Connect the services that power your AI workspace.',
+    wallet: 'Review your balance and manage how credits are used.',
+    secure_store: 'Manage API keys and credentials connected to e-Mate.',
+    permissions: 'Review access granted to workspace features.',
+    messaging: 'Manage the channels available for e-Mate updates.',
+    devices: 'See the device currently signed in to your account.',
+    data_controls: 'Export or clear data saved in this workspace.',
+    help: 'Get in touch with the e-Mate support team.',
+    legal: 'View product, privacy, and service information.',
+    context: 'Choose the subject e-Mate should use for study answers.',
+    notebook: 'Review notes saved from your study sessions.',
+  };
 
   return (
     <div
-      className="relative w-full max-w-[840px] h-[640px] max-h-[92vh] bg-white dark:bg-[#18181b] rounded-[28px] shadow-2xl border border-zinc-200/80 dark:border-zinc-800 flex overflow-hidden text-zinc-900 dark:text-zinc-100 font-sans transition-colors duration-150 animate-in zoom-in-95"
+      className="relative w-full max-w-[1180px] h-[760px] max-h-[92vh] bg-white dark:bg-zinc-950 rounded-[22px] shadow-2xl border border-zinc-200 dark:border-zinc-800 flex overflow-hidden text-zinc-900 dark:text-zinc-100 font-sans transition-colors duration-150 animate-in zoom-in-95"
       onClick={(e) => e.stopPropagation()}
     >
       {/* ── Left Sidebar Navigation Pane ─────────────────────────────────── */}
-      <nav className="w-[240px] shrink-0 border-r border-zinc-200/70 dark:border-zinc-800/80 p-5 flex flex-col justify-between bg-zinc-50/70 dark:bg-[#121215] select-none overflow-y-auto">
-        <div className="space-y-4">
-          <h2 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-white px-2">
+      <nav aria-label="Settings sections" className="w-14 sm:w-[230px] shrink-0 border-r border-zinc-200 dark:border-zinc-800 p-1.5 sm:p-5 flex flex-col justify-between bg-zinc-50/70 dark:bg-zinc-950 select-none overflow-y-auto">
+        <div className="space-y-5">
+          <h2 className="hidden sm:block text-xl font-semibold tracking-tight text-zinc-900 dark:text-white px-2 pt-1">
             Settings
           </h2>
 
+          <label className="relative hidden sm:block">
+            <Search size={16} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+            <input
+              value={settingsSearch}
+              onChange={(event) => setSettingsSearch(event.target.value)}
+              placeholder="Search settings"
+              aria-label="Search settings"
+              className="h-10 w-full rounded-xl border border-zinc-200/80 bg-zinc-100/80 pl-9 pr-3 text-sm text-zinc-900 placeholder:text-zinc-400 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+            />
+          </label>
+
           <div className="space-y-1">
-            {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
+            <p className="hidden sm:block px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Preferences</p>
+            {filteredNavItems.map(({ id, label, icon: Icon }) => {
               const isActive = activeTab === id;
               return (
                 <button
                   key={id}
                   onClick={() => setActiveTab(id)}
-                  className={`w-full text-left px-3 py-2 rounded-2xl flex items-center gap-3 text-xs sm:text-sm font-medium transition-all ${
+                  aria-current={isActive ? 'page' : undefined}
+                  title={label}
+                  className={`w-full justify-center sm:justify-start text-left px-1 sm:px-3 py-2.5 rounded-xl flex items-center gap-0 sm:gap-3 text-sm font-medium transition-colors ${
                     isActive
-                      ? 'border-[1.5px] border-blue-500 bg-blue-500/5 text-blue-600 dark:text-blue-400 font-semibold shadow-xs'
-                      : 'border border-transparent text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50'
+                      ? 'bg-zinc-200/80 text-zinc-900 dark:bg-zinc-800 dark:text-white font-semibold'
+                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200/60 dark:hover:bg-zinc-900'
                   }`}
                 >
                   <Icon
                     size={17}
                     className={isActive ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-500 dark:text-zinc-400'}
                   />
-                  <span className="truncate">{label}</span>
+                  <span className="hidden sm:block truncate">{label}</span>
                 </button>
               );
             })}
+            {filteredNavItems.length === 0 && <p className="hidden sm:block px-3 py-3 text-xs text-zinc-500">No settings found.</p>}
           </div>
         </div>
 
@@ -397,30 +431,35 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         <div className="pt-4 border-t border-zinc-200/60 dark:border-zinc-800/60 mt-4">
           <button
             onClick={handleSignOut}
-            className="w-full text-left px-3 py-2 rounded-2xl flex items-center gap-3 text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
+            aria-label="Log out"
+            title="Log out"
+            className="w-full justify-center sm:justify-start text-left px-1 sm:px-3 py-2.5 rounded-xl flex items-center gap-0 sm:gap-3 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
           >
             <LogOut size={17} className="text-zinc-500 dark:text-zinc-400 hover:text-red-500" />
-            <span>Log out</span>
+            <span className="hidden sm:block">Log out</span>
           </button>
         </div>
       </nav>
 
       {/* ── Right Content Area ────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto p-6 sm:p-7 relative bg-white dark:bg-[#18181b]">
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto p-5 sm:p-10 relative bg-white dark:bg-zinc-950">
         {/* Close Button on top right */}
         <button
           onClick={onBack}
-          className="absolute top-5 right-5 p-1.5 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 bg-zinc-100/80 dark:bg-zinc-800/80 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all z-10"
+          className="absolute top-4 right-4 sm:top-6 sm:right-6 min-h-10 min-w-10 flex items-center justify-center rounded-full text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           aria-label="Close Settings"
         >
           <X size={16} />
         </button>
 
         {/* Tab Header Title */}
-        <div className="mb-6">
-          <h3 className="text-lg font-bold text-zinc-900 dark:text-white capitalize">
+        <div className="mb-8 pr-12">
+          <h3 className="text-2xl sm:text-[28px] font-semibold tracking-tight text-zinc-900 dark:text-white">
             {NAV_ITEMS.find((item) => item.id === activeTab)?.label || 'General'}
           </h3>
+          <p className="mt-1.5 text-sm leading-6 text-zinc-500 dark:text-zinc-400">
+            {TAB_DESCRIPTIONS[activeTab]}
+          </p>
         </div>
 
         {/* ── GENERAL TAB CONTENT ───────────────────────────────────────── */}
@@ -428,7 +467,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
           <div className="space-y-6">
             {/* User Account Card */}
             <div
-              className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 flex items-center justify-between transition-all"
+              className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center justify-between transition-all"
             >
               <div className="flex items-center gap-3.5 min-w-0">
                 <div className="w-10 h-10 rounded-xl bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center shrink-0 overflow-hidden text-zinc-700 dark:text-zinc-200">
@@ -456,8 +495,10 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                 </button>
               ) : (
                 <button
+                  type="button"
+                  aria-label="Account help"
                   onClick={() => setActiveTab('help')}
-                  className="p-1 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                  className="min-h-10 min-w-10 flex items-center justify-center rounded-full text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800"
                 >
                   <ArrowUpRight size={18} />
                 </button>
@@ -466,19 +507,19 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
 
             {/* Usage Section */}
             <div className="space-y-2">
-              <span className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">
+              <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block">
                 Usage
               </span>
-              <div className="p-5 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 space-y-4">
+              <div className="p-5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-4">
                 {/* Row 1: Free plan */}
                 <div>
-                  <div className="flex items-center justify-between text-xs font-semibold text-zinc-800 dark:text-zinc-200 mb-1">
+                  <div className="flex items-center justify-between gap-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">
                     <span>Free plan</span>
-                    <span className="text-zinc-500 font-medium">
-                      {remainingCredits} / 50 free searches left
+                    <span className="text-xs text-zinc-600 dark:text-zinc-300 font-medium text-right">
+                      {remainingCredits} of 50 searches left
                     </span>
                   </div>
-                  <p className="text-[11px] text-zinc-400 mb-2">Weekly limit resets every Sunday</p>
+                  <p className="text-xs leading-5 text-zinc-500 dark:text-zinc-400 mb-2">Your search allowance refreshes weekly.</p>
                   <div className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-blue-500 rounded-full transition-all duration-300"
@@ -493,9 +534,9 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
 
                 {/* Row 2: OpenRouter API Tokens / Usage */}
                 <div>
-                  <div className="flex items-center justify-between text-xs font-semibold text-zinc-800 dark:text-zinc-200 mb-1">
+                  <div className="flex items-center justify-between gap-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">
                     <span>{openRouterKey ? 'OpenRouter API Usage' : 'Additional tokens'}</span>
-                    <span className="text-zinc-500 font-medium font-mono text-[11px]">
+                    <span className="text-zinc-600 dark:text-zinc-300 font-medium font-mono text-xs text-right">
                       {openRouterKey
                         ? openRouterKeyInfo
                           ? `$${openRouterKeyInfo.usage.toFixed(4)} USD used`
@@ -505,7 +546,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                         : `${(userTokens / 1_000_000_000).toFixed(1)}B tokens left`}
                     </span>
                   </div>
-                  <p className="text-[11px] text-zinc-400 mb-2">
+                  <p className="text-xs leading-5 text-zinc-500 dark:text-zinc-400 mb-2">
                     {openRouterKey
                       ? openRouterKeyInfo
                         ? openRouterKeyInfo.isFreeTier
@@ -521,19 +562,23 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                   <div className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-300 ${
-                        openRouterKey ? 'bg-emerald-500 w-[100%]' : 'bg-emerald-500 w-[0%]'
+                        openRouterKey ? 'bg-blue-500 w-[100%]' : 'bg-blue-500 w-[0%]'
                       }`}
                     />
                   </div>
                 </div>
 
                 {/* Upgrade Button */}
-                <div className="pt-1">
+                <div className="pt-1 border-t border-zinc-200/70 dark:border-zinc-800/80">
                   <button
                     onClick={() => router.push('/upgrade')}
-                    className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                    className="group mt-3 min-h-11 w-full inline-flex items-center justify-between gap-3 rounded-xl bg-blue-600 px-4 py-2.5 text-left text-sm font-semibold text-white shadow-sm shadow-blue-600/15 transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-900"
                   >
-                    Upgrade
+                    <span className="flex flex-col">
+                      <span>Explore plans</span>
+                      <span className="text-xs font-normal text-blue-100">More models and higher limits</span>
+                    </span>
+                    <ArrowUpRight size={17} aria-hidden="true" className="shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                   </button>
                 </div>
               </div>
@@ -541,9 +586,11 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
 
             {/* Language Section */}
             <div className="relative">
-              <div
+              <button
+                type="button"
+                aria-expanded={showLanguageMenu}
                 onClick={() => setShowLanguageMenu(!showLanguageMenu)}
-                className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 flex items-center justify-between cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all"
+                className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center justify-between cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all"
               >
                 <div className="flex items-center gap-2 text-sm font-medium text-zinc-900 dark:text-white">
                   <span>Language</span>
@@ -552,7 +599,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                   <span>{selectedLanguage}</span>
                   <ChevronRight size={16} />
                 </div>
-              </div>
+              </button>
 
               {showLanguageMenu && (
                 <div className="absolute top-full left-0 right-0 mt-2 p-2 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xl z-20 grid grid-cols-2 gap-1 animate-in fade-in slide-in-from-top-2 duration-150">
@@ -582,41 +629,50 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
               <span className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">
                 Appearance
               </span>
-              <div className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 flex items-center justify-between">
-                <span className="text-sm font-medium text-zinc-900 dark:text-white">Mode</span>
-                <div className="flex items-center p-1 bg-zinc-200/70 dark:bg-zinc-800/80 rounded-2xl gap-1 border border-zinc-300/40 dark:border-zinc-700/50">
+              <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0 sm:pr-3">
+                  <span className="text-sm font-medium text-zinc-900 dark:text-white block">Color theme</span>
+                  <span className="mt-0.5 text-xs leading-5 text-zinc-500 dark:text-zinc-400 block">Choose how e-Mate looks on this device.</span>
+                </div>
+                <div role="group" aria-label="Color theme" className="grid w-full grid-cols-3 gap-1 rounded-xl border border-zinc-200 bg-zinc-100 p-1 dark:border-zinc-700 dark:bg-zinc-800 sm:w-auto">
                   <button
+                    type="button"
                     onClick={() => handleThemeChange('light')}
-                    className={`p-1.5 rounded-xl transition-all ${
+                    aria-label="Light theme"
+                    aria-pressed={mode === 'light'}
+                    className={`min-h-10 flex items-center justify-center gap-1.5 rounded-lg px-2 sm:px-3 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                       mode === 'light'
                         ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white'
                         : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
                     }`}
-                    title="Light theme"
                   >
-                    <Sun size={15} />
+                    <Sun size={16} aria-hidden="true" /><span>Light</span>
                   </button>
                   <button
+                    type="button"
                     onClick={() => handleThemeChange('dark')}
-                    className={`p-1.5 rounded-xl transition-all ${
+                    aria-label="Dark theme"
+                    aria-pressed={mode === 'dark'}
+                    className={`min-h-10 flex items-center justify-center gap-1.5 rounded-lg px-2 sm:px-3 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                       mode === 'dark'
                         ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white'
                         : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
                     }`}
-                    title="Dark theme"
                   >
-                    <Moon size={15} />
+                    <Moon size={16} aria-hidden="true" /><span>Dark</span>
                   </button>
                   <button
+                    type="button"
                     onClick={() => handleThemeChange('system')}
-                    className={`p-1.5 rounded-xl transition-all ${
+                    aria-label="Use system theme"
+                    aria-pressed={mode === 'system'}
+                    className={`min-h-10 flex items-center justify-center gap-1.5 rounded-lg px-2 sm:px-3 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                       mode === 'system'
                         ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white'
                         : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
                     }`}
-                    title="System theme"
                   >
-                    <Monitor size={15} />
+                    <Monitor size={16} aria-hidden="true" /><span>System</span>
                   </button>
                 </div>
               </div>
@@ -630,12 +686,12 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
             <p className="text-xs text-zinc-500">Connect third-party models, search grounding, &amp; data stores.</p>
             <div className="space-y-3">
               {connectors.map((c) => (
-                <div key={c.id} className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 flex items-center justify-between">
+                <div key={c.id} className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center justify-between">
                   <div>
                     <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">{c.name}</h4>
                     <p className="text-xs text-zinc-500">{c.desc}</p>
                   </div>
-                  <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full">
+                  <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium ${c.status.includes('Not Connected') ? 'border-zinc-200 bg-zinc-50 text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300' : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/60 dark:text-blue-300'}`}>
                     {c.status}
                   </span>
                 </div>
@@ -647,13 +703,13 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         {/* ── WALLET TAB ────────────────────────────────────────────────── */}
         {activeTab === 'wallet' && (
           <div className="space-y-4">
-            <div className="p-5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white space-y-3 shadow-lg">
+            <div className="p-5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-4 shadow-sm">
               <div className="flex justify-between items-start">
                 <div>
-                  <span className="text-xs text-blue-100 uppercase font-semibold">
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">
                     {openRouterKey ? 'OpenRouter API Credit Balance' : 'Available Credit'}
                   </span>
-                  <h3 className="text-2xl font-bold mt-1">
+                  <h3 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-white mt-1">
                     {openRouterKey
                       ? openRouterKeyInfo
                         ? openRouterKeyInfo.limit !== null
@@ -663,10 +719,10 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                       : `$${walletBalance.toFixed(2)} USD`}
                   </h3>
                 </div>
-                <CreditCard size={24} className="text-blue-200" />
+                <CreditCard size={20} className="text-blue-600 dark:text-blue-400" />
               </div>
-              <div className="flex items-center justify-between pt-1">
-                <p className="text-xs text-blue-100">
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                <p className="text-sm leading-5 text-zinc-500 dark:text-zinc-400">
                   {openRouterKey
                     ? openRouterKeyInfo
                       ? `Key Usage: $${openRouterKeyInfo.usage.toFixed(4)} USD`
@@ -676,6 +732,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                     : 'Unlimited fast-tier token access granted.'}
                 </p>
                 <button
+                  type="button"
                   onClick={() => {
                     if (openRouterKey) {
                       window.dispatchEvent(new Event('nk-open-openrouter-modal'));
@@ -687,31 +744,35 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                       toast.success('Added $25.00 USD to your wallet!');
                     }
                   }}
-                  className="px-3 py-1 rounded-full bg-white/20 hover:bg-white/30 text-white text-xs font-semibold backdrop-blur-md transition-all active:scale-95 cursor-pointer"
+                  className="min-h-10 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-900"
                 >
                   {openRouterKey ? 'Manage Key' : isGuest ? 'Sign In' : '+ Add $25'}
                 </button>
               </div>
             </div>
-            <div className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 flex justify-between items-center text-xs">
-              <div>
-                <span className="font-semibold text-zinc-900 dark:text-white block">Auto-recharge low balance</span>
-                <span className="text-[11px] text-zinc-400">Automatically top-up $20 when balance falls below $5</span>
+            <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex justify-between items-center gap-4">
+              <div className="min-w-0">
+                <span className="text-sm font-medium text-zinc-900 dark:text-white block">Auto-recharge low balance</span>
+                <span className="text-sm leading-5 text-zinc-500 dark:text-zinc-400">Automatically add $20 when your balance falls below $5.</span>
               </div>
               <button
+                type="button"
+                role="switch"
+                aria-checked={autoRecharge}
+                aria-label="Auto-recharge"
                 onClick={() => {
                   const next = !autoRecharge;
                   setAutoRechargeState(next);
                   setAutoRechargeEnabled(next);
                   toast.success(`Auto-recharge ${next ? 'enabled' : 'disabled'}`);
                 }}
-                className={`px-3.5 py-1.5 rounded-full font-semibold transition-all cursor-pointer active:scale-95 ${
+                className={`relative h-7 w-12 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-900 ${
                   autoRecharge
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
+                    ? 'bg-blue-600'
+                    : 'bg-zinc-300 dark:bg-zinc-700'
                 }`}
               >
-                {autoRecharge ? 'Enabled' : 'Disabled'}
+                <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${autoRecharge ? 'translate-x-6' : 'translate-x-1'}`} />
               </button>
             </div>
           </div>
@@ -721,21 +782,21 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         {activeTab === 'secure_store' && (
           <div className="space-y-4">
             <p className="text-xs text-zinc-500">Manage encrypted API keys and model credentials for unlimited access.</p>
-            <div className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 space-y-4">
+            <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-4">
               <div className="flex justify-between items-center text-xs">
                 <div>
                   <span className="font-semibold text-zinc-900 dark:text-white block">OpenRouter API Key</span>
-                  <span className="font-mono text-zinc-400 text-[11px]">
+                  <span className="font-mono text-zinc-400 text-xs">
                     {openRouterKey ? `sk-or-••••••••${openRouterKey.slice(-4)}` : 'Not connected'}
                   </span>
                   {openRouterKeyInfo && (
-                    <div className="mt-1 flex items-center gap-2 text-[11px] text-zinc-500">
+                    <div className="mt-1 flex items-center gap-2 text-xs text-zinc-500">
                       <span>Usage: ${openRouterKeyInfo.usage.toFixed(4)} USD</span>
                       <a
                         href="https://openrouter.ai/models?max_price=0"
                         target="_blank"
                         rel="noreferrer"
-                        className="text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-0.5"
+                        className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5"
                       >
                         Browse free models <ExternalLink size={10} />
                       </a>
@@ -771,7 +832,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
 
               {/* Manual API Key Input */}
               <div className="pt-2 border-t border-zinc-200/60 dark:border-zinc-800">
-                <label className="text-[11px] font-medium text-zinc-500 block mb-1.5">
+                <label className="text-xs font-medium text-zinc-500 block mb-1.5">
                   Or paste your OpenRouter API Key (sk-or-v1-...):
                 </label>
                 <div className="flex items-center gap-2">
@@ -794,7 +855,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
               <div className="h-[1px] bg-zinc-200/70 dark:bg-zinc-800" />
               <div className="flex justify-between items-center text-xs">
                 <span className="font-semibold text-zinc-900 dark:text-white">Supabase Cloud Vector Key</span>
-                <span className="font-mono text-emerald-500 font-semibold">Active &amp; Secured</span>
+                <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 dark:border-blue-900 dark:bg-blue-950/60 dark:text-blue-300">Active &amp; Secured</span>
               </div>
             </div>
           </div>
@@ -804,9 +865,9 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         {activeTab === 'permissions' && (
           <div className="space-y-3">
             {['Microphone & Voice Input', 'Local File Access', 'Web Browser Grounding', 'Code Execution Sandbox'].map((p) => (
-              <div key={p} className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 flex justify-between items-center text-xs">
+              <div key={p} className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex justify-between items-center text-xs">
                 <span className="font-medium text-zinc-900 dark:text-white">{p}</span>
-                <span className="text-emerald-500 font-semibold">Allowed</span>
+                <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">Allowed</span>
               </div>
             ))}
           </div>
@@ -816,7 +877,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         {activeTab === 'messaging' && (
           <div className="space-y-3">
             {['Web Chat Assistant', 'WhatsApp Integration', 'Telegram Bot Channel', 'Email Updates'].map((channel, idx) => (
-              <div key={channel} className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 flex justify-between items-center text-xs">
+              <div key={channel} className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex justify-between items-center text-xs">
                 <span className="font-medium text-zinc-900 dark:text-white">{channel}</span>
                 <span className={idx === 0 ? 'text-blue-500 font-semibold' : 'text-zinc-400'}>{idx === 0 ? 'Active' : 'Configure'}</span>
               </div>
@@ -827,12 +888,12 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         {/* ── DEVICES TAB ───────────────────────────────────────────────── */}
         {activeTab === 'devices' && (
           <div className="space-y-3">
-            <div className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 flex items-center justify-between text-xs">
+            <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center justify-between text-xs">
               <div className="flex items-center gap-3">
                 {React.createElement(deviceProfile.icon, { size: 18, className: 'text-blue-500' })}
                 <div>
                   <h5 className="font-semibold text-zinc-900 dark:text-white">{deviceProfile.label}</h5>
-                  <p className="text-[11px] text-zinc-400">{deviceProfile.subtitle}</p>
+                  <p className="text-xs text-zinc-400">{deviceProfile.subtitle}</p>
                 </div>
               </div>
               <span className="text-xs font-semibold text-blue-500">This Device</span>
@@ -843,7 +904,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         {/* ── DATA CONTROLS TAB ─────────────────────────────────────────── */}
         {activeTab === 'data_controls' && (
           <div className="space-y-3">
-            <div className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 space-y-3 text-xs">
+            <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-3 text-xs">
               <div className="flex justify-between items-center">
                 <span className="font-medium text-zinc-900 dark:text-zinc-100">Export Personal Chat History</span>
                 <button
@@ -873,7 +934,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         {/* ── HELP & SUPPORT TAB ────────────────────────────────────────── */}
         {activeTab === 'help' && (
           <div className="space-y-4">
-            <div className="p-5 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 space-y-3 text-xs">
+            <div className="p-5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-3 text-xs">
               <h4 className="font-semibold text-sm text-zinc-900 dark:text-white">Direct Support Contact</h4>
               <p className="text-zinc-500 leading-relaxed">Reach out to our engineering and student support team for instant assistance.</p>
               <div className="flex flex-col sm:flex-row gap-2 pt-1">
@@ -887,7 +948,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
               <div className="pt-3 border-t border-zinc-200/60 dark:border-zinc-800/80 text-zinc-500 space-y-1">
                 <span className="font-semibold text-zinc-700 dark:text-zinc-300 block">Registered Corporate Office</span>
                 <p>e-Mate AI Technologies, Plot 42, Sector 18, Institutional Area, Gurugram, Delhi NCR 122015, India</p>
-                <p className="text-[11px] text-zinc-400">Hours: Mon – Sat, 9:00 AM – 7:00 PM IST</p>
+                <p className="text-xs text-zinc-400">Hours: Mon – Sat, 9:00 AM – 7:00 PM IST</p>
               </div>
             </div>
           </div>
@@ -896,7 +957,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         {/* ── LEGAL INFO TAB ────────────────────────────────────────────── */}
         {activeTab === 'legal' && (
           <div className="space-y-3 text-xs text-zinc-500">
-            <div className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 space-y-3">
+            <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-3">
               <h4 className="font-semibold text-zinc-900 dark:text-white">e-Mate Artificial Intelligence System</h4>
               <p>Version 2.4.0 (Production Build 2026.09)</p>
               <p>© 2026 e-Mate AI Technologies. All rights reserved.</p>
@@ -917,7 +978,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         {activeTab === 'context' && (
           <div className="space-y-4">
             <p className="text-xs text-zinc-500">Select active syllabus subject and learning unit for contextual AI answers.</p>
-            <div className="p-4 rounded-2xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 space-y-2">
+            <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-2">
               <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block">Syllabus Subject</span>
               <div className="flex flex-col gap-1">
                 {subjects.map((s) => (

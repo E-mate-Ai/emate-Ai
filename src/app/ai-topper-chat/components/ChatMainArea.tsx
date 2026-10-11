@@ -36,6 +36,7 @@ import {
   File,
   ArrowRight,
   Hourglass,
+  Clock,
   Layers,
   ListChecks,
   Target,
@@ -47,7 +48,6 @@ import StreamingIndicator from './StreamingIndicator';
 import { PromptInput } from '@/components/ui/ai-chat-input';
 import type { ChatMessage, SelectedContext, StudyMode } from './AITopperChatScreen';
 import { applyTheme } from '@/lib/theme';
-import { ModelSelector } from '@/components/ModelSelector';
 import {
   buildNotebookContext,
   appendToNotebook,
@@ -364,6 +364,11 @@ export default function ChatMainArea({
   const [isSupabaseSignedUp, setIsSupabaseSignedUp] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isModelSelectorEnabled, setIsModelSelectorEnabled] = useState(true);
+  const [availableModelIds, setAvailableModelIds] = useState<string[] | null>(null);
+  const [experimentalModelsEnabled, setExperimentalModelsEnabled] = useState(false);
+  const [isStudyModeEnabled, setIsStudyModeEnabled] = useState(true);
+  const [isReferralProgramEnabled, setIsReferralProgramEnabled] = useState(true);
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [notebookSessions, setNotebookSessions] = useState<ChatHistoryItem[]>([]);
   const [notebookSources, setNotebookSources] = useState<SourceItem[]>([]);
   const [activeSuggestionCategory, setActiveSuggestionCategory] = useState('suggested');
@@ -376,21 +381,30 @@ export default function ChatMainArea({
   }, []);
 
   useEffect(() => {
-    const loadModelSelectorFlag = async () => {
+    const loadRuntimeConfig = async () => {
       try {
-        const res = await fetch('/api/admin?action=flags');
+        const res = await fetch('/api/runtime-config', { cache: 'no-store' });
         if (!res.ok) return;
         const data = await res.json();
-        const flag = data?.flags?.find((item: { id: string; enabled: boolean }) => item.id === 'openrouterModelSelector');
-        if (flag) {
-          setIsModelSelectorEnabled(Boolean(flag.enabled));
+        const flags = data?.flags;
+        if (!flags) return;
+        setIsModelSelectorEnabled(flags.openrouterModelSelector !== false);
+        setIsStudyModeEnabled(flags.newStudyMode !== false);
+        setIsReferralProgramEnabled(flags.referralProgram !== false);
+        setExperimentalModelsEnabled(flags.experimentalAI === true);
+        if (Array.isArray(data?.modelConfig?.enabledModelIds)) {
+          setAvailableModelIds(data.modelConfig.enabledModelIds);
         }
+        setMaintenanceMode(flags.maintenanceMode === true);
+        if (flags.newStudyMode === false) setIsStudyMode(false);
       } catch {
-        // Keep the default state when the admin API is unavailable.
+        // Keep the default experience if the public runtime config is unavailable.
       }
     };
 
-    loadModelSelectorFlag();
+    loadRuntimeConfig();
+    const refreshTimer = window.setInterval(loadRuntimeConfig, 30_000);
+    return () => window.clearInterval(refreshTimer);
   }, []);
 
   // Reset active suggestion tab when mode toggles
@@ -869,6 +883,13 @@ export default function ChatMainArea({
     { id: 'mistralai/mistral-small-3:free', name: 'Mistral Small 3', badge: 'Free • Logic' },
     { id: 'microsoft/phi-3-medium-128k-instruct:free', name: 'Phi-3 Medium', badge: 'Free • 128k' },
   ];
+
+  const visibleModelNames = MODELS
+    .filter((model) => model.isFlagship || (
+      (availableModelIds === null || availableModelIds.includes(model.id)) &&
+      (experimentalModelsEnabled || !model.badge.toLowerCase().includes('experimental'))
+    ))
+    .map((model) => model.name);
 
   const activeModel = MODELS.find((m) => m.id === selectedModel) || MODELS[0];
 
@@ -1785,6 +1806,22 @@ export default function ChatMainArea({
   const greetingLabel = getTimeGreeting();
   const greetingText = greetingLabel;
 
+  if (maintenanceMode) {
+    return (
+      <main className="flex h-full min-h-0 flex-1 items-center justify-center bg-zinc-50 px-6 text-center text-zinc-900 dark:bg-zinc-950 dark:text-white">
+        <div className="max-w-md rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-300">
+            <Clock size={20} aria-hidden="true" />
+          </div>
+          <h1 className="text-xl font-semibold tracking-tight">We’ll be right back</h1>
+          <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-400">
+            e-Mate is undergoing scheduled maintenance. Please check back shortly.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <div
       onDragEnter={handleWindowDragEnter}
@@ -1903,7 +1940,7 @@ export default function ChatMainArea({
             !isSidebarOpen ? 'md:ml-10' : ''
           }`}
         >
-          <button
+          {isStudyModeEnabled && <button
             onClick={() => {
               if (!isStudyMode) {
                 setIsStudyMode(true);
@@ -1922,7 +1959,7 @@ export default function ChatMainArea({
               className={isStudyMode ? 'text-gray-900 dark:text-zinc-100' : 'text-zinc-400 dark:text-zinc-500'}
             />
             <span>Study</span>
-          </button>
+          </button>}
           <button
             onClick={() => {
               if (isStudyMode) {
@@ -1977,7 +2014,7 @@ export default function ChatMainArea({
               <Sparkles size={13} className="text-blue-600 dark:text-blue-400" />
               <span>Upgrade</span>
             </button>
-          ) : (
+          ) : isReferralProgramEnabled ? (
             /* Invite Button with 48h reward card */
             <div
               className="relative flex items-center"
@@ -2036,7 +2073,7 @@ export default function ChatMainArea({
                 </div>
               )}
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -2355,7 +2392,8 @@ export default function ChatMainArea({
                 }
                 handleSend(text, meta.attachments);
               }}
-              models={isGuest ? ['e-Mate'] : MODELS.map((m) => m.name)}
+              models={isGuest || !isModelSelectorEnabled ? ['e-Mate'] : visibleModelNames}
+              modelSelectorEnabled={isModelSelectorEnabled}
               efforts={['Quick', 'Balanced', 'Deep']}
               allowAttachments={!isGuest}
               placeholder={
@@ -2510,7 +2548,8 @@ export default function ChatMainArea({
                 }
                 handleSend(text, meta.attachments);
               }}
-              models={isGuest ? ['e-Mate'] : MODELS.map((m) => m.name)}
+              models={isGuest || !isModelSelectorEnabled ? ['e-Mate'] : visibleModelNames}
+              modelSelectorEnabled={isModelSelectorEnabled}
               efforts={['Quick', 'Balanced', 'Deep']}
               allowAttachments={!isGuest}
               placeholder={

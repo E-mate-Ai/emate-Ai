@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createClient as createServerSupabase } from '@/lib/supabase/server';
-import { getAdminModelConfig, updateAdminModelConfig, ALL_FREE_MODELS } from '@/lib/modelConfig';
+import { ALL_FREE_MODELS } from '@/lib/modelConfig';
+import { getAdminSettings, saveFeatureFlag, saveModelConfig, type FeatureFlagId } from '@/lib/adminSettings';
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '')
   .split(',')
@@ -9,44 +10,6 @@ const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '')
   .filter(Boolean);
 
 const ADMIN_API_KEY = (process.env.ADMIN_API_KEY || '').trim();
-
-const FEATURE_FLAGS = {
-  maintenanceMode: {
-    id: 'maintenanceMode',
-    label: 'Maintenance mode',
-    enabled: false,
-    description: 'Temporarily block public access to the app.',
-    updatedAt: new Date().toISOString(),
-  },
-  referralProgram: {
-    id: 'referralProgram',
-    label: 'Referral program',
-    enabled: true,
-    description: 'Allow invite links and rewards to be active.',
-    updatedAt: new Date().toISOString(),
-  },
-  openrouterModelSelector: {
-    id: 'openrouterModelSelector',
-    label: 'OpenRouter model selector',
-    enabled: true,
-    description: 'Allow users to change the OpenRouter model in the chat input.',
-    updatedAt: new Date().toISOString(),
-  },
-  newStudyMode: {
-    id: 'newStudyMode',
-    label: 'New study mode',
-    enabled: true,
-    description: 'Enable the enhanced study workflow.',
-    updatedAt: new Date().toISOString(),
-  },
-  experimentalAI: {
-    id: 'experimentalAI',
-    label: 'Experimental AI features',
-    enabled: false,
-    description: 'Expose beta features behind staging controls.',
-    updatedAt: new Date().toISOString(),
-  },
-};
 
 /** Build a Supabase client using the service role key (if available), else the anon/publishable key. */
 function getSupabaseClient() {
@@ -67,8 +30,8 @@ function getSupabaseClient() {
 async function authorizeAdmin(request: Request) {
   const isDev = process.env.NODE_ENV !== 'production';
 
-  // In development, or if ADMIN_EMAILS is not configured, allow access
-  if (isDev || ADMIN_EMAILS.length === 0) {
+  // Keep local development convenient, but fail closed in production.
+  if (isDev) {
     return { mode: 'dev' as const, db: getSupabaseClient() };
   }
 
@@ -76,6 +39,7 @@ async function authorizeAdmin(request: Request) {
   if (ADMIN_API_KEY && headerKey === ADMIN_API_KEY) {
     return { mode: 'api-key' as const, db: getSupabaseClient() };
   }
+  if (ADMIN_EMAILS.length === 0) return null;
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey =
@@ -376,15 +340,24 @@ export async function GET(request: Request) {
 
     // ── Feature Flags ─────────────────────────────────────────────────────────────
     if (action === 'flags') {
-      return NextResponse.json({ ok: true, flags: Object.values(FEATURE_FLAGS) });
+      const settings = await getAdminSettings();
+      return NextResponse.json({
+        ok: true,
+        flags: settings.flags,
+        storageAvailable: settings.storageAvailable,
+        storageError: settings.storageError,
+      });
     }
 
     // ── Model Config ──────────────────────────────────────────────────────────────
     if (action === 'model-config') {
+      const settings = await getAdminSettings();
       return NextResponse.json({
         ok: true,
-        config: getAdminModelConfig(),
+        config: settings.modelConfig,
         allModels: ALL_FREE_MODELS,
+        storageAvailable: settings.storageAvailable,
+        storageError: settings.storageError,
       });
     }
 
@@ -449,16 +422,14 @@ export async function POST(request: Request) {
 
     if (action === 'toggle-flag') {
       const flagId = body?.flagId;
-      if (!flagId || !(flagId in FEATURE_FLAGS)) {
+      if (!['maintenanceMode', 'referralProgram', 'openrouterModelSelector', 'newStudyMode', 'experimentalAI'].includes(flagId)) {
         return NextResponse.json({ ok: false, error: 'Unknown flag id.' }, { status: 400 });
       }
-      const nextEnabled = Boolean(body?.enabled);
-      FEATURE_FLAGS[flagId as keyof typeof FEATURE_FLAGS] = {
-        ...FEATURE_FLAGS[flagId as keyof typeof FEATURE_FLAGS],
-        enabled: nextEnabled,
-        updatedAt: new Date().toISOString(),
-      };
-      return NextResponse.json({ ok: true, flag: FEATURE_FLAGS[flagId as keyof typeof FEATURE_FLAGS] });
+      if (typeof body?.enabled !== 'boolean') {
+        return NextResponse.json({ ok: false, error: 'enabled must be a boolean.' }, { status: 400 });
+      }
+      const flag = await saveFeatureFlag(flagId as FeatureFlagId, body.enabled);
+      return NextResponse.json({ ok: true, flag });
     }
 
     if (action === 'update-model-config') {
@@ -466,7 +437,17 @@ export async function POST(request: Request) {
       if (!patch || typeof patch !== 'object') {
         return NextResponse.json({ ok: false, error: 'Invalid config payload.' }, { status: 400 });
       }
-      const updated = updateAdminModelConfig(patch);
+      const allowedKeys = ['activeEngineForEmate', 'enabledModelIds'];
+      if (Object.keys(patch).some((key) => !allowedKeys.includes(key))) {
+        return NextResponse.json({ ok: false, error: 'Unsupported model configuration field.' }, { status: 400 });
+      }
+      if (patch.activeEngineForEmate !== undefined && !ALL_FREE_MODELS.some((model) => model.id === patch.activeEngineForEmate)) {
+        return NextResponse.json({ ok: false, error: 'Unknown active model.' }, { status: 400 });
+      }
+      if (patch.enabledModelIds !== undefined && (!Array.isArray(patch.enabledModelIds) || patch.enabledModelIds.some((id: unknown) => typeof id !== 'string' || !ALL_FREE_MODELS.some((model) => model.id === id)))) {
+        return NextResponse.json({ ok: false, error: 'enabledModelIds contains an unknown model.' }, { status: 400 });
+      }
+      const updated = await saveModelConfig(patch);
       return NextResponse.json({ ok: true, config: updated });
     }
 
@@ -475,7 +456,10 @@ export async function POST(request: Request) {
       if (!activeModelId) {
         return NextResponse.json({ ok: false, error: 'modelId is required.' }, { status: 400 });
       }
-      const updated = updateAdminModelConfig({ activeEngineForEmate: activeModelId });
+      if (!ALL_FREE_MODELS.some((model) => model.id === activeModelId)) {
+        return NextResponse.json({ ok: false, error: 'Unknown active model.' }, { status: 400 });
+      }
+      const updated = await saveModelConfig({ activeEngineForEmate: activeModelId });
       return NextResponse.json({ ok: true, config: updated });
     }
 
@@ -486,7 +470,7 @@ export async function POST(request: Request) {
   } catch (error: any) {
     return NextResponse.json(
       { ok: false, error: error?.message || 'Invalid request payload' },
-      { status: 400 }
+      { status: 500 }
     );
   }
 }

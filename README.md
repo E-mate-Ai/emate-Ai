@@ -29,6 +29,7 @@ Turn your notes into flashcards, quizzes, and structured learning workflows — 
   - [Installation](#installation)
   - [Environment Variables](#environment-variables)
   - [Running Locally](#running-locally)
+- [Admin Workspace](#admin-workspace)
 - [Project Structure](#project-structure)
 - [Pricing](#pricing)
 - [Roadmap](#roadmap)
@@ -131,6 +132,12 @@ npm run dev
 ```
 
 The app will be available at `http://localhost:4028`.
+
+## Admin Workspace
+
+The admin workspace provides separate pages for overview, activity, users, system health, model routing, and feature controls. See the [Admin Workspace Guide](./docs/admin-workspace.md) for access configuration, the settings database migration, and the effect of each control.
+
+Admin settings are stored in Supabase. Production settings writes require `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and the migration at `supabase/migrations/20261011000000_admin_settings.sql`. Keep the service role key server-side; never expose it through a `NEXT_PUBLIC_` variable or commit it.
 
 ---
 

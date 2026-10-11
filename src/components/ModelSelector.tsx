@@ -58,12 +58,12 @@ export function ModelSelector({
   useEffect(() => {
     async function fetchModelSelectorFlag() {
       try {
-        const res = await fetch('/api/admin?action=flags');
+        const res = await fetch('/api/runtime-config', { cache: 'no-store' });
         if (!res.ok) return;
         const data = await res.json();
-        const flag = data?.flags?.find((item: { id: string; enabled: boolean }) => item.id === 'openrouterModelSelector');
-        if (flag) {
-          setIsEnabled(Boolean(flag.enabled));
+        const enabled = data?.flags?.openrouterModelSelector;
+        if (typeof enabled === 'boolean') {
+          setIsEnabled(enabled);
         }
       } catch {
         // Leave enabled by default for public use.

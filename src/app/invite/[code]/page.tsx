@@ -13,6 +13,7 @@ export default function InvitePage() {
   const [copied, setCopied] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [referralEnabled, setReferralEnabled] = useState(true);
 
   useEffect(() => {
     setMounted(true);
@@ -20,12 +21,17 @@ export default function InvitePage() {
     setTheme(savedTheme);
     applyTheme(savedTheme);
 
-    if (code && code !== 'EMATE') {
-      try {
-        localStorage.setItem('emate_referral_code', code);
-        localStorage.setItem('emate_referral_ts', Date.now().toString());
-      } catch {}
-    }
+    fetch('/api/runtime-config', { cache: 'no-store' })
+      .then((response) => response.ok ? response.json() : null)
+      .then((config) => {
+        const enabled = config?.flags?.referralProgram !== false;
+        setReferralEnabled(enabled);
+        if (enabled && code && code !== 'EMATE') {
+          localStorage.setItem('emate_referral_code', code);
+          localStorage.setItem('emate_referral_ts', Date.now().toString());
+        }
+      })
+      .catch(() => setReferralEnabled(true));
   }, [code]);
 
   const handleGetStarted = () => {
@@ -117,12 +123,14 @@ export default function InvitePage() {
               Study 10× Faster. Ace Exams.
             </h2>
             <p className="text-xs sm:text-sm leading-relaxed" style={{ color: mutedFg }}>
-              You&apos;ve been invited to join e-Mate AI. Claim your 48-hour bonus study access & tokens below.
+              {referralEnabled
+                ? "You've been invited to join e-Mate AI. Claim your 48-hour bonus study access & tokens below."
+                : 'Referral invitations are temporarily paused. You can still create an e-Mate AI account below.'}
             </p>
           </div>
 
           {/* Code display */}
-          {code && (
+          {referralEnabled && code && (
             <div
               className="w-full rounded-2xl p-4 flex flex-col items-center gap-2"
               style={{
@@ -156,7 +164,7 @@ export default function InvitePage() {
           )}
 
           {/* Features */}
-          <div className="w-full space-y-2 text-left">
+          {referralEnabled && <div className="w-full space-y-2 text-left">
             {features.map(({ icon: Icon, text }) => (
               <div
                 key={text}
@@ -170,7 +178,7 @@ export default function InvitePage() {
                 <span>{text}</span>
               </div>
             ))}
-          </div>
+          </div>}
 
           {/* Primary Action Button */}
           <button
@@ -181,7 +189,7 @@ export default function InvitePage() {
               background: accent,
             }}
           >
-            <span>Accept Invite & Get Started</span>
+            <span>{referralEnabled ? 'Accept Invite & Get Started' : 'Create an Account'}</span>
             <ArrowRight size={16} />
           </button>
         </div>
