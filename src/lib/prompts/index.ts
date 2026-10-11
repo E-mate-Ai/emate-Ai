@@ -7,7 +7,7 @@ export const PROMPT_VERSIONS = {
   summarize: '1.0.0',
   qa: '1.0.0',
   quizGen: '1.0.0',
-  chat: '1.0.0',
+  chat: '1.1.0',
   contextInjectionSchema: '1.0.0',
 } as const;
 
@@ -403,12 +403,13 @@ export interface ChatPromptOptions {
   unit?: string;
   mode?: 'sprint' | 'deep-dive';
   notebookContext?: string;
+  /** Compact cross-chat profile containing only repeated response preferences. */
+  userPatternContext?: string;
   retrievedChunks?: RetrievedChunk[];
   isGeneralChat?: boolean;
   historyMessages?: ChatMessage[];
   currentUserMessage: string;
   budget?: ContextBudgetConfig;
-  maxHistoryMessages?: number;
   /** True when retrieval confidence is below threshold, triggering strict "not found" guidance */
   isGroundingWeak?: boolean;
 }
@@ -419,12 +420,12 @@ export function buildChatPrompt(options: ChatPromptOptions): PromptPayload {
     unit,
     mode = 'deep-dive',
     notebookContext,
+    userPatternContext,
     retrievedChunks,
     isGeneralChat,
     historyMessages = [],
     currentUserMessage,
     budget,
-    maxHistoryMessages = 6,
   } = options;
 
   // 1. (a) Base identity & conversational instructions
@@ -437,6 +438,8 @@ export function buildChatPrompt(options: ChatPromptOptions): PromptPayload {
     systemPrompt = `You are e-Mate AI, a knowledgeable and friendly AI assistant.
 
 Answer the user's question directly and helpfully. Be clear, accurate, and concise.
+- Use the conversation history supplied with the request to understand follow-ups; do not ask what topic the user means when the chat already establishes it.
+- Never reveal private reasoning, hidden analysis, or a step-by-step account of how you interpreted the prompt. Give the useful answer and, when helpful, a short explanation of the conclusion.
 - Use Markdown formatting (headers, bold, code blocks, bullet points) where it genuinely improves readability.
 - For math or formulas, use LaTeX ($...$ for inline, $$...$$ for block).
 - Do NOT add academic study framing, exam tips, or revision mode labels to general answers.
@@ -463,10 +466,16 @@ ${depthGuidance}
 
 Rules:
 - Answer the student's question directly. Do NOT start with "Mode: SPRINT", "Mode: DEEP DIVE", unit introductions, or any setup text.
+- Use the conversation history supplied with the request to resolve follow-ups and preserve the requested explanation style.
+- Never reveal private reasoning, hidden analysis, or a step-by-step account of how you interpreted the prompt. Give the student a clear explanation of the subject instead.
 - Use Markdown: headers (##), bold key terms, bullet points, LaTeX math ($...$ / $$...$$).
 - Mark exam-critical points with ⭐ or 📌.
 - If notebook notes are provided, ground your answer in them and reference them naturally.
 - Do NOT announce the mode, subject, or unit at the start of your answer — just answer.`;
+  }
+
+  if (userPatternContext?.trim()) {
+    systemPrompt += `\n\n<recurring_user_preferences>\n${userPatternContext.trim()}\n</recurring_user_preferences>\n\nUse these repeated preferences to adapt tone and format when relevant. Treat them as defaults, not rigid rules; the current request takes priority.`;
   }
 
   // 2. Apply Central Context Window Budget Enforcement
@@ -474,7 +483,7 @@ Rules:
     systemPrompt,
     retrievedChunks,
     notebookContext,
-    historyMessages: historyMessages.slice(-maxHistoryMessages),
+    historyMessages: historyMessages.filter((message) => typeof message.content === 'string' && message.content.trim().length > 0),
     currentUserMessage,
     maxInputTokens: budget?.maxTokens || undefined,
   });

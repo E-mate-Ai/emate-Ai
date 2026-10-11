@@ -9,6 +9,7 @@ import { getAdminSettings } from '@/lib/adminSettings';
 import { createClient as createSupabaseServer } from '@/lib/supabase/server';
 import { toolRegistry, evaluateRetrievalConfidence } from '@/lib/tools';
 import { buildChatPrompt } from '@/lib/prompts';
+import { buildRecurringUserPatternContext, sanitizeUserPatternContext } from '@/lib/chatMemory';
 
 // Ultra-fast primary model (TTFT ~200-400ms via Nitro routing)
 const PRIMARY_MODEL = 'google/gemini-2.5-flash';
@@ -96,16 +97,44 @@ export async function POST(req: Request) {
       attachments,
       credits,
       userApiKey,
+      userPatterns,
+      chatId,
     } = await req.json();
 
     // ── Extract authenticated user context from Supabase session ──────────
     let authenticatedUserId: string | null = null;
+    let authenticatedSupabase: any = null;
     try {
-      const supabase = await createSupabaseServer();
-      const { data: { user } } = await supabase.auth.getUser();
+      authenticatedSupabase = await createSupabaseServer();
+      const { data: { user } } = await authenticatedSupabase.auth.getUser();
       authenticatedUserId = user?.id ?? null;
     } catch {
       // Not authenticated — proceed as guest
+    }
+
+    // Signed-in users get a preference memory built from their own RLS-scoped
+    // transcripts. Guests use only the locally derived profile sent by client.
+    let userPatternContext = sanitizeUserPatternContext(userPatterns);
+    if (authenticatedSupabase && authenticatedUserId) {
+      try {
+        const { data: priorTranscripts, error } = await authenticatedSupabase
+          .from('chat_transcripts')
+          .select('id, messages')
+          .eq('user_id', authenticatedUserId)
+          .order('updated_at', { ascending: false })
+          .limit(30);
+        if (!error && priorTranscripts) {
+          userPatternContext = buildRecurringUserPatternContext(
+            priorTranscripts.map((row: any) => ({
+              id: row.id,
+              messages: Array.isArray(row.messages) ? row.messages : [],
+            })),
+            typeof chatId === 'string' ? chatId : undefined
+          );
+        }
+      } catch (error) {
+        console.warn('[Chat memory] Could not load cross-chat preferences:', error);
+      }
     }
 
     const cookieHeader = req.headers.get('cookie');
@@ -206,12 +235,12 @@ export async function POST(req: Request) {
       retrievedChunks,
       isGeneralChat,
       isGroundingWeak,
+      userPatternContext,
       historyMessages: messages.slice(0, -1).map((m: any) => ({
         role: m.role,
         content: m.content,
       })),
       currentUserMessage: lastUserMessage,
-      maxHistoryMessages: 6,
     });
 
     const systemMessage = chatPromptPayload.messages[0];
@@ -295,6 +324,8 @@ export async function POST(req: Request) {
         order: ['Nitro', 'Together', 'Groq'], // Highest TPS providers first
         allow_fallbacks: true,
       },
+      // Do not include model reasoning in user-facing completion output.
+      reasoning: { exclude: true },
     };
 
     /**
@@ -391,6 +422,14 @@ export async function POST(req: Request) {
     // so the client receives plain text deltas with no heavy parsing.
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
+    const privateReasoningPrefixes = [
+      "here's a thinking process",
+      'here is a thinking process',
+      "here's my thinking process",
+      'here is my thinking process',
+      'let me think through this step by step',
+      'analysis:',
+    ];
 
     const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
     const writer = writable.getWriter();
@@ -398,6 +437,9 @@ export async function POST(req: Request) {
     (async () => {
       const reader = upstreamRes!.body!.getReader();
       let buffer = '';
+      let preamble = '';
+      let preambleResolved = false;
+      let suppressPrivateReasoning = false;
       try {
         while (true) {
           const { done, value } = await reader.read();
@@ -416,6 +458,28 @@ export async function POST(req: Request) {
               const json = JSON.parse(trimmed.slice(6));
               const delta = json?.choices?.[0]?.delta?.content;
               if (typeof delta === 'string' && delta.length > 0) {
+                if (suppressPrivateReasoning) continue;
+
+                if (!preambleResolved) {
+                  preamble += delta;
+                  const normalizedPreamble = preamble.trimStart().toLowerCase().replace(/\s+/g, ' ').trimEnd();
+                  const isKnownLeak = privateReasoningPrefixes.some((prefix) => normalizedPreamble.startsWith(prefix));
+                  const couldStillBeLeak = privateReasoningPrefixes.some((prefix) => prefix.startsWith(normalizedPreamble));
+
+                  if (isKnownLeak) {
+                    suppressPrivateReasoning = true;
+                    preamble = '';
+                    continue;
+                  }
+
+                  if (!couldStillBeLeak || preamble.length >= 48 || preamble.includes('\n')) {
+                    preambleResolved = true;
+                    await writer.write(encoder.encode(`data: ${JSON.stringify(preamble)}\n\n`));
+                    preamble = '';
+                  }
+                  continue;
+                }
+
                 await writer.write(encoder.encode(`data: ${JSON.stringify(delta)}\n\n`));
               }
             } catch {
@@ -429,16 +493,38 @@ export async function POST(req: Request) {
           try {
             const json = JSON.parse(buffer.trim().slice(6));
             const delta = json?.choices?.[0]?.delta?.content;
-            if (typeof delta === 'string' && delta.length > 0) {
-              await writer.write(encoder.encode(`data: ${JSON.stringify(delta)}\n\n`));
+            if (typeof delta === 'string' && delta.length > 0 && !suppressPrivateReasoning) {
+              if (!preambleResolved) {
+                preamble += delta;
+                const normalizedPreamble = preamble.trimStart().toLowerCase().replace(/\s+/g, ' ').trimEnd();
+                const isKnownLeak = privateReasoningPrefixes.some((prefix) => normalizedPreamble.startsWith(prefix));
+                if (isKnownLeak) {
+                  suppressPrivateReasoning = true;
+                  preamble = '';
+                } else {
+                  preambleResolved = true;
+                  await writer.write(encoder.encode(`data: ${JSON.stringify(preamble)}\n\n`));
+                  preamble = '';
+                }
+              } else {
+                await writer.write(encoder.encode(`data: ${JSON.stringify(delta)}\n\n`));
+              }
             }
           } catch {
             /* ignore */
           }
         }
 
+        if (!suppressPrivateReasoning && preamble) {
+          await writer.write(encoder.encode(`data: ${JSON.stringify(preamble)}\n\n`));
+        }
+
+        if (suppressPrivateReasoning) {
+          await writer.write(encoder.encode(`data: ${JSON.stringify({ error: 'The model returned internal analysis instead of an answer. Please try again.' })}\n\n`));
+        }
+
         // Send structured citation event if citations exist
-        if (citations.length > 0) {
+        if (!suppressPrivateReasoning && citations.length > 0) {
           await writer.write(encoder.encode(`data: ${JSON.stringify({ type: 'citations', citations })}\n\n`));
         }
 

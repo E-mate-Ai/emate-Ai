@@ -148,6 +148,21 @@ export function getChatTranscript(id: string): ChatMessage[] {
   }
 }
 
+/** Read every transcript currently available in the local cache. */
+export function getAllChatTranscripts(): Record<string, ChatMessage[]> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(TRANSCRIPT_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return Object.fromEntries(
+      Object.entries(parsed).filter((entry): entry is [string, ChatMessage[]] => Array.isArray(entry[1]))
+    );
+  } catch {
+    return {};
+  }
+}
+
 /**
  * Async transcript loader that tries the local cache first, then falls back
  * to Supabase. Use this in search modals and session resume flows.
@@ -199,6 +214,11 @@ function stripEphemeral(m: ChatMessage): ChatMessage {
   const copy = { ...m };
   delete copy.images;
   delete copy.analyzerReport;
+  if (copy.attachments) {
+    // Object URLs expire after reload and data URLs can overwhelm localStorage.
+    // Keep names and extracted text so the transcript still has useful context.
+    copy.attachments = copy.attachments.map(({ data: _data, ...attachment }) => attachment);
+  }
   return copy;
 }
 
@@ -210,7 +230,7 @@ function stripEphemeral(m: ChatMessage): ChatMessage {
  * Supabase upsert so cloud state is always consistent after this call.
  */
 export async function saveChatTranscript(id: string, messages: ChatMessage[]): Promise<void> {
-  const strippedMessages = messages.slice(-100).map(stripEphemeral);
+  const strippedMessages = messages.map(stripEphemeral);
 
   // 1. Write to local optimistic cache immediately
   if (typeof window !== 'undefined') {

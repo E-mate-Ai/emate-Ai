@@ -20,6 +20,14 @@ This changelog tracks all changes to the prompt templates, schemas, and context 
 
 ---
 
+## [1.1.0] — 2026-10-11
+
+### Chat Prompt (`chat: 1.1.0`)
+- **File:** `src/lib/prompts/index.ts`
+- **Context continuity:** The chat prompt now receives the full available transcript and explicitly uses prior turns to resolve follow-up questions. The context budget prioritizes conversation history over retrieved excerpts and notebook notes when the model's input limit is reached.
+- **Repeated preferences:** A compact profile may include only response preferences observed across at least two separate chats (such as beginner-friendly, detailed, concise, stepwise, example-based, or structured answers). It is capped at about 30% of the history target budget and remains subordinate to the current request.
+- **Reasoning privacy:** The prompt directs the model not to reveal private analysis or narrate its interpretation of the user's message.
+
 ## [1.0.0] — 2026-09-22
 
 ### Base Identity Prompt (`baseIdentity: 1.0.0`)
@@ -59,7 +67,7 @@ This changelog tracks all changes to the prompt templates, schemas, and context 
 
 ### Interactive Academic Tutor / Chat Prompt (`chat: 1.0.0`)
 - **File:** `prompts/feature-prompts.md` & `src/lib/prompts/index.ts` (`buildChatPrompt`)
-- **Features:** Dynamic persona adaptation based on mode (`sprint` vs `deep-dive`), student personal notebook context integration, and sliding window conversation history capping.
+- **Features:** Dynamic persona adaptation based on mode (`sprint` vs `deep-dive`), student personal notebook context integration, and the original sliding-window conversation history cap (superseded by v1.1.0).
 
 ---
 

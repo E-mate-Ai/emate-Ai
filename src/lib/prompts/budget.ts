@@ -3,7 +3,7 @@ import type { RetrievedChunk, ChatMessage } from './index';
 /**
  * e-Mate AI — Central Context Window Budget Engine
  * Defines token allowances per request component, accurate token estimation,
- * and deterministic truncation priority order (history -> chunks -> notes)
+ * and deterministic truncation priority order (chunks -> notes -> history)
  * preserving whole-chunk boundaries.
  */
 
@@ -60,9 +60,9 @@ export interface BudgetEnforcementResult {
 /**
  * Enforces the context window budget on all assembled prompt components.
  * Trimming Priority Order:
- * 1. Drop oldest conversation history turns first (preserves recent conversational context).
- * 2. Drop lowest-relevance retrieved chunks whole (preserves whole-chunk boundaries, never clips mid-chunk).
- * 3. Trim student notebook context to fit remaining space.
+ * 1. Drop lowest-relevance retrieved chunks whole (preserves whole-chunk boundaries, never clips mid-chunk).
+ * 2. Trim student notebook context to fit remaining space.
+ * 3. Drop oldest conversation history messages only when still over budget.
  * 4. Current user message and core system identity are NEVER dropped.
  */
 export function enforceContextBudget(
@@ -89,21 +89,8 @@ export function enforceContextBudget(
   let trimmedHistoryCount = 0;
   let trimmedChunkCount = 0;
 
-  // ── Step 1: Trim conversation history if total exceeds budget ────────────
   let currentTotal = initialTotal;
-
-  if (currentTotal > maxBudget && activeHistory.length > 0) {
-    while (activeHistory.length > 0 && currentTotal > maxBudget) {
-      const droppedMsg = activeHistory.shift(); // drop oldest turn first
-      if (droppedMsg) {
-        const msgTokens = countTokens(droppedMsg.content);
-        currentTotal -= msgTokens;
-        trimmedHistoryCount += 1;
-      }
-    }
-  }
-
-  // ── Step 2: Drop lowest-relevance chunks whole if still over budget ──────
+  // ── Step 1: Drop low-relevance retrieval chunks before chat history ───────
   if (currentTotal > maxBudget && activeChunks.length > 0) {
     // Sort chunks ascending by relevance score (lowest relevance first to drop)
     activeChunks.sort((a, b) => {
@@ -129,7 +116,7 @@ export function enforceContextBudget(
     });
   }
 
-  // ── Step 3: Trim notebook context if still over budget ───────────────────
+  // ── Step 2: Trim notebook context before discarding conversation turns ───
   if (currentTotal > maxBudget && activeNotebook) {
     const excess = currentTotal - maxBudget;
     const allowedChars = Math.max(200, (countTokens(activeNotebook) - excess) * 3.5);
@@ -138,6 +125,17 @@ export function enforceContextBudget(
       activeHistory.reduce((acc, m) => acc + countTokens(m.content), 0) +
       activeChunks.reduce((acc, c) => acc + countTokens(c.text), 0) +
       countTokens(activeNotebook);
+  }
+
+  // ── Step 3: Trim oldest chat messages only if still over the model limit ─
+  if (currentTotal > maxBudget && activeHistory.length > 0) {
+    while (activeHistory.length > 0 && currentTotal > maxBudget) {
+      const droppedMessage = activeHistory.shift();
+      if (droppedMessage) {
+        currentTotal -= countTokens(droppedMessage.content);
+        trimmedHistoryCount += 1;
+      }
+    }
   }
 
   const tokensSaved = Math.max(0, initialTotal - currentTotal);

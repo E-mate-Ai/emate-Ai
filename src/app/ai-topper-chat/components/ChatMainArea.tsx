@@ -63,9 +63,11 @@ import {
   saveChatTranscript,
   getChatHistory,
   getChatTranscript,
+  getAllChatTranscripts,
   formatChatTime,
   type ChatHistoryItem,
 } from '@/lib/chatHistory';
+import { buildRecurringUserPatternContext } from '@/lib/chatMemory';
 import { loadDemoNotebook } from '@/lib/demoNotebook';
 import { addGeneratedAsset } from '@/lib/library';
 import {
@@ -929,6 +931,7 @@ export default function ChatMainArea({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const centerInputRef = useRef<HTMLTextAreaElement>(null);
+  const sendInFlightRef = useRef(false);
   // Stable session id — mirrors `sessionId` prop (set by parent on resume load).
   const sessionIdRef = useRef(sessionId);
   useEffect(() => {
@@ -1395,7 +1398,10 @@ export default function ChatMainArea({
     const isSystemAction = _systemAction === true || attachmentOverride === true;
     const actualAttachments = Array.isArray(attachmentOverride) ? attachmentOverride : undefined;
     const content = (text ?? inputValue).trim();
-    if (!content || isStreaming) return;
+    if (!content || isStreaming || sendInFlightRef.current) return;
+    // React state updates are asynchronous. This ref closes the short window in
+    // which Enter and a click (or two rapid clicks) can submit the same turn.
+    sendInFlightRef.current = true;
 
     // Resolve or generate active target chat ID
     const targetChatId =
@@ -1421,7 +1427,11 @@ export default function ChatMainArea({
       };
       setMessages((prev) => [...prev, userMsg]);
       router.push(`/ai-topper-chat?chatId=${targetChatId}`, { scroll: false });
-      await handleQuizTrigger();
+      try {
+        await handleQuizTrigger();
+      } finally {
+        sendInFlightRef.current = false;
+      }
       return;
     }
 
@@ -1440,15 +1450,25 @@ export default function ChatMainArea({
         };
         setMessages((prev) => [...prev, userMsg]);
         router.push(`/ai-topper-chat?chatId=${targetChatId}`, { scroll: false });
-        await handleImageSend(imagePrompt);
+        try {
+          await handleImageSend(imagePrompt);
+        } finally {
+          sendInFlightRef.current = false;
+        }
         return;
       }
+      sendInFlightRef.current = false;
+      return;
     }
 
     // Image Gen Mode intercepts before the text/credit path
     if (imageGenMode && !isGuest) {
       router.push(`/ai-topper-chat?chatId=${targetChatId}`, { scroll: false });
-      await handleImageSend(content);
+      try {
+        await handleImageSend(content);
+      } finally {
+        sendInFlightRef.current = false;
+      }
       return;
     }
 
@@ -1475,6 +1495,7 @@ export default function ChatMainArea({
           subject: selectedContext.subject,
         };
         setMessages((prev) => [...prev, userMsg2, noCreditsMsg]);
+        sendInFlightRef.current = false;
         return;
       }
       guestCreditsSent = remainingBefore;
@@ -1559,6 +1580,7 @@ export default function ChatMainArea({
 
     const assistantMsgId = `msg-${String(msgCounter++).padStart(3, '0')}`;
 
+    let accumulatedText = '';
     try {
       const notebookContext = isStudyMode ? buildNotebookContext(selectedContext.subject) : '';
       // actualAttachments lets the PromptInput pass fresh attachments that haven't
@@ -1596,11 +1618,19 @@ export default function ChatMainArea({
         fetchHeaders['Authorization'] = `Bearer ${byokKey}`;
       }
 
+      const localTranscripts = getAllChatTranscripts();
+      const localUserPatterns = buildRecurringUserPatternContext(
+        Object.entries(localTranscripts).map(([id, transcript]) => ({ id, messages: transcript })),
+        targetChatId
+      );
+
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: fetchHeaders,
         body: JSON.stringify({
           messages: finalPayloadMessages,
+          chatId: targetChatId,
+          userPatterns: localUserPatterns,
           mode,
           subject: isStudyMode ? selectedContext.subject : undefined,
           unit: isStudyMode ? selectedContext.unit : undefined,
@@ -1652,7 +1682,6 @@ export default function ChatMainArea({
       if (!reader) throw new Error('No response body stream available.');
 
       const decoder = new TextDecoder();
-      let accumulatedText = '';
       let activeCitations = initialCitations;
       let sseBuffer = '';
 
@@ -1721,6 +1750,10 @@ export default function ChatMainArea({
         }
       }
 
+      if (!accumulatedText.trim()) {
+        throw new Error('The model returned an empty response. Please try again.');
+      }
+
       // Persist the completed transcript
       saveChatTranscript(sessionIdRef.current, [
         ...messages,
@@ -1758,6 +1791,9 @@ export default function ChatMainArea({
         isOpenRouterError && alreadyHasOpenRouterError
           ? '⚠️ OpenRouter account connection required to continue.'
           : rawMsg;
+      const assistantContent = accumulatedText.trim()
+        ? `${accumulatedText}\n\n⚠️ *[Response interrupted: ${displayContent}]*`
+        : displayContent;
 
       setMessages((prev) => {
         const existing = prev.find((m) => m.id === assistantMsgId);
@@ -1768,7 +1804,7 @@ export default function ChatMainArea({
               m.id === assistantMsgId
                 ? {
                     ...m,
-                    content: `${m.content}\n\n⚠️ *[Response interrupted: ${displayContent}]*`,
+                    content: assistantContent,
                   }
                 : m
             );
@@ -1778,7 +1814,7 @@ export default function ChatMainArea({
               m.id === assistantMsgId
                 ? {
                     ...m,
-                    content: displayContent,
+                    content: assistantContent,
                   }
                 : m
             );
@@ -1789,7 +1825,7 @@ export default function ChatMainArea({
           {
             id: assistantMsgId,
             role: 'assistant',
-            content: displayContent,
+            content: assistantContent,
             mode,
             timestamp: formatTimestamp(),
             subject: selectedContext.subject,
@@ -1797,7 +1833,20 @@ export default function ChatMainArea({
           },
         ];
       });
+      saveChatTranscript(targetChatId, [
+        ...newMessages,
+        {
+          id: assistantMsgId,
+          role: 'assistant',
+          content: assistantContent,
+          mode,
+          timestamp: formatTimestamp(),
+          subject: selectedContext.subject,
+          isGeneralChat: !isStudyMode,
+        },
+      ]);
     } finally {
+      sendInFlightRef.current = false;
       setIsStreaming(false);
     }
   };
