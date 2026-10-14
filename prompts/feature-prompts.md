@@ -8,7 +8,7 @@ This document defines standardized prompt templates for e-Mate AI's core capabil
 1. **Summarization Prompt (`summarize`)** — v1.0.0
 2. **Document Q&A & Citation Prompt (`qa`)** — v1.0.0
 3. **Quiz & MCQ Generation Prompt (`quiz-gen`)** — v1.0.0
-4. **Interactive Academic Chat & Tutor Prompt (`chat`)** — v1.0.0
+4. **Interactive Academic Chat & Tutor Prompt (`chat`)** — v1.2.0
 
 ---
 
@@ -134,6 +134,8 @@ Distractor Quality Guidelines:
 
 ### Goal
 Drive real-time conversational learning, interactive problem-solving, and study guidance with dynamic context injection (Notebook notes, sprint vs. deep-dive mode).
+
+For broad topics, teach in numbered sections: (1) what it is, beginning in plain language and then giving a precise definition, (2) real-world examples, (3) how it works through clear steps or a worked example, (4) main applications, (5) advantages and limitations, (6) an exam-ready answer, and (7) key takeaways. Cover all major subtopics relevant to the question. For narrow follow-ups, answer the specific point without repeating a full lesson. Never reveal private chain-of-thought. Do not generate quizzes or MCQs unless the student explicitly requests a quiz, test, or practice questions.
 
 ### System Prompt
 ```markdown

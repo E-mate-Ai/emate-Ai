@@ -540,6 +540,9 @@ export interface PromptInputProps {
   allowAttachments?: boolean;
   /** When false, hides the model selector from the input UI. */
   modelSelectorEnabled?: boolean;
+  /** Controlled model label so fallback and manual choices stay in sync. */
+  selectedModel?: string;
+  onModelChange?: (model: string) => void;
   /** When true, the input is in "Image Gen Mode" — subtitle + placeholder swap. */
   imageGenMode?: boolean;
   /** Fired when the user clicks the image-generation toggle. */
@@ -564,6 +567,8 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
       maxAttachments = 6,
       allowAttachments = true,
       modelSelectorEnabled = true,
+      selectedModel: controlledModel,
+      onModelChange,
       imageGenMode = false,
       onImageGenToggle,
       imageGenPlaceholder = 'Describe the diagram, chart, or visual you want e-Mate to generate...',
@@ -572,7 +577,18 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
     ref
   ) => {
     const [localValue, setLocalValue] = useState(defaultValue);
-    const [selectedModel, setSelectedModel] = useState(models[0]);
+    const [localSelectedModel, setLocalSelectedModel] = useState(controlledModel || models[0]);
+    const selectedModel = controlledModel || localSelectedModel;
+    const chooseModel = (model: string) => {
+      setLocalSelectedModel(model);
+      onModelChange?.(model);
+    };
+
+    useEffect(() => {
+      if (!controlledModel && !models.includes(localSelectedModel)) {
+        setLocalSelectedModel(models[0]);
+      }
+    }, [controlledModel, localSelectedModel, models]);
     const [effortIndex, setEffortIndex] = useState(0);
     const [isModelSelectOpen, setIsModelSelectOpen] = useState(false);
 
@@ -1080,7 +1096,7 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
                         key={m}
                         type="button"
                         onClick={() => {
-                          setSelectedModel(m);
+                          chooseModel(m);
                           setIsModelSelectOpen(false);
                         }}
                         className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-left transition-colors ${
@@ -1519,7 +1535,7 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
                           onMouseDown={(e) => e.preventDefault()}
                           onClick={(e) => {
                             e.stopPropagation();
-                            setSelectedModel(model);
+                            chooseModel(model);
                             setIsModelSelectOpen(false);
                           }}
                           className={cn(

@@ -7,6 +7,9 @@ import { appendToNotebook } from '@/lib/notebook';
 import { toast } from 'sonner';
 import dynamic from 'next/dynamic';
 import type { MCQSubmission } from '@/lib/agents/types';
+import type { MCQQuiz } from '@/lib/agents/types';
+import InlineMCQQuiz from './InlineMCQQuiz';
+import InlineFlashcards from './InlineFlashcards';
 
 const GeneratedImageCard = dynamic(() => import('@/components/GeneratedImageCard'), {
   ssr: false,
@@ -40,7 +43,9 @@ interface ChatMessageBubbleProps {
   /** Called when the user clicks a generated-image "Regenerate". (imageId, prompt) */
   onRegenerateImage?: (messageId: string, imageId: string, prompt: string) => void;
   /** Called when user clicks "Reinforce Weak Concepts" in an analyzer report. */
-  onReinforce?: (weakTopics: string[], submissionData?: MCQSubmission) => void;
+  onReinforce?: (weakTopics: string[], submissionData?: MCQSubmission, quiz?: MCQQuiz) => void;
+  /** Called when a student submits an inline quiz in the conversation. */
+  onQuizSubmit?: (submission: MCQSubmission) => void;
   /** True when this message is actively streaming tokens from the LLM */
   isStreaming?: boolean;
 }
@@ -640,6 +645,7 @@ export default function ChatMessageBubble({
   processStep = -1,
   onRegenerateImage,
   onReinforce,
+  onQuizSubmit,
   isStreaming = false,
 }: ChatMessageBubbleProps) {
   const [copied, setCopied] = useState(false);
@@ -713,12 +719,14 @@ export default function ChatMessageBubble({
     );
   }
 
-  const showProcessAccordion = !message.isGeneralChat && processStep >= 1;
+  const showProcessAccordion = !message.quiz && !message.isGeneralChat && processStep >= 1;
 
   return (
     <div className="w-full fade-in-up group transition-colors flex flex-col items-start gap-1.5 my-1">
       {/* Assistant Message Container Card */}
-      <div className="px-5 py-3.5 sm:px-6 sm:py-4 rounded-[22px] bg-[#e5e5e5] dark:bg-zinc-800/80 text-[#1a1a1a] dark:text-[#f0f0f0] max-w-[620px] shadow-2xs space-y-2">
+      <div className={message.quiz || message.flashcardDeck
+        ? 'w-full max-w-none rounded-none bg-transparent p-0 text-[#f0f0f0] shadow-none'
+        : 'px-5 py-3.5 sm:px-6 sm:py-4 rounded-[22px] bg-[#e5e5e5] dark:bg-zinc-800/80 text-[#1a1a1a] dark:text-[#f0f0f0] max-w-[620px] shadow-2xs space-y-2'}>
         {/* Animated process accordion — only for study mode with active tracking */}
         {showProcessAccordion && <ProcessAccordion processStep={processStep} theme={theme} />}
 
@@ -747,6 +755,22 @@ export default function ChatMessageBubble({
             )
           )}
         </div>
+
+        {message.quiz && onQuizSubmit && (
+          <InlineMCQQuiz
+            quiz={message.quiz}
+            theme={theme}
+            initialSubmission={message.quizSubmission}
+            onSubmit={onQuizSubmit}
+          />
+        )}
+
+        {message.flashcardDeck && (
+          <InlineFlashcards
+            deck={message.flashcardDeck}
+            theme={theme}
+          />
+        )}
 
         {/* Grounded Citations List if attached to message */}
         {message.citations && message.citations.length > 0 && (
@@ -839,13 +863,16 @@ export default function ChatMessageBubble({
         )}
 
         {/* Study Analyzer Report */}
-        {message.analyzerReport && onReinforce && (
-          <StudyAnalyzerReport report={message.analyzerReport} onReinforce={onReinforce} />
+        {message.analyzerReport && onReinforce && !message.quiz && (
+          <StudyAnalyzerReport
+            report={message.analyzerReport}
+            onReinforce={(topics, submission) => onReinforce(topics, submission, message.quiz)}
+          />
         )}
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pl-2">
+      {!message.quiz && <div className="flex items-center gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pl-2">
         <button
           onClick={handleCopy}
           title="Copy response"
@@ -879,7 +906,7 @@ export default function ChatMessageBubble({
           <RotateCcw size={12} />
           <span>Regenerate</span>
         </button>
-      </div>
+      </div>}
     </div>
   );
 }

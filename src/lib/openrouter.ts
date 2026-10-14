@@ -26,31 +26,26 @@ export const OPENROUTER_MODELS: ModelOption[] = [
   {
     label: 'e-Mate',
     id: 'emate',
-    fallbackId: 'google/gemini-2.0-flash:free',
+    fallbackId: 'openrouter/free',
     isFlagship: true,
   },
   ...ALL_FREE_MODELS.filter((m) => m.id !== 'emate').map((m) => ({
     label: m.name,
     id: m.id,
-    fallbackId: 'google/gemini-2.0-flash:free',
+    fallbackId: 'openrouter/free',
   })),
-  {
-    label: 'Gemini 2.0 Flash',
-    id: 'google/gemini-2.0-flash',
-    fallbackId: 'google/gemini-2.0-flash:free',
-  },
   {
     label: 'Gemini 2.5 Flash',
     id: 'google/gemini-2.5-flash',
-    fallbackId: 'google/gemini-2.0-flash:free',
+    fallbackId: 'openrouter/free',
   },
   {
     label: 'Gemini 2.5 Pro',
     id: 'google/gemini-2.5-pro',
-    fallbackId: 'google/gemini-2.0-flash:free',
+    fallbackId: 'openrouter/free',
   },
-  { label: 'Claude 3.5 Sonnet', id: 'anthropic/claude-3.5-sonnet', fallbackId: 'google/gemini-2.0-flash:free' },
-  { label: 'GPT-4o Mini', id: 'openai/gpt-4o-mini', fallbackId: 'google/gemini-2.0-flash:free' },
+  { label: 'Claude 3.5 Sonnet', id: 'anthropic/claude-3.5-sonnet', fallbackId: 'openrouter/free' },
+  { label: 'GPT-4o Mini', id: 'openai/gpt-4o-mini', fallbackId: 'openrouter/free' },
 ];
 
 export type OpenRouterModelId = (typeof OPENROUTER_MODELS)[number]['id'];
@@ -78,6 +73,8 @@ export interface OpenRouterCompletionOptions {
   stream?: boolean;
   /** Extra OpenRouter params merged into the payload (e.g. provider/transforms). */
   extraBody?: Record<string, unknown>;
+  /** Optional explicit fallback order, used when a task discovers live eligible models. */
+  fallbackModels?: string[];
   /** App identity sent in HTTP-Referer / X-Title headers. */
   referer?: string;
   title?: string;
@@ -163,6 +160,7 @@ async function executeSingleOpenRouterCompletion(
     max_tokens,
     stream = false,
     extraBody,
+    fallbackModels: _fallbackModels,
     referer,
     title,
   } = options;
@@ -222,7 +220,9 @@ export async function openRouterCompletion(
   apiKey: string,
   options: OpenRouterCompletionOptions
 ): Promise<Record<string, unknown>> {
-  const attemptOrder = getFreeModelCascade(options.model);
+  const attemptOrder = options.fallbackModels !== undefined
+    ? [options.model, ...options.fallbackModels].filter((model, index, models) => models.indexOf(model) === index)
+    : getFreeModelCascade(options.model);
 
   let lastError: OpenRouterError | null = null;
   for (let i = 0; i < attemptOrder.length; i++) {

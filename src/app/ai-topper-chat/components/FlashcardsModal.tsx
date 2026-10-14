@@ -323,6 +323,15 @@ export default function FlashcardsModal({ isOpen, onClose, selectedContext, them
               </>
             )}
           </button>
+
+          <div className="mt-3 text-center">
+            <a
+              href="/ai-flashcard-generator"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#4F6636] dark:text-[#A8C786] hover:underline"
+            >
+              <span>Open in Full Visual Flashcard Studio →</span>
+            </a>
+          </div>
         </div>
 
         {/* Toast */}

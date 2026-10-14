@@ -28,6 +28,14 @@ This changelog tracks all changes to the prompt templates, schemas, and context 
 - **Repeated preferences:** A compact profile may include only response preferences observed across at least two separate chats (such as beginner-friendly, detailed, concise, stepwise, example-based, or structured answers). It is capped at about 30% of the history target budget and remains subordinate to the current request.
 - **Reasoning privacy:** The prompt directs the model not to reveal private analysis or narrate its interpretation of the user's message.
 
+## [1.2.0] — 2026-10-13
+
+### Chat Prompt (`chat: 1.2.0`)
+- **File:** `src/lib/prompts/index.ts` and `prompts/feature-prompts.md`
+- **Study structure:** Broad study topics now use a numbered teaching scaffold covering definitions, real-world examples, how it works, applications, advantages and limitations, exam-ready answers, and takeaways. Narrow follow-ups remain focused.
+- **Study focus:** Explanations begin in plain language and build toward academic detail; sprint mode keeps the same intent concise.
+- **Quiz intent:** The chat prompt explicitly avoids generating quizzes unless the student asks. The chat UI recognizes explicit quiz requests and places generated interactive quizzes in the transcript.
+
 ## [1.0.0] — 2026-09-22
 
 ### Base Identity Prompt (`baseIdentity: 1.0.0`)

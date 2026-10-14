@@ -10,12 +10,15 @@ function getCookie(cookieHeader: string | null, name: string): string | undefine
 
 export async function POST(req: Request) {
   try {
-    const { subject, unit, count, difficulty, notebookContext } = await req.json();
+    const { subject, unit, count, difficulty, notebookContext, userApiKey } = await req.json();
 
     const cookieHeader = req.headers.get('cookie');
     const userKey = getCookie(cookieHeader, 'user_openrouter_key');
     const apiKey =
-      userKey || process.env.OPENROUTER_SERVER_FREE_KEY || process.env.OPENROUTER_API_KEY;
+      (typeof userApiKey === 'string' && userApiKey.trim() ? userApiKey.trim() : undefined) ||
+      userKey ||
+      process.env.OPENROUTER_SERVER_FREE_KEY ||
+      process.env.OPENROUTER_API_KEY;
 
     if (!apiKey || apiKey === 'your-openrouter-api-key-here') {
       return new Response(

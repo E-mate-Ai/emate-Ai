@@ -79,14 +79,10 @@ import {
   authCreditsExhausted,
 } from '@/lib/credits';
 import { toast } from 'sonner';
-import dynamic from 'next/dynamic';
 import StickyMobileCTA from '@/components/StickyMobileCTA';
+import { ALL_FREE_MODELS } from '@/lib/modelConfig';
 
-const MCQAssessmentContainer = dynamic(() => import('@/components/MCQAssessmentContainer'), {
-  ssr: false,
-});
 import type { MCQQuiz, MCQSubmission } from '@/lib/agents/types';
-import { generateAnalyzerReport } from '@/lib/agents/studyAnalyzer';
 
 interface SuggestionItem {
   icon: React.ElementType;
@@ -332,7 +328,8 @@ interface ChatMainAreaProps {
   setSelectedModel: (m: string) => void;
 }
 
-let msgCounter = 1;
+const createMessageId = () =>
+  `msg-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 
 const getTimeGreeting = (date = new Date()) => {
   const hour = date.getHours();
@@ -589,9 +586,6 @@ export default function ChatMainArea({
   const isAuthenticated = isSupabaseSignedUp || isOpenRouterConnected;
   const isGuest = !isAuthenticated;
 
-  // Guests are locked to the fast free flagship model.
-  const GUEST_MODEL = 'emate';
-
   // True once a guest has burned through the trial allowance. Drives the soft
   // conversion gate (sign-up CTA) while preserving their chat context.
   const isGuestOutOfCredits = isGuest && guestCredits <= 0;
@@ -750,10 +744,8 @@ export default function ChatMainArea({
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [imageGenMode, setImageGenMode] = useState(false);
-  const [quizQuiz, setQuizQuiz] = useState<MCQQuiz | null>(null);
-  const [showQuizModal, setShowQuizModal] = useState(false);
   const [quizLoading, setQuizLoading] = useState(false);
-  // Preserved quiz data for the reinforce flow — survives after quizQuiz is cleared.
+  // Preserved quiz data for the reinforce flow.
   const lastQuizRef = useRef<MCQQuiz | null>(null);
 
   // Full-chat drag-and-drop state
@@ -861,30 +853,11 @@ export default function ChatMainArea({
     [isGuest]
   );
 
-  // Clear stale quiz state when switching notebooks or study context so old
-  // results don't carry over into a new subject/unit.
-  useEffect(() => {
-    setQuizQuiz(null);
-    setShowQuizModal(false);
-    setQuizLoading(false);
-  }, [selectedContext.subject, selectedContext.unit]);
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const modelMenuRef = useRef<HTMLDivElement>(null);
 
-  // Free models only — e-Mate at the top routes across all 17 silently.
-  // Individual free models let power users pick a specific one.
-  const MODELS = [
-    { id: 'emate', name: 'e-Mate', badge: '17 Free Models • Auto Failover', isFlagship: true },
-    { id: 'google/gemini-2.0-flash:free', name: 'Gemini 2.0 Flash', badge: 'Free • Fastest' },
-    { id: 'google/gemini-2.0-flash-exp:free', name: 'Gemini 2.0 Flash Exp', badge: 'Free • Experimental' },
-    { id: 'google/gemini-2.0-pro-exp:free', name: 'Gemini 2.0 Pro', badge: 'Free • Deep Reasoning' },
-    { id: 'meta-llama/llama-3.3-70b-instruct:free', name: 'Llama 3.3 70B', badge: 'Free • Smart' },
-    { id: 'deepseek/deepseek-r1:free', name: 'DeepSeek R1', badge: 'Free • Math & STEM' },
-    { id: 'deepseek/deepseek-chat:free', name: 'DeepSeek V3', badge: 'Free • Chat' },
-    { id: 'qwen/qwen-2.5-coder-32b-instruct:free', name: 'Qwen 2.5 Coder', badge: 'Free • Code' },
-    { id: 'mistralai/mistral-small-3:free', name: 'Mistral Small 3', badge: 'Free • Logic' },
-    { id: 'microsoft/phi-3-medium-128k-instruct:free', name: 'Phi-3 Medium', badge: 'Free • 128k' },
-  ];
+  // All free models are selectable in both guest and signed-in sessions.
+  const MODELS = ALL_FREE_MODELS;
 
   const visibleModelNames = MODELS
     .filter((model) => model.isFlagship || (
@@ -895,12 +868,7 @@ export default function ChatMainArea({
 
   const activeModel = MODELS.find((m) => m.id === selectedModel) || MODELS[0];
 
-  // Lock guests to the fast free model — the model switcher is hidden for them.
-  useEffect(() => {
-    if (isGuest && selectedModel !== GUEST_MODEL) {
-      setSelectedModel(GUEST_MODEL);
-    }
-  }, [isGuest, selectedModel, setSelectedModel, GUEST_MODEL]);
+  const activeModelName = activeModel.name;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -929,20 +897,41 @@ export default function ChatMainArea({
     return () => window.removeEventListener('nk-sidebar-change', handleSidebarChange);
   }, []);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const centerInputRef = useRef<HTMLTextAreaElement>(null);
+  const chatScrollContainerRef = useRef<HTMLDivElement>(null);
+  const pendingQuestionScrollRef = useRef<string | null>(null);
   const sendInFlightRef = useRef(false);
   // Stable session id — mirrors `sessionId` prop (set by parent on resume load).
   const sessionIdRef = useRef(sessionId);
   useEffect(() => {
     sessionIdRef.current = sessionId;
   }, [sessionId]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Smooth auto-scroll to the bottom of the conversation as messages arrive or stream
+  // Scroll the chat's own viewport to the newly submitted question once.
+  // Streaming token updates do not change the message count, so they never
+  // move the viewport afterward.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isStreaming]);
+    const questionId = pendingQuestionScrollRef.current;
+    if (!questionId) return;
+    const container = chatScrollContainerRef.current;
+    if (!container) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      const questionElement = container.querySelector<HTMLElement>(
+        `[data-chat-message-id="${questionId}"]`
+      );
+      if (!questionElement) return;
+
+      const containerTop = container.getBoundingClientRect().top;
+      const questionTop = questionElement.getBoundingClientRect().top;
+      const targetScrollTop = container.scrollTop + questionTop - containerTop - 12;
+      pendingQuestionScrollRef.current = null;
+      container.scrollTo({ top: Math.max(0, targetScrollTop), behavior: 'smooth' });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [messages.length]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!messages.length) {
@@ -1064,7 +1053,7 @@ export default function ChatMainArea({
     };
 
     const userMsg: ChatMessage = {
-      id: `msg-${String(msgCounter++).padStart(3, '0')}`,
+      id: createMessageId(),
       role: 'user',
       content: prompt,
       mode,
@@ -1076,7 +1065,7 @@ export default function ChatMainArea({
 
     const imageId = `img-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const assistantMsg: ChatMessage = {
-      id: `msg-${String(msgCounter++).padStart(3, '0')}`,
+      id: createMessageId(),
       role: 'assistant',
       content: '',
       mode,
@@ -1087,6 +1076,7 @@ export default function ChatMainArea({
     };
 
     const newMessages = [...messages, userMsg, assistantMsg];
+    pendingQuestionScrollRef.current = userMsg.id;
     setMessages(newMessages);
     setInputValue('');
     setIsStreaming(true);
@@ -1277,24 +1267,72 @@ export default function ChatMainArea({
 
   // ── Quiz / Study Agent Orchestrator ────────────────────────────────────────
 
-  const QUIZ_INTENTS = /\b(quiz|test|mcq|exam|assess|practice\s*question)/i;
+  const QUIZ_REQUEST = /(?:^\/mcq\b|\b(?:quiz me|test me|give me (?:a |an )?(?:quiz|test|mcq)|make me (?:a |an )?(?:quiz|test)|make (?:a |an )?(?:quiz|test)|generate (?:a |an )?(?:quiz|test)|create (?:a |an )?(?:quiz|test)|prepare (?:a |an )?(?:quiz|test)|start (?:a )?(?:quiz|test)|practice (?:quiz|test)|ask me (?:some |a few )?questions?|(?:quiz|test|mcq) me\b|(?:quiz|test|mcq) (?:me )?(?:on|about)\b)|\b(?:generate|create|make|prepare|write|give|show|provide)\b.{0,50}\b(?:quiz|test|mcqs?|practice questions?)\b)/i;
+  const QUIZ_META_QUESTION = /\b(?:how (?:do|can) (?:i|we)|how to|explain how to|what is the process to)\b.{0,40}\b(?:generate|create|make|prepare)\b/i;
 
-  const handleQuizTrigger = async () => {
+  const handleQuizTrigger = async (
+    prompt: string,
+    targetChatId: string,
+    placeholderId: string,
+    baseMessages: ChatMessage[]
+  ) => {
     if (quizLoading || isStreaming) return;
     setQuizLoading(true);
 
     try {
       const notebookContext = isStudyMode ? buildNotebookContext(selectedContext.subject) : '';
+      const inferredTopic = prompt
+        .replace(/^\/mcq\s*/i, '')
+        .replace(/\b(?:can you|could you|please|quiz me|test me|give me|make me|make|generate|create|prepare|start|ask me|quiz|test|mcqs?|questions?|few|a|an|some|about|on|for me)\b/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      const recentConversation = baseMessages
+        .slice(0, -2)
+        .filter((message) => message.content.trim())
+        .slice(-6)
+        .map((message) => `${message.role === 'user' ? 'Student' : 'Tutor'}: ${message.content}`)
+        .join('\n\n');
+      const recentTopic = [...baseMessages.slice(0, -2)]
+        .reverse()
+        .find((message) => message.role === 'user')?.content.trim();
+      const quizTopic = inferredTopic || recentTopic || '';
+      const quizSubject = selectedContext.subject || quizTopic || 'General Study';
+      const quizContext = [
+        notebookContext ? `Notebook material:\n${notebookContext}` : '',
+        recentConversation ? `Recent conversation context:\n${recentConversation}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n\n')
+        .slice(-8000);
+
+      if (!inferredTopic && !selectedContext.subject && !selectedContext.unit && !notebookContext && !recentConversation) {
+        const next = baseMessages.map((message) => message.id === placeholderId
+          ? { ...message, content: 'What topic would you like me to quiz you on?' }
+          : message);
+        setMessages(next);
+        void saveChatTranscript(targetChatId, next);
+        return;
+      }
+
+      const userApiKey = typeof window !== 'undefined'
+        ? localStorage.getItem('user_openrouter_key') ||
+          document.cookie
+            .split('; ')
+            .find((row) => row.startsWith('user_openrouter_key='))
+            ?.split('=')[1]
+            ?.replace(/^"|"$/g, '') || ''
+        : '';
 
       const res = await fetch('/api/agents/generate-quiz', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          subject: selectedContext.subject,
-          unit: selectedContext.unit,
+          subject: quizSubject,
+          unit: selectedContext.unit || quizTopic,
           count: 5,
           difficulty: 'medium',
-          notebookContext,
+          notebookContext: quizContext,
+          userApiKey: userApiKey || undefined,
         }),
       });
 
@@ -1304,42 +1342,125 @@ export default function ChatMainArea({
       }
 
       const quiz: MCQQuiz = await res.json();
-      setQuizQuiz(quiz);
-      setShowQuizModal(true);
+      lastQuizRef.current = quiz;
+      const assistantMsg: ChatMessage = {
+        id: placeholderId,
+        role: 'assistant',
+        content: '',
+        mode,
+        timestamp: new Date().toISOString(),
+        subject: quiz.subject,
+        quiz,
+      };
+      const next = baseMessages.map((message) => (message.id === placeholderId ? assistantMsg : message));
+      setMessages(next);
+      void saveChatTranscript(targetChatId, next);
     } catch (err: any) {
-      toast.error(err.message || 'Could not generate quiz. Please try again.');
+      const errorMessage = err.message || 'Could not generate quiz. Please try again.';
+      toast.error(errorMessage);
+      const next = baseMessages.map((message) => message.id === placeholderId
+        ? { ...message, content: `I couldn't create the quiz: ${errorMessage}` }
+        : message);
+      setMessages(next);
+      void saveChatTranscript(targetChatId, next);
     } finally {
       setQuizLoading(false);
     }
   };
 
-  const handleQuizSubmission = (submission: MCQSubmission) => {
-    if (!quizQuiz) return;
+  const FLASHCARD_REQUEST = /(?:^\/flashcards?\b|\b(?:flashcards?|flash-cards?|flash cards?)\b)/i;
+  const FLASHCARD_META_QUESTION = /\b(?:how (?:do|can) (?:i|we)|how to|explain how to|what is the process to)\b.{0,40}\b(?:generate|create|make|prepare)\b/i;
 
-    // Preserve quiz data for the reinforce flow (survives after quizQuiz is cleared).
-    lastQuizRef.current = quizQuiz;
+  const handleFlashcardTrigger = async (
+    prompt: string,
+    targetChatId: string,
+    placeholderId: string,
+    baseMessages: ChatMessage[]
+  ) => {
+    if (isStreaming) return;
 
-    const report = generateAnalyzerReport(submission, quizQuiz);
+    try {
+      const inferredTopic = prompt
+        .replace(/^\/flashcards?\s*/i, '')
+        .replace(/\b(?:can you|could you|please|make me|give me|make|generate|create|prepare|show|start|flashcards?|flash-cards?|flash cards?|cards?|a|an|some|deck|of|about|on|for me)\b/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
 
-    const assistantMsg: ChatMessage = {
-      id: `msg-${Date.now()}-quiz-report`,
-      role: 'assistant',
-      content:
-        report.weakAreas.length === 0
-          ? `🎉 **Excellent work!** You scored **${report.overallScore}%** on your ${quizQuiz.subject} quiz. No weak areas identified — you have a strong grasp of all topics!`
-          : `📋 **Quiz Complete!** You scored **${report.overallScore}%** on your ${quizQuiz.subject} quiz.\n\nI've identified **${report.weakAreas.length} weak area${report.weakAreas.length > 1 ? 's' : ''}** that need your attention. Check the analysis below and click "Reinforce" to get targeted explanations.`,
-      mode: 'deep-dive',
-      timestamp: new Date().toISOString(),
-      subject: selectedContext.subject,
-      analyzerReport: report,
-    };
+      const recentTopic = [...baseMessages.slice(0, -2)]
+        .reverse()
+        .find((message) => message.role === 'user')?.content.trim();
 
-    setMessages((prev) => [...prev, assistantMsg]);
-    setQuizQuiz(null);
+      const flashcardTopic = inferredTopic || selectedContext.subject || recentTopic || 'General Study';
+
+      const userApiKey = typeof window !== 'undefined'
+        ? localStorage.getItem('user_openrouter_key') ||
+          document.cookie
+            .split('; ')
+            .find((row) => row.startsWith('user_openrouter_key='))
+            ?.split('=')[1]
+            ?.replace(/^"|"$/g, '') || ''
+        : '';
+
+      const res = await fetch('/api/flashcards/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: flashcardTopic,
+          subject: selectedContext.subject || flashcardTopic,
+          count: 5,
+          difficulty: 'intermediate',
+          learningMode: 'visual_learning',
+          userApiKey: userApiKey || undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to generate flashcards');
+      }
+
+      const { deck } = await res.json();
+      const assistantMsg: ChatMessage = {
+        id: placeholderId,
+        role: 'assistant',
+        content: '',
+        mode,
+        timestamp: new Date().toISOString(),
+        subject: deck.subject,
+        flashcardDeck: deck,
+      };
+
+      const next = baseMessages.map((message) => (message.id === placeholderId ? assistantMsg : message));
+      setMessages(next);
+      void saveChatTranscript(targetChatId, next);
+    } catch (err: any) {
+      const errorMessage = err.message || 'Could not generate flashcards. Please try again.';
+      toast.error(errorMessage);
+      const next = baseMessages.map((message) =>
+        message.id === placeholderId
+          ? { ...message, content: `I couldn't create the flashcards: ${errorMessage}` }
+          : message
+      );
+      setMessages(next);
+      void saveChatTranscript(targetChatId, next);
+    }
   };
 
-  const handleReinforce = async (weakTopics: string[], submissionData?: MCQSubmission) => {
-    const lastQuiz = lastQuizRef.current;
+  const handleQuizSubmission = (submission: MCQSubmission, quiz: MCQQuiz, messageId: string) => {
+    lastQuizRef.current = quiz;
+
+    const next = messages.map((message) => message.id === messageId
+      ? {
+          ...message,
+          quizSubmission: submission,
+        }
+      : message);
+    setMessages(next);
+    void saveChatTranscript(sessionIdRef.current, next);
+  };
+
+  const handleReinforce = async (weakTopics: string[], submissionData?: MCQSubmission, quizContext?: MCQQuiz) => {
+    const lastQuiz = quizContext || lastQuizRef.current;
 
     if (!lastQuiz || !submissionData) {
       // Fallback when submission context is missing
@@ -1398,7 +1519,7 @@ export default function ChatMainArea({
     const isSystemAction = _systemAction === true || attachmentOverride === true;
     const actualAttachments = Array.isArray(attachmentOverride) ? attachmentOverride : undefined;
     const content = (text ?? inputValue).trim();
-    if (!content || isStreaming || sendInFlightRef.current) return;
+    if (!content || isStreaming || quizLoading || sendInFlightRef.current) return;
     // React state updates are asynchronous. This ref closes the short window in
     // which Enter and a click (or two rapid clicks) can submit the same turn.
     sendInFlightRef.current = true;
@@ -1413,22 +1534,92 @@ export default function ChatMainArea({
     // Clear main input search bar immediately
     setInputValue('');
 
-    // Quiz intent detection — intercepts before the text/credit path.
-    // Bypass for system actions (reinforce, slash commands) to prevent re-triggering.
-    if (!isSystemAction && isStudyMode && QUIZ_INTENTS.test(content) && !imageGenMode) {
-      // Add the user message then trigger quiz generation
+    // Flashcard intent detection — intercepts before text/credit path
+    if (
+      !isSystemAction &&
+      FLASHCARD_REQUEST.test(content) &&
+      !FLASHCARD_META_QUESTION.test(content) &&
+      !imageGenMode
+    ) {
       const userMsg: ChatMessage = {
-        id: `msg-${Date.now()}-user`,
+        id: createMessageId(),
         role: 'user',
         content,
         mode,
         timestamp: new Date().toISOString(),
         subject: selectedContext.subject,
       };
-      setMessages((prev) => [...prev, userMsg]);
+      const placeholderId = createMessageId();
+      const assistantPlaceholder: ChatMessage = {
+        id: placeholderId,
+        role: 'assistant',
+        content: 'Generating interactive visual flashcards…',
+        mode,
+        timestamp: new Date().toISOString(),
+        subject: selectedContext.subject,
+      };
+      const flashcardMessages = [...messages, userMsg, assistantPlaceholder];
+      pendingQuestionScrollRef.current = userMsg.id;
+      setMessages(flashcardMessages);
       router.push(`/ai-topper-chat?chatId=${targetChatId}`, { scroll: false });
+      saveChatSession({
+        id: targetChatId,
+        title: content.length > 60 ? `${content.slice(0, 57)}…` : content,
+        subject: selectedContext.subject,
+        unit: selectedContext.unit,
+        mode,
+        timestamp: Date.now(),
+      });
+      saveChatTranscript(targetChatId, flashcardMessages);
       try {
-        await handleQuizTrigger();
+        await handleFlashcardTrigger(content, targetChatId, placeholderId, flashcardMessages);
+      } finally {
+        sendInFlightRef.current = false;
+      }
+      return;
+    }
+
+    // Quiz intent detection — intercepts before the text/credit path.
+    // Bypass system-generated follow-ups and questions about quiz creation itself.
+    if (
+      !isSystemAction &&
+      QUIZ_REQUEST.test(content) &&
+      !QUIZ_META_QUESTION.test(content) &&
+      !imageGenMode
+    ) {
+      // Add the user message then trigger quiz generation
+      const userMsg: ChatMessage = {
+        id: createMessageId(),
+        role: 'user',
+        content,
+        mode,
+        timestamp: new Date().toISOString(),
+        subject: selectedContext.subject,
+      };
+      const placeholderId = createMessageId();
+      const assistantPlaceholder: ChatMessage = {
+        id: placeholderId,
+        role: 'assistant',
+        content: 'Building a focused quiz from your study material…',
+        mode,
+        timestamp: new Date().toISOString(),
+        subject: selectedContext.subject,
+      };
+      const quizMessages = [...messages, userMsg, assistantPlaceholder];
+      pendingQuestionScrollRef.current = userMsg.id;
+      setMessages(quizMessages);
+      router.push(`/ai-topper-chat?chatId=${targetChatId}`, { scroll: false });
+      saveChatSession({
+        id: targetChatId,
+        title: content.length > 60 ? `${content.slice(0, 57)}…` : content,
+        subject: selectedContext.subject,
+        unit: selectedContext.unit,
+        mode,
+        timestamp: Date.now(),
+      });
+      saveChatTranscript(targetChatId, quizMessages);
+      try {
+        await handleQuizTrigger(content, targetChatId, placeholderId, quizMessages);
       } finally {
         sendInFlightRef.current = false;
       }
@@ -1441,13 +1632,14 @@ export default function ChatMainArea({
       const imagePrompt = imageCmdMatch[2].trim();
       if (imagePrompt) {
         const userMsg: ChatMessage = {
-          id: `msg-${Date.now()}-user`,
+          id: createMessageId(),
           role: 'user',
           content,
           mode,
           timestamp: new Date().toISOString(),
           subject: selectedContext.subject,
         };
+        pendingQuestionScrollRef.current = userMsg.id;
         setMessages((prev) => [...prev, userMsg]);
         router.push(`/ai-topper-chat?chatId=${targetChatId}`, { scroll: false });
         try {
@@ -1479,7 +1671,7 @@ export default function ChatMainArea({
       if (remainingBefore <= 0) {
         // Instead of opening a modal, reply with a default assistant message
         const noCreditsMsg: ChatMessage = {
-          id: `msg-${Date.now()}-nocredits`,
+          id: createMessageId(),
           role: 'assistant',
           content: 'Oops! No credits left 😔 Sign up and connect your key to continue using e-Mate AI.',
           mode,
@@ -1487,13 +1679,14 @@ export default function ChatMainArea({
           subject: selectedContext.subject,
         };
         const userMsg2: ChatMessage = {
-          id: `msg-${Date.now()}-user`,
+          id: createMessageId(),
           role: 'user',
           content,
           mode,
           timestamp: new Date().toISOString(),
           subject: selectedContext.subject,
         };
+        pendingQuestionScrollRef.current = userMsg2.id;
         setMessages((prev) => [...prev, userMsg2, noCreditsMsg]);
         sendInFlightRef.current = false;
         return;
@@ -1528,7 +1721,7 @@ export default function ChatMainArea({
       : [];
 
     const userMsg: ChatMessage = {
-      id: `msg-${String(msgCounter++).padStart(3, '0')}`,
+      id: createMessageId(),
       role: 'user',
       content,
       mode,
@@ -1539,16 +1732,12 @@ export default function ChatMainArea({
     };
 
     const newMessages = [...messages, userMsg];
+    pendingQuestionScrollRef.current = userMsg.id;
     setMessages(newMessages);
     setIsStreaming(true);
 
     // Auto-redirect URL route to target prompt/chat session instantly
     router.push(`/ai-topper-chat?chatId=${targetChatId}`, { scroll: false });
-
-    // Smooth scroll to stream viewport
-    setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 50);
 
     // Persist session metadata and transcript
     const existingHistory = typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('nk-chat-history') || '[]') as any[]) : [];
@@ -1578,7 +1767,7 @@ export default function ChatMainArea({
       }
     };
 
-    const assistantMsgId = `msg-${String(msgCounter++).padStart(3, '0')}`;
+    const assistantMsgId = createMessageId();
 
     let accumulatedText = '';
     try {
@@ -1634,7 +1823,7 @@ export default function ChatMainArea({
           mode,
           subject: isStudyMode ? selectedContext.subject : undefined,
           unit: isStudyMode ? selectedContext.unit : undefined,
-          model: selectedModel,
+          model: isGuest ? 'emate' : selectedModel,
           notebookContext,
           isGeneralChat: !isStudyMode,
           attachments: base64Attachments,
@@ -1702,7 +1891,13 @@ export default function ChatMainArea({
               // Server sends JSON-encoded string deltas or citation events
               const parsed = JSON.parse(dataStr);
               if (parsed && typeof parsed === 'object') {
-                if (parsed.type === 'citations' && Array.isArray(parsed.citations)) {
+                if (parsed.type === 'model' && typeof parsed.model === 'string') {
+                  // Do not disrupt guest users or users who explicitly chose the 'emate' flagship mesh
+                  if (!isGuest && selectedModel !== 'emate') {
+                    const workingModel = MODELS.find((item) => item.id === parsed.model);
+                    if (workingModel) setSelectedModel(workingModel.id);
+                  }
+                } else if (parsed.type === 'citations' && Array.isArray(parsed.citations)) {
                   activeCitations = parsed.citations;
                   setMessages((prev) =>
                     prev.map((m) =>
@@ -2372,7 +2567,7 @@ export default function ChatMainArea({
       )}
 
       {/* Messages area — no pt-20 needed since header is no longer absolute */}
-      <div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
+      <div ref={chatScrollContainerRef} className="flex-1 overflow-y-auto min-h-0 flex flex-col">
         {!hasMessages ? (
           <div className="flex-1 flex flex-col items-start justify-start px-6 py-8 max-w-4xl mx-auto w-full h-full pt-16 sm:pt-20">
             {/* Hidden File Input */}
@@ -2441,8 +2636,13 @@ export default function ChatMainArea({
                 }
                 handleSend(text, meta.attachments);
               }}
-              models={isGuest || !isModelSelectorEnabled ? ['e-Mate'] : visibleModelNames}
-              modelSelectorEnabled={isModelSelectorEnabled}
+              models={visibleModelNames}
+              modelSelectorEnabled={isGuest || isModelSelectorEnabled}
+              selectedModel={activeModelName}
+              onModelChange={(name) => {
+                const model = MODELS.find((item) => item.name === name);
+                if (model) setSelectedModel(model.id);
+              }}
               efforts={['Quick', 'Balanced', 'Deep']}
               allowAttachments={!isGuest}
               placeholder={
@@ -2567,17 +2767,18 @@ export default function ChatMainArea({
         ) : (
           <div className="max-w-3xl mx-auto w-full px-4 py-6 pb-36 space-y-6">
             {messages.map((msg, idx) => (
-              <ChatMessageBubble
-                key={msg.id}
-                message={msg}
-                theme={theme}
-                onRegenerateImage={handleRegenerateImage}
-                onReinforce={handleReinforce}
-                isStreaming={isStreaming && idx === messages.length - 1 && msg.role === 'assistant'}
-              />
+              <div key={msg.id} data-chat-message-id={msg.id}>
+                <ChatMessageBubble
+                  message={msg}
+                  theme={theme}
+                  onRegenerateImage={handleRegenerateImage}
+                  onReinforce={(topics, submission) => handleReinforce(topics, submission, msg.quiz)}
+                  onQuizSubmit={(submission) => msg.quiz && handleQuizSubmission(submission, msg.quiz, msg.id)}
+                  isStreaming={isStreaming && idx === messages.length - 1 && msg.role === 'assistant'}
+                />
+              </div>
             ))}
             {isStreaming && messages[messages.length - 1]?.role === 'user' && <StreamingIndicator />}
-            <div ref={messagesEndRef} />
           </div>
         )}
       </div>
@@ -2597,8 +2798,13 @@ export default function ChatMainArea({
                 }
                 handleSend(text, meta.attachments);
               }}
-              models={isGuest || !isModelSelectorEnabled ? ['e-Mate'] : visibleModelNames}
-              modelSelectorEnabled={isModelSelectorEnabled}
+              models={visibleModelNames}
+              modelSelectorEnabled={isGuest || isModelSelectorEnabled}
+              selectedModel={activeModelName}
+              onModelChange={(name) => {
+                const model = MODELS.find((item) => item.name === name);
+                if (model) setSelectedModel(model.id);
+              }}
               efforts={['Quick', 'Balanced', 'Deep']}
               allowAttachments={!isGuest}
               placeholder={
@@ -2615,28 +2821,6 @@ export default function ChatMainArea({
         </div>
       )}
 
-      {/* Quiz Loading Overlay */}
-      {quizLoading && (
-        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/30 backdrop-blur-sm">
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl px-6 py-5 shadow-xl flex items-center gap-3 animate-in fade-in zoom-in-95 duration-150">
-            <div className="w-5 h-5 border-2 border-[#1f51ff] border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Generating your quiz…
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* MCQ Assessment Modal */}
-      <MCQAssessmentContainer
-        open={showQuizModal && !!quizQuiz}
-        onClose={() => {
-          setShowQuizModal(false);
-          setQuizQuiz(null);
-        }}
-        quiz={quizQuiz}
-        onSubmit={handleQuizSubmission}
-      />
     </div>
   );
 }

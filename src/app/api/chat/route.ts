@@ -11,8 +11,10 @@ import { toolRegistry, evaluateRetrievalConfidence } from '@/lib/tools';
 import { buildChatPrompt } from '@/lib/prompts';
 import { buildRecurringUserPatternContext, sanitizeUserPatternContext } from '@/lib/chatMemory';
 
-// Ultra-fast primary model (TTFT ~200-400ms via Nitro routing)
-const PRIMARY_MODEL = 'google/gemini-2.5-flash';
+const MAX_CHAT_RESPONSE_TOKENS = 2000;
+
+// Fastest free model — always works for guests using the server key with zero credits needed
+const PRIMARY_MODEL = 'openrouter/free';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,10 +53,9 @@ async function getLiveFreeFallbackModels(apiKey: string, excludedModels: string[
         return Boolean(
           candidate.id &&
           !excluded.has(candidate.id) &&
-          typeof candidate.pricing?.prompt === 'string' &&
-          Number(candidate.pricing.prompt) === 0 &&
-          typeof candidate.pricing?.completion === 'string' &&
-          Number(candidate.pricing.completion) === 0 &&
+          candidate.id !== 'openrouter/auto' &&
+          Number(candidate.pricing?.prompt ?? 1) === 0 &&
+          Number(candidate.pricing?.completion ?? 1) === 0 &&
           (!inputModalities || inputModalities.includes('text')) &&
           (!outputModalities || outputModalities.includes('text'))
         );
@@ -73,6 +74,28 @@ async function getLiveFreeFallbackModels(apiKey: string, excludedModels: string[
   } catch {
     return [];
   }
+}
+
+function extractStreamText(content: unknown): string {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) {
+    if (content && typeof content === 'object' && 'text' in content) {
+      const text = (content as { text?: unknown }).text;
+      return typeof text === 'string' ? text : '';
+    }
+    return '';
+  }
+
+  return content
+    .map((part) => {
+      if (typeof part === 'string') return part;
+      if (part && typeof part === 'object' && 'text' in part) {
+        const text = (part as { text?: unknown }).text;
+        return typeof text === 'string' ? text : '';
+      }
+      return '';
+    })
+    .join('');
 }
 
 export async function POST(req: Request) {
@@ -184,16 +207,14 @@ export async function POST(req: Request) {
       );
     }
 
-    // Prefer user-chosen model, fall back to ultra-fast primary
-    const activeEngine = runtimeSettings.modelConfig.activeEngineForEmate;
-    const selectedModel = model === 'emate'
+    // For guests or users using the server free key (without their own BYOK key):
+    // Always route through e-Mate's free resilient mesh (starting with openrouter/free)
+    // so they never fail due to paid model requirements, invalid model IDs, or burned cascade slots.
+    const isUsingServerKey = !userKey;
+    const activeEngine = runtimeSettings.modelConfig.activeEngineForEmate || PRIMARY_MODEL;
+    const selectedModel = (isGuest || isUsingServerKey || !model || model === 'emate')
       ? activeEngine
-      : model && (
-          !runtimeSettings.modelConfig.modelSelectorEnabled ||
-          (ALL_FREE_MODELS.some((item) => item.id === model) && !runtimeSettings.modelConfig.enabledModelIds.includes(model))
-        )
-        ? activeEngine
-        : model || PRIMARY_MODEL;
+      : model;
 
     // ── Semantic RAG Retrieval & Re-ranking via Tool-Calling Layer ──────────
     const lastUserMessageObj = messages.filter((m: any) => m.role === 'user').pop();
@@ -317,15 +338,14 @@ export async function POST(req: Request) {
     };
 
     const baseBody = {
-      max_tokens: 500, // Safe default that fits tight credit reservations without 402 rejection
+      max_tokens: MAX_CHAT_RESPONSE_TOKENS,
       temperature: 0.7,
       transforms: [], // Skip OpenRouter post-processing for zero added latency
-      provider: {
-        order: ['Nitro', 'Together', 'Groq'], // Highest TPS providers first
-        allow_fallbacks: true,
-      },
       // Do not include model reasoning in user-facing completion output.
       reasoning: { exclude: true },
+      // Note: provider.order with Nitro/Together/Groq is intentionally omitted
+      // because those paid-tier providers reject free-model requests, causing
+      // unnecessary 402 errors before the cascade finds a working endpoint.
     };
 
     /**
@@ -336,6 +356,7 @@ export async function POST(req: Request) {
     const attemptOrder = getFreeModelCascade(selectedModel);
 
     let upstreamRes: Response | null = null;
+    let selectedCandidateIndex = -1;
     let lastError: OpenRouterError | null = null;
     let liveFallbacksLoaded = false;
 
@@ -347,9 +368,10 @@ export async function POST(req: Request) {
           messages: formattedMessages as any,
           stream: true,
           temperature: 0.7,
-          max_tokens: 500,
+          max_tokens: MAX_CHAT_RESPONSE_TOKENS,
           extraBody: baseBody,
         });
+        selectedCandidateIndex = candidateIndex;
         break;
       } catch (err) {
         const oe = err as OpenRouterError;
@@ -359,7 +381,7 @@ export async function POST(req: Request) {
           const affordTokens = affordMatch ? parseInt(affordMatch[1], 10) : 0;
           if (affordTokens > 60) {
             try {
-              const retryTokens = Math.min(affordTokens - 15, 400);
+              const retryTokens = Math.min(affordTokens - 15, MAX_CHAT_RESPONSE_TOKENS);
               upstreamRes = await openRouterCompletionStream(apiKey, {
                 model: candidate,
                 messages: formattedMessages as any,
@@ -368,6 +390,7 @@ export async function POST(req: Request) {
                 max_tokens: retryTokens,
                 extraBody: { ...baseBody, max_tokens: retryTokens },
               });
+              selectedCandidateIndex = candidateIndex;
               break;
             } catch (retryErr) {
               // fall through to standard error handling
@@ -435,96 +458,164 @@ export async function POST(req: Request) {
     const writer = writable.getWriter();
 
     (async () => {
-      const reader = upstreamRes!.body!.getReader();
-      let buffer = '';
-      let preamble = '';
-      let preambleResolved = false;
-      let suppressPrivateReasoning = false;
-      try {
+      let candidateIndex = selectedCandidateIndex;
+      let candidateResponse: Response | null = upstreamRes;
+      let hasReadableAnswer = false;
+      let streamError: unknown = null;
+
+      const openNextCandidate = async (): Promise<Response | null> => {
         while (true) {
-          const { done, value } = await reader.read();
+          candidateIndex += 1;
+          if (candidateIndex >= attemptOrder.length) {
+            if (liveFallbacksLoaded) return null;
+            liveFallbacksLoaded = true;
+            const liveModels = await getLiveFreeFallbackModels(apiKey, attemptOrder);
+            attemptOrder.push(...liveModels);
+            if (candidateIndex >= attemptOrder.length) return null;
+          }
+
+          const candidate = attemptOrder[candidateIndex];
+          try {
+            console.warn(`[e-Mate Auto-Mesh] ${attemptOrder[candidateIndex - 1]} returned no readable answer; trying ${candidate}.`);
+            return await openRouterCompletionStream(apiKey, {
+              model: candidate,
+              messages: formattedMessages as any,
+              stream: true,
+              temperature: 0.7,
+              max_tokens: MAX_CHAT_RESPONSE_TOKENS,
+              extraBody: baseBody,
+            });
+          } catch (err) {
+            const error = err as OpenRouterError;
+            streamError = error;
+            console.warn(`[e-Mate Auto-Mesh] Fallback candidate ${candidate} failed (status ${error.status}): ${error.message}.`);
+            if (error.status === 401) return null;
+          }
+        }
+      };
+
+      const consumeCandidate = async (response: Response, modelId: string) => {
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error('Model returned no response stream.');
+
+        const candidateDecoder = new TextDecoder();
+        let buffer = '';
+        let preamble = '';
+        let preambleResolved = false;
+        let suppressPrivateReasoning = false;
+        let modelReported = false;
+
+        const emitText = async (text: string) => {
+          if (!text) return;
+          if (!modelReported) {
+            modelReported = true;
+            await writer.write(encoder.encode(`data: ${JSON.stringify({ type: 'model', model: modelId })}\n\n`));
+          }
+          if (text.trim()) hasReadableAnswer = true;
+          await writer.write(encoder.encode(`data: ${JSON.stringify(text)}\n\n`));
+        };
+
+        const processLine = async (line: string) => {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed === 'data: [DONE]' || !trimmed.startsWith('data:')) return;
+
+          let json: any;
+          try {
+            json = JSON.parse(trimmed.replace(/^data:\s*/, ''));
+          } catch {
+            return;
+          }
+
+          if (json?.error) {
+            throw new Error(json.error.message || json.error || 'Model stream failed.');
+          }
+
+          const delta = extractStreamText(json?.choices?.[0]?.delta?.content);
+          if (!delta || suppressPrivateReasoning) return;
+
+          if (!preambleResolved) {
+            preamble += delta;
+            const normalizedPreamble = preamble.trimStart().toLowerCase().replace(/\s+/g, ' ').trimEnd();
+            const isKnownLeak = privateReasoningPrefixes.some((prefix) => normalizedPreamble.startsWith(prefix));
+            const couldStillBeLeak = privateReasoningPrefixes.some((prefix) => prefix.startsWith(normalizedPreamble));
+
+            if (isKnownLeak) {
+              suppressPrivateReasoning = true;
+              preamble = '';
+              return;
+            }
+
+            if (!couldStillBeLeak || preamble.length >= 48 || preamble.includes('\n')) {
+              preambleResolved = true;
+              await emitText(preamble);
+              preamble = '';
+            }
+            return;
+          }
+
+          await emitText(delta);
+        };
+
+        while (true) {
+          let idleTimer: ReturnType<typeof setTimeout> | undefined;
+          let result: ReadableStreamReadResult<Uint8Array>;
+          try {
+            result = await Promise.race([
+              reader.read(),
+              new Promise<never>((_, reject) => {
+                idleTimer = setTimeout(
+                  () => reject(new Error('Model stream timed out before completing.')),
+                  hasReadableAnswer ? 20_000 : 45_000
+                );
+              }),
+            ]);
+          } catch (error) {
+            void reader.cancel().catch(() => undefined);
+            throw error;
+          } finally {
+            if (idleTimer) clearTimeout(idleTimer);
+          }
+
+          const { done, value } = result;
           if (done) break;
 
-          buffer += decoder.decode(value, { stream: true });
+          buffer += candidateDecoder.decode(value, { stream: true });
           const lines = buffer.split('\n');
           buffer = lines.pop() ?? '';
-
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed || trimmed === 'data: [DONE]') continue;
-            if (!trimmed.startsWith('data: ')) continue;
-
-            try {
-              const json = JSON.parse(trimmed.slice(6));
-              const delta = json?.choices?.[0]?.delta?.content;
-              if (typeof delta === 'string' && delta.length > 0) {
-                if (suppressPrivateReasoning) continue;
-
-                if (!preambleResolved) {
-                  preamble += delta;
-                  const normalizedPreamble = preamble.trimStart().toLowerCase().replace(/\s+/g, ' ').trimEnd();
-                  const isKnownLeak = privateReasoningPrefixes.some((prefix) => normalizedPreamble.startsWith(prefix));
-                  const couldStillBeLeak = privateReasoningPrefixes.some((prefix) => prefix.startsWith(normalizedPreamble));
-
-                  if (isKnownLeak) {
-                    suppressPrivateReasoning = true;
-                    preamble = '';
-                    continue;
-                  }
-
-                  if (!couldStillBeLeak || preamble.length >= 48 || preamble.includes('\n')) {
-                    preambleResolved = true;
-                    await writer.write(encoder.encode(`data: ${JSON.stringify(preamble)}\n\n`));
-                    preamble = '';
-                  }
-                  continue;
-                }
-
-                await writer.write(encoder.encode(`data: ${JSON.stringify(delta)}\n\n`));
-              }
-            } catch {
-              // Malformed chunk — skip silently
-            }
-          }
+          for (const line of lines) await processLine(line);
         }
 
-        // Flush any remaining buffer content
-        if (buffer.trim() && buffer.trim() !== 'data: [DONE]') {
+        buffer += candidateDecoder.decode();
+        if (buffer.trim()) await processLine(buffer);
+        if (!suppressPrivateReasoning && preamble.trim()) await emitText(preamble);
+
+        return { suppressed: suppressPrivateReasoning };
+      };
+
+      try {
+        while (candidateResponse && !hasReadableAnswer) {
           try {
-            const json = JSON.parse(buffer.trim().slice(6));
-            const delta = json?.choices?.[0]?.delta?.content;
-            if (typeof delta === 'string' && delta.length > 0 && !suppressPrivateReasoning) {
-              if (!preambleResolved) {
-                preamble += delta;
-                const normalizedPreamble = preamble.trimStart().toLowerCase().replace(/\s+/g, ' ').trimEnd();
-                const isKnownLeak = privateReasoningPrefixes.some((prefix) => normalizedPreamble.startsWith(prefix));
-                if (isKnownLeak) {
-                  suppressPrivateReasoning = true;
-                  preamble = '';
-                } else {
-                  preambleResolved = true;
-                  await writer.write(encoder.encode(`data: ${JSON.stringify(preamble)}\n\n`));
-                  preamble = '';
-                }
-              } else {
-                await writer.write(encoder.encode(`data: ${JSON.stringify(delta)}\n\n`));
-              }
+            const result = await consumeCandidate(candidateResponse, attemptOrder[candidateIndex]);
+            if (result.suppressed) {
+              streamError = new Error('The model returned internal analysis instead of an answer.');
             }
-          } catch {
-            /* ignore */
+          } catch (err) {
+            streamError = err;
+            if (hasReadableAnswer) {
+              await writer.write(encoder.encode(`data: ${JSON.stringify({ error: String(err) })}\n\n`));
+              break;
+            }
           }
+
+          if (!hasReadableAnswer) candidateResponse = await openNextCandidate();
         }
 
-        if (!suppressPrivateReasoning && preamble) {
-          await writer.write(encoder.encode(`data: ${JSON.stringify(preamble)}\n\n`));
-        }
-
-        if (suppressPrivateReasoning) {
-          await writer.write(encoder.encode(`data: ${JSON.stringify({ error: 'The model returned internal analysis instead of an answer. Please try again.' })}\n\n`));
-        }
-
-        // Send structured citation event if citations exist
-        if (!suppressPrivateReasoning && citations.length > 0) {
+        if (!hasReadableAnswer) {
+          const errorMessage = streamError instanceof Error && streamError.message
+            ? `No available model returned an answer. Last error: ${streamError.message}`
+            : 'No available model returned an answer. Please try again or choose another model.';
+          await writer.write(encoder.encode(`data: ${JSON.stringify({ error: errorMessage })}\n\n`));
+        } else if (citations.length > 0) {
           await writer.write(encoder.encode(`data: ${JSON.stringify({ type: 'citations', citations })}\n\n`));
         }
 

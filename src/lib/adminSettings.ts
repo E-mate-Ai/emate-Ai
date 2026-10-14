@@ -62,7 +62,7 @@ export const DEFAULT_FEATURE_FLAGS: AdminFeatureFlag[] = [
 ];
 
 const DEFAULT_MODEL_CONFIG: RuntimeModelConfig = {
-  activeEngineForEmate: 'google/gemini-2.0-flash:free',
+  activeEngineForEmate: 'openrouter/free',
   enabledModelIds: ALL_FREE_MODELS.map((model) => model.id),
   modelSelectorEnabled: true,
   updatedAt: '',

@@ -52,10 +52,11 @@ export function formatMultimodalMessage(
  * Vision-capable models on OpenRouter that support multimodal input.
  */
 export const VISION_MODELS = [
-  'google/gemini-2.0-flash:free',
+  'google/gemma-4-31b-it:free',
+  'google/gemma-4-26b-a4b-it:free',
+  'openrouter/free',
   'google/gemini-2.5-flash',
   'google/gemini-2.5-pro',
-  'google/gemini-2.0-flash',
   'anthropic/claude-3.5-sonnet',
   'openai/gpt-4o-mini',
 ] as const;
@@ -69,8 +70,8 @@ export function isVisionModel(modelId: string): boolean {
 
 /**
  * Get the recommended vision model for image analysis.
- * Defaults to Gemini 2.5 Flash for best performance.
+ * Defaults to free Gemma 4 31B for universal access without credits.
  */
 export function getRecommendedVisionModel(): string {
-  return 'google/gemini-2.5-flash';
+  return 'google/gemma-4-31b-it:free';
 }

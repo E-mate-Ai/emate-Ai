@@ -719,4 +719,27 @@
     background: var(--border-hover, rgba(255, 255, 255, 0.1)) !important;
     color: var(--text-primary) !important;
   }
+
+  /* 3D Flashcard Perspective & Flip Utilities */
+  .perspective-1000 {
+    perspective: 1000px;
+    -webkit-perspective: 1000px;
+  }
+  .preserve-3d {
+    transform-style: preserve-3d;
+    -webkit-transform-style: preserve-3d;
+  }
+  .backface-hidden {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  .rotate-y-180 {
+    transform: rotateY(180deg);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .transition-transform {
+      transition-duration: 0.01ms !important;
+    }
+  }
 }

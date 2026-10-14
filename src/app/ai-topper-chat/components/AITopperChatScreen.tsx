@@ -16,12 +16,31 @@ import {
 } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { ALL_FREE_MODELS } from '@/lib/modelConfig';
 
 export type StudyMode = 'deep-dive' | 'sprint';
 
 // Single source of truth in the lib; re-exported so existing `from './AITopper...'`
 // imports keep working while the search/persistence layer shares one type.
 export type { ChatMessage } from '@/lib/chatHistory';
+
+function normalizeMessageIds(messages: ChatMessage[]): ChatMessage[] {
+  const seen = new Set<string>();
+  return messages.map((message, index) => {
+    const originalId = message.id || `msg-recovered-${index}`;
+    if (!seen.has(originalId)) {
+      seen.add(originalId);
+      return message;
+    }
+
+    const baseId = `${originalId}-recovered-${index}`;
+    let uniqueId = baseId;
+    let suffix = 1;
+    while (seen.has(uniqueId)) uniqueId = `${baseId}-${suffix++}`;
+    seen.add(uniqueId);
+    return { ...message, id: uniqueId };
+  });
+}
 
 export interface SelectedContext {
   subject: string;
@@ -44,12 +63,25 @@ export default function AITopperChatScreen() {
     unit: '',
   });
   const [selectedModel, setSelectedModel] = useState('emate');
+  const [modelPreferenceLoaded, setModelPreferenceLoaded] = useState(false);
   const [sessionId, setSessionId] = useState('chat-new');
 
   // Keep refs in sync with state so event-handler closures always see fresh values
   useEffect(() => { messagesRef.current = messages; }, [messages]);
   useEffect(() => { contextRef.current = selectedContext; }, [selectedContext]);
   useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
+
+  useEffect(() => {
+    const savedModel = localStorage.getItem('nk-selected-model');
+    if (savedModel && ALL_FREE_MODELS.some((model) => model.id === savedModel)) {
+      setSelectedModel(savedModel);
+    }
+    setModelPreferenceLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (modelPreferenceLoaded) localStorage.setItem('nk-selected-model', selectedModel);
+  }, [modelPreferenceLoaded, selectedModel]);
 
   useEffect(() => {
     const id = `chat-${Date.now()}`;
@@ -83,7 +115,7 @@ export default function AITopperChatScreen() {
         // Load transcript — tries local cache first, then falls back to Supabase
         const transcript = await getChatTranscriptWithFallback(urlChatId);
         if (transcript.length > 0) {
-          setMessages(transcript);
+          setMessages(normalizeMessageIds(transcript));
         }
 
         // Load session metadata — try local cache first, then Supabase
@@ -207,7 +239,7 @@ export default function AITopperChatScreen() {
       if (!detail?.id) return;
       sessionIdRef.current = detail.id;
       setSessionId(detail.id);
-      const msgs = detail.messages ?? [];
+      const msgs = normalizeMessageIds(detail.messages ?? []);
       messagesRef.current = msgs;
       setMessages(msgs);
       setMode(detail.mode);

@@ -50,8 +50,14 @@ export interface ChatMessage {
   citations?: import('@/lib/prompts').Citation[];
   /** Generated images rendered live from React state. Never persisted. */
   images?: GeneratedImage[];
-  /** Quiz analyzer report rendered inline. In-memory only, never persisted. */
+  /** Generated quiz rendered inline and retained with the transcript. */
+  quiz?: import('@/lib/agents/types').MCQQuiz;
+  /** Submitted answers retained so quiz results survive chat reloads. */
+  quizSubmission?: import('@/lib/agents/types').MCQSubmission;
+  /** Quiz analyzer report rendered inline with the quiz results. */
   analyzerReport?: import('@/lib/agents/types').StudyAnalyzerReport;
+  /** Generated visual flashcards rendered inline. */
+  flashcardDeck?: import('@/lib/flashcards/types').FlashcardDeck;
 }
 
 export interface ChatHistoryItem {
@@ -213,7 +219,6 @@ export async function getChatTranscriptWithFallback(id: string): Promise<ChatMes
 function stripEphemeral(m: ChatMessage): ChatMessage {
   const copy = { ...m };
   delete copy.images;
-  delete copy.analyzerReport;
   if (copy.attachments) {
     // Object URLs expire after reload and data URLs can overwhelm localStorage.
     // Keep names and extracted text so the transcript still has useful context.

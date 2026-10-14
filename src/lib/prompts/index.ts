@@ -7,7 +7,7 @@ export const PROMPT_VERSIONS = {
   summarize: '1.0.0',
   qa: '1.0.0',
   quizGen: '1.0.0',
-  chat: '1.1.0',
+  chat: '1.2.0',
   contextInjectionSchema: '1.0.0',
 } as const;
 
@@ -431,7 +431,8 @@ export function buildChatPrompt(options: ChatPromptOptions): PromptPayload {
   // 1. (a) Base identity & conversational instructions
   let systemPrompt = '';
 
-  const isStudyMode = !isGeneralChat && (subject || unit || notebookContext || (retrievedChunks && retrievedChunks.length > 0));
+  const hasStudyContext = Boolean(subject || unit || notebookContext || retrievedChunks?.length);
+  const isStudyMode = isGeneralChat === false || (isGeneralChat === undefined && hasStudyContext);
 
   if (!isStudyMode) {
     // ── General Workspace: direct, conversational answers. No study framing. ──
@@ -450,8 +451,8 @@ Answer the user's question directly and helpfully. Be clear, accurate, and conci
     // The mode flag controls HOW to answer (depth/format), NOT what to say as a preamble.
     const depthGuidance =
       mode === 'sprint'
-        ? 'Be concise and high-yield: lead with the key point, use tight bullet points, highlight important formulas and definitions. Skip lengthy preamble.'
-        : 'Be thorough: give step-by-step explanations, worked examples, intuitive analogies, and cover edge cases where relevant.';
+        ? 'Be concise but study-focused: explain the key idea, one useful example, the essential steps or application, and the exam takeaway. Keep each section short.'
+        : 'Be thorough and study-focused: explain all major parts of the requested topic step by step, with worked examples, intuitive analogies, and relevant edge cases.';
 
     const scopeNote =
       subject && unit
@@ -469,6 +470,10 @@ Rules:
 - Use the conversation history supplied with the request to resolve follow-ups and preserve the requested explanation style.
 - Never reveal private reasoning, hidden analysis, or a step-by-step account of how you interpreted the prompt. Give the student a clear explanation of the subject instead.
 - Use Markdown: headers (##), bold key terms, bullet points, LaTeX math ($...$ / $$...$$).
+- For a broad concept or topic, teach it in numbered sections: (1) What it is, (2) Real-world examples, (3) How it works, (4) Main applications, (5) Advantages and limitations, (6) Exam-ready answer, and (7) Key takeaways. Explain each important subtopic clearly; include only sections that genuinely fit the question.
+- Start with a plain-language explanation, then build toward precise academic terminology. Use examples and short step-by-step breakdowns to make difficult ideas understandable.
+- For narrow follow-up questions, answer the specific point first and add only the relevant study sections instead of repeating a full lesson.
+- Do not generate a quiz, MCQs, or a quiz-like assessment unless the student explicitly asks to be quizzed or requests quiz/practice questions. A brief open-ended recap question is okay when it helps learning.
 - Mark exam-critical points with ⭐ or 📌.
 - If notebook notes are provided, ground your answer in them and reference them naturally.
 - Do NOT announce the mode, subject, or unit at the start of your answer — just answer.`;

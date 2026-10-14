@@ -60,3 +60,7 @@ scratch/
 
 # External standalone tools
 gemini-web2api/
+
+# Python cache
+__pycache__/
+*.pyc

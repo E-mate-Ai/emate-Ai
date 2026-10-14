@@ -66,6 +66,7 @@ import {
   NotebookText,
   ArrowRight,
   GraduationCap,
+  Layers,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -483,6 +484,38 @@ export default function Sidebar({
               <BookOpen size={14} />
               <span>Library</span>
             </button>
+
+            <Link
+              href="/ai-flashcard-generator"
+              className={`flex items-center justify-between w-full rounded-lg px-3 py-2 text-xs font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${
+                pathname === '/ai-flashcard-generator' || pathname === '/flashcards'
+                  ? 'bg-[#8CA36B]/15 text-[#4F6636] dark:text-[#A8C786] font-semibold'
+                  : ''
+              }`}
+              style={{
+                color:
+                  pathname === '/ai-flashcard-generator' || pathname === '/flashcards'
+                    ? undefined
+                    : theme === 'dark'
+                    ? '#71717a'
+                    : '#52525b',
+              }}
+            >
+              <div className="flex items-center gap-2.5">
+                <Layers size={14} />
+                <span>Flashcards</span>
+              </div>
+              <span
+                className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full"
+                style={{
+                  background: 'rgba(140, 163, 107, 0.15)',
+                  color: '#4F6636',
+                  border: '1px solid rgba(140, 163, 107, 0.25)',
+                }}
+              >
+                Visual
+              </span>
+            </Link>
 
             <button
               type="button"
