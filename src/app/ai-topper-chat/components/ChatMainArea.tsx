@@ -1267,8 +1267,54 @@ export default function ChatMainArea({
 
   // ── Quiz / Study Agent Orchestrator ────────────────────────────────────────
 
-  const QUIZ_REQUEST = /(?:^\/mcq\b|\b(?:quiz me|test me|give me (?:a |an )?(?:quiz|test|mcq)|make me (?:a |an )?(?:quiz|test)|make (?:a |an )?(?:quiz|test)|generate (?:a |an )?(?:quiz|test)|create (?:a |an )?(?:quiz|test)|prepare (?:a |an )?(?:quiz|test)|start (?:a )?(?:quiz|test)|practice (?:quiz|test)|ask me (?:some |a few )?questions?|(?:quiz|test|mcq) me\b|(?:quiz|test|mcq) (?:me )?(?:on|about)\b)|\b(?:generate|create|make|prepare|write|give|show|provide)\b.{0,50}\b(?:quiz|test|mcqs?|practice questions?)\b)/i;
-  const QUIZ_META_QUESTION = /\b(?:how (?:do|can) (?:i|we)|how to|explain how to|what is the process to)\b.{0,40}\b(?:generate|create|make|prepare)\b/i;
+  const isQuizMetaQuestion = (text: string): boolean => {
+    return (
+      /\b(?:how (?:do|can) (?:i|we)|how to|explain how to|what is the process to)\b.{0,40}\b(?:generate|create|make|prepare|build|code|write)\b/i.test(text) ||
+      /\b(?:what\s+is|define|meaning\s+of|explain\s+what\s+is)\s+(?:a\s+|an\s+)?(?:quiz|test|mcq)\b/i.test(text)
+    );
+  };
+
+  const isQuizRequest = (raw: string): boolean => {
+    const text = (raw || '').trim();
+    if (!text) return false;
+    if (isQuizMetaQuestion(text)) return false;
+
+    // Slash commands
+    if (/^\/(?:quiz|mcq|test)\b/i.test(text)) return true;
+
+    // Standalone single/double keywords: "quiz", "quiz?", "a quiz", "mcq", "mcqs", "quick quiz", "pop quiz", "interactive quiz", "quiz please", "test"
+    if (/^(?:please\s+)?(?:a\s+|an\s+|the\s+)?(?:quick\s+|pop\s+|short\s+|interactive\s+|practice\s+|mock\s+|exam\s+)?(?:quiz|quizzes|mcq|mcqs|test)\s*(?:please|now)?\??$/i.test(text)) {
+      return true;
+    }
+
+    // Explicit triggers
+    if (
+      /\b(?:quiz\s*me|test\s*me|quiz\s+(?:on|about)\b|test\s+(?:on|about)\b|mcqs?\s+(?:on|about)\b|give\s+(?:me\s+)?(?:a\s+|an\s+)?(?:quiz|test|mcqs?)|make\s+(?:me\s+)?(?:a\s+|an\s+)?(?:quiz|test|mcqs?)|create\s+(?:me\s+)?(?:a\s+|an\s+)?(?:quiz|test|mcqs?)|generate\s+(?:me\s+)?(?:a\s+|an\s+)?(?:quiz|test|mcqs?)|prepare\s+(?:me\s+)?(?:a\s+|an\s+)?(?:quiz|test|mcqs?)|start\s+(?:a\s+|an\s+)?(?:quiz|test|mcqs?)|take\s+(?:a\s+|an\s+)?(?:quiz|test|mcqs?)|practice\s+(?:quiz|test|mcqs?|questions?)|ask\s+me\s+(?:some\s+|a\s+few\s+)?questions?|quiz\s+time|quiz\s+questions?|interactive\s+quiz)\b/i.test(text)
+    ) {
+      return true;
+    }
+
+    // [Topic] + quiz/test (e.g. "nlp quiz", "python quiz", "react mcqs", "machine learning test")
+    if (/\b(?:[a-z0-9_-]+\s+){0,3}(?:quiz|quizzes|mcqs?)\b/i.test(text)) {
+      return true;
+    }
+
+    // Broad want/need quiz or test
+    if (/\b(?:quiz|test|mcqs?)\b/i.test(text) && /\b(?:want|need|give|take|start|begin|do|have|practice|run|play)\b/i.test(text)) {
+      return true;
+    }
+
+    return false;
+  };
+
+  const cleanQuizTopic = (raw: string): string => {
+    return raw
+      .replace(/^\/(?:quiz|mcq|test)\s*/i, '')
+      .replace(/\b(?:can you|could you|please|quiz me|test me|give me|make me|make|generate|create|prepare|start|take|ask me|quiz|test|mcqs?|questions?|few|a|an|some|about|on|for me|tell me about|explain|what is|how does)\b/gi, ' ')
+      .replace(/[^\w\s-]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
 
   const handleQuizTrigger = async (
     prompt: string,
@@ -1281,11 +1327,7 @@ export default function ChatMainArea({
 
     try {
       const notebookContext = isStudyMode ? buildNotebookContext(selectedContext.subject) : '';
-      const inferredTopic = prompt
-        .replace(/^\/mcq\s*/i, '')
-        .replace(/\b(?:can you|could you|please|quiz me|test me|give me|make me|make|generate|create|prepare|start|ask me|quiz|test|mcqs?|questions?|few|a|an|some|about|on|for me)\b/gi, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
+      const inferredTopic = cleanQuizTopic(prompt);
       const recentConversation = baseMessages
         .slice(0, -2)
         .filter((message) => message.content.trim())
@@ -1294,8 +1336,9 @@ export default function ChatMainArea({
         .join('\n\n');
       const recentTopic = [...baseMessages.slice(0, -2)]
         .reverse()
-        .find((message) => message.role === 'user')?.content.trim();
-      const quizTopic = inferredTopic || recentTopic || '';
+        .map((message) => message.role === 'user' ? cleanQuizTopic(message.content) : '')
+        .find((t) => t.length > 1) || '';
+      const quizTopic = inferredTopic || selectedContext.subject || recentTopic || 'General Study';
       const quizSubject = selectedContext.subject || quizTopic || 'General Study';
       const quizContext = [
         notebookContext ? `Notebook material:\n${notebookContext}` : '',
@@ -1583,8 +1626,8 @@ export default function ChatMainArea({
     // Bypass system-generated follow-ups and questions about quiz creation itself.
     if (
       !isSystemAction &&
-      QUIZ_REQUEST.test(content) &&
-      !QUIZ_META_QUESTION.test(content) &&
+      isQuizRequest(content) &&
+      !isQuizMetaQuestion(content) &&
       !imageGenMode
     ) {
       // Add the user message then trigger quiz generation
