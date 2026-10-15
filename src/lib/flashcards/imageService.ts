@@ -70,7 +70,7 @@ export async function searchEducationalImages(
       `&format=json`;
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 6000);
+    const timeout = setTimeout(() => controller.abort(), 1500);
 
     const response = await fetch(searchUrl, {
       headers: {
@@ -129,19 +129,7 @@ export async function searchEducationalImages(
       }
     }
   } catch (error) {
-    console.warn('[imageService] Wikimedia Commons search batch error:', query, error);
-  }
-
-  // If Wikimedia returned few results, supplement with Wikipedia Summary
-  if (results.length < 2) {
-    try {
-      const wikiFallback = await fetchFromWikipediaSummary(cleanQ);
-      if (wikiFallback && !results.some((r) => r.url === wikiFallback.url)) {
-        results.push(wikiFallback);
-      }
-    } catch {
-      // ignore
-    }
+    // Non-blocking timeout or error
   }
 
   // Cache results
@@ -169,7 +157,7 @@ async function fetchFromWikipediaSummary(query: string): Promise<EducationalImag
     const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(cleanTerm)}`;
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
+    const timeout = setTimeout(() => controller.abort(), 1000);
 
     const response = await fetch(url, {
       headers: {
@@ -306,28 +294,15 @@ export async function getEducationalImage(
     return cached.image;
   }
 
-  // 1. Try Wikimedia Commons with specific query
+  // 1. Try Wikimedia Commons with specific query (2s timeout)
   let result = await fetchFromWikimediaCommons(cleanQ);
 
-  // 2. If no result, try a simplified scientific query (e.g. first 3 words or conceptName)
-  if (!result && conceptName) {
-    result = await fetchFromWikimediaCommons(sanitizeQuery(conceptName));
+  // 2. If no result, try Wikipedia summary once
+  if (!result && conceptName && conceptName !== cleanQ) {
+    result = await fetchFromWikipediaSummary(conceptName);
   }
 
-  // 3. If still no result, try simplified first 2 words + topic
-  if (!result) {
-    const simplified = cleanQ.split(' ').slice(0, 2).join(' ');
-    if (simplified && simplified !== cleanQ) {
-      result = await fetchFromWikimediaCommons(simplified);
-    }
-  }
-
-  // 4. If still no result, try Wikipedia summary
-  if (!result) {
-    result = await fetchFromWikipediaSummary(conceptName || cleanQ);
-  }
-
-  // 5. If all web searches fail, generate an elegant educational SVG schematic
+  // 3. Instant crisp SVG diagram fallback for speed and reliable visual learning
   if (!result) {
     result = generateEducationalDiagramSVG(conceptName || cleanQ, topic);
   }

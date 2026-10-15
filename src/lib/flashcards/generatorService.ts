@@ -41,7 +41,7 @@ function extractContentText(response: any): string {
   return '';
 }
 
-/** Sanitize and parse JSON from model output */
+/** Sanitize and parse JSON from model output with resilience for trailing commas and truncation */
 function extractJsonFromText(rawText: string): any {
   let cleaned = (rawText || '').trim();
   if (!cleaned) return null;
@@ -55,7 +55,15 @@ function extractJsonFromText(rawText: string): any {
   try {
     return JSON.parse(cleaned);
   } catch {
-    /* fallback to bracket search */
+    /* continue to sanitize */
+  }
+
+  // Remove trailing commas before closing braces/brackets
+  try {
+    const sanitizedCommas = cleaned.replace(/,\s*([}\]])/g, '$1');
+    return JSON.parse(sanitizedCommas);
+  } catch {
+    /* continue */
   }
 
   const firstBrace = cleaned.indexOf('{');
@@ -66,21 +74,41 @@ function extractJsonFromText(rawText: string): any {
     startIdx = firstBrace;
     const lastBrace = cleaned.lastIndexOf('}');
     if (lastBrace !== -1) {
-      cleaned = cleaned.slice(startIdx, lastBrace + 1);
+      const slice = cleaned.slice(startIdx, lastBrace + 1).replace(/,\s*([}\]])/g, '$1');
+      try {
+        return JSON.parse(slice);
+      } catch {}
     }
   } else if (firstBracket !== -1) {
     startIdx = firstBracket;
     const lastBracket = cleaned.lastIndexOf(']');
     if (lastBracket !== -1) {
-      cleaned = cleaned.slice(startIdx, lastBracket + 1);
+      const slice = cleaned.slice(startIdx, lastBracket + 1).replace(/,\s*([}\]])/g, '$1');
+      try {
+        return JSON.parse(slice);
+      } catch {}
     }
   }
 
+  // Resilient regex card extraction: recover all fully formed card objects
   try {
-    return JSON.parse(cleaned);
-  } catch {
-    return null;
-  }
+    const cardMatches: any[] = [];
+    const cardBlockRegex = /\{[^{}]*"front"\s*:\s*"((?:[^"\\]|\\.)*)"[^{}]*"back"\s*:\s*"((?:[^"\\]|\\.)*)"[^{}]*\}/g;
+    let match: RegExpExecArray | null;
+    while ((match = cardBlockRegex.exec(cleaned)) !== null) {
+      try {
+        const cardObj = JSON.parse(match[0].replace(/,\s*([}\]])/g, '$1'));
+        if (cardObj.front && cardObj.back) {
+          cardMatches.push(cardObj);
+        }
+      } catch {}
+    }
+    if (cardMatches.length > 0) {
+      return { cards: cardMatches };
+    }
+  } catch {}
+
+  return null;
 }
 
 /** Build student-friendly system prompt for visual flashcards */
@@ -319,41 +347,137 @@ function generateStructuredCurriculumFallback(
         tags: ['positional-encoding', 'transformers', 'architecture'],
       },
     ];
-  } else {
-    // Generic high-yield fallback
-    subject = 'Academic Study';
-    cards = [
+  }
+
+  // If domain cards are fewer than requested count, synthesize progressive curriculum cards
+  if (cards.length < count) {
+    const progressiveCurriculum: RawGeneratedCard[] = [
       {
-        front: `What is ${cleanTopic} and what problem does it solve?`,
-        back: `${cleanTopic} is a concept that helps solve a specific type of problem in its field.`,
-        scientificName: `${cleanTopic} Overview`,
-        categoryPill: 'Concept',
-        explanation: `It provides a structured way to approach problems in its domain. Understanding it helps you answer exam questions about how and why things work the way they do.`,
-        example: `Think of it as a tool: once you know what it does and when to use it, you can apply it to new problems.`,
-        imageQuery: `${cleanTopic} diagram scientific illustration`,
-        tags: [cleanTopic.toLowerCase(), 'fundamentals'],
+        front: `What is the core definition and primary objective of ${cleanTopic}?`,
+        back: `${cleanTopic} is a foundational concept designed to solve specific challenges in its domain.`,
+        scientificName: `${cleanTopic} Overview & Definition`,
+        categoryPill: 'Core Concept',
+        explanation: `It provides an organized, reliable approach to its subject matter. Understanding its definition is essential for answering introductory exam questions and grasping more advanced topics.`,
+        example: `Like a specialized tool in an engineer's toolkit, it provides the right technique for this specific class of problems.`,
+        imageQuery: `${cleanTopic} overview diagram scientific explanation`,
+        tags: [cleanTopic.toLowerCase(), 'definition', 'overview'],
       },
       {
-        front: `What is the most important rule or principle of ${cleanTopic}?`,
-        back: `The core principle of ${cleanTopic} defines how it behaves and when it applies.`,
+        front: `What is the most critical governing rule or principle behind ${cleanTopic}?`,
+        back: `It relies on a fundamental rule that determines when it can be applied and how it behaves.`,
         scientificName: 'Governing Principle',
-        categoryPill: 'Rule',
-        explanation: `This principle sets the boundary for what ${cleanTopic} can and cannot do. Breaking the rule usually leads to errors or failures in real applications.`,
-        example: `If you can remember the one key rule, you can usually derive the rest on an exam.`,
-        imageQuery: `${cleanTopic} process flowchart diagram`,
-        tags: [cleanTopic.toLowerCase(), 'principles'],
+        categoryPill: 'Key Principle',
+        explanation: `This rule establishes what is allowed and what causes errors. If you violate this core principle in exam derivations or real systems, the solution becomes invalid.`,
+        example: `Remembering this single rule lets you derive answers to related multiple-choice questions easily.`,
+        imageQuery: `${cleanTopic} rule mechanism flowchart`,
+        tags: [cleanTopic.toLowerCase(), 'principle', 'rules'],
       },
       {
-        front: `What is the main trade-off when using ${cleanTopic}?`,
-        back: `Using ${cleanTopic} often means choosing between simplicity and performance, or accuracy and speed.`,
-        scientificName: 'Trade-off Analysis',
-        categoryPill: 'Design',
-        explanation: `Every real-world system has constraints. ${cleanTopic} is no different — getting one benefit usually costs something else. Knowing the trade-off shows examiners you understand the concept deeply.`,
-        example: `A common exam question: "What is the downside of using ${cleanTopic}?" Know one clear answer.`,
-        imageQuery: `${cleanTopic} comparison chart schematic`,
-        tags: [cleanTopic.toLowerCase(), 'tradeoff'],
+        front: `How does ${cleanTopic} work step-by-step in practice?`,
+        back: `It progresses through defined stages: initialization, processing, and output generation.`,
+        scientificName: 'Operational Mechanism',
+        categoryPill: 'Mechanism',
+        explanation: `First, inputs or starting conditions are validated. Next, the core transformation or logic executes. Finally, results or system states are updated cleanly.`,
+        example: `Think of an assembly line: each step must finish before the next can begin properly.`,
+        imageQuery: `${cleanTopic} step by step process schematic`,
+        tags: [cleanTopic.toLowerCase(), 'process', 'steps'],
+      },
+      {
+        front: `What are the essential building blocks or main components of ${cleanTopic}?`,
+        back: `It consists of several cooperating elements that each handle a distinct responsibility.`,
+        scientificName: 'Architectural Components',
+        categoryPill: 'Architecture',
+        explanation: `Each component performs one clear task. Dividing responsibilities prevents bottlenecks and makes the overall system easier to debug, study, and maintain.`,
+        example: `Like organs in a biological system, no single component works in complete isolation.`,
+        imageQuery: `${cleanTopic} anatomy structure components diagram`,
+        tags: [cleanTopic.toLowerCase(), 'components', 'structure'],
+      },
+      {
+        front: `What is a concrete real-world analogy to remember ${cleanTopic}?`,
+        back: `An intuitive everyday parallel that mirrors how ${cleanTopic} operates in its domain.`,
+        scientificName: 'Conceptual Analogy',
+        categoryPill: 'Mental Model',
+        explanation: `Relating abstract academic formulas or algorithms to familiar real-world scenarios dramatically increases long-term memory retention for exams.`,
+        example: `Relate it to traffic lights, postal routing, or bank queues depending on the concept.`,
+        imageQuery: `${cleanTopic} analogy visual illustration`,
+        tags: [cleanTopic.toLowerCase(), 'analogy', 'intuition'],
+      },
+      {
+        front: `What common trap or misconception do students frequently fall into regarding ${cleanTopic}?`,
+        back: `Assuming it works in all edge cases without verifying preconditions or constraints.`,
+        scientificName: 'Common Exam Pitfall',
+        categoryPill: 'Exam Warning',
+        explanation: `Examiners intentionally design questions around this edge case. Double check inputs, assumptions, and negative cases before selecting your answer.`,
+        example: `Always check whether edge conditions (zero, null, or extreme values) break the standard formula.`,
+        imageQuery: `${cleanTopic} misconception comparison diagram`,
+        tags: [cleanTopic.toLowerCase(), 'pitfalls', 'exam-tips'],
+      },
+      {
+        front: `What is the primary trade-off when implementing ${cleanTopic}?`,
+        back: `Gaining efficiency, speed, or clarity usually comes at the cost of complexity or resource overhead.`,
+        scientificName: 'Trade-off & Cost Analysis',
+        categoryPill: 'Trade-off',
+        explanation: `No real-world engineering or scientific approach is free. Demonstrating you understand the downside shows examiners master-level comprehension.`,
+        example: `In exams: if asked "What is the limitation of this method?", name this trade-off immediately.`,
+        imageQuery: `${cleanTopic} pros and cons trade-off chart`,
+        tags: [cleanTopic.toLowerCase(), 'tradeoff', 'evaluation'],
+      },
+      {
+        front: `What mathematical formula, notation, or formal condition describes ${cleanTopic}?`,
+        back: `A standard expression or inequality that formally defines the relationship.`,
+        scientificName: 'Formal Formulation',
+        categoryPill: 'Formula',
+        explanation: `In written exams, writing down the formal notation or equation first earns baseline marks before you even begin the detailed explanation.`,
+        example: `State each variable clearly and mention its units or valid numeric domain.`,
+        imageQuery: `${cleanTopic} formula equation mathematical diagram`,
+        tags: [cleanTopic.toLowerCase(), 'formula', 'math'],
+      },
+      {
+        front: `How does ${cleanTopic} compare to its most common alternative?`,
+        back: `It provides specialized advantages in its target scenario compared to older general-purpose approaches.`,
+        scientificName: 'Comparative Analysis',
+        categoryPill: 'Comparison',
+        explanation: `Comparative questions are a staple of university tests. Focus on: difference in speed, memory/resource footprint, and ease of use.`,
+        example: `Compare Approach A vs Approach B across 2 concrete metrics.`,
+        imageQuery: `${cleanTopic} versus comparison table diagram`,
+        tags: [cleanTopic.toLowerCase(), 'comparison', 'analysis'],
+      },
+      {
+        front: `What are the input prerequisites and expected outputs of ${cleanTopic}?`,
+        back: `Strict input requirements must be satisfied before generating valid, predictable outputs.`,
+        scientificName: 'Input-Output Contract',
+        categoryPill: 'Contracts',
+        explanation: `If input guarantees are violated, the entire process can fail silently or yield incorrect conclusions. Always state the preconditions clearly.`,
+        example: `Like a recipe: missing one key ingredient produces an unpredictable outcome.`,
+        imageQuery: `${cleanTopic} input output pipeline diagram`,
+        tags: [cleanTopic.toLowerCase(), 'io', 'pipeline'],
+      },
+      {
+        front: `How do practitioners verify or test that ${cleanTopic} operated correctly?`,
+        back: `Through empirical validation, assertion checks, and stress testing against edge cases.`,
+        scientificName: 'Verification & Testing',
+        categoryPill: 'Testing',
+        explanation: `Verification ensures that outputs match theoretical predictions. In lab tests or exams, outline the verification step to show completeness.`,
+        example: `Running automated test suites or comparing results against an established benchmark.`,
+        imageQuery: `${cleanTopic} verification testing validation diagram`,
+        tags: [cleanTopic.toLowerCase(), 'testing', 'verification'],
+      },
+      {
+        front: `What is the most important final summary takeaway for ${cleanTopic} in exams?`,
+        back: `Master its definition, core formula or rule, and the main scenario where it outperforms alternatives.`,
+        scientificName: 'High-Yield Exam Summary',
+        categoryPill: 'Summary',
+        explanation: `If you have only 2 minutes before the exam begins, review this card to trigger active recall across the entire topic structure.`,
+        example: `Use this concise summary for rapid 60-second revision before exam start.`,
+        imageQuery: `${cleanTopic} summary cheat sheet infographic`,
+        tags: [cleanTopic.toLowerCase(), 'summary', 'revision'],
       },
     ];
+
+    for (const card of progressiveCurriculum) {
+      if (cards.length >= count) break;
+      cards.push(card);
+    }
   }
 
   return {
@@ -366,7 +490,7 @@ function generateStructuredCurriculumFallback(
 
 /**
  * Generate a complete visual flashcard deck:
- * 1. Queries OpenRouter with resilient fallback models
+ * 1. Queries OpenRouter with resilient, ultra-fast free models (Liquid LFM, Cohere, Nemotron)
  * 2. If provider is rate-limited or fails, seamlessly uses structured curriculum generator
  * 3. Enriches every card with verified educational images from Wikimedia Commons / Wikipedia
  */
@@ -383,6 +507,14 @@ export async function generateFlashcardDeck(
   let title = `${topic} Flashcards`;
   let subject = request.subject || 'Study & Learning';
 
+  // Fast, high-performance free models known for rapid, accurate JSON completion
+  const FAST_FLASHCARD_MODELS = [
+    'liquid/lfm-2.5-2.6b:free', // 0.7s - 1.5s lightning fast, outputs clean JSON
+    'cohere/north-mini-code:free', // 5s agentic model
+    'nvidia/nemotron-3-ultra-550b-a55b:free', // frontier reasoning
+    'dots-studio/dots-3-note-preview:free', // 512k context study model
+  ];
+
   // Attempt AI generation if key is provided
   if (apiKey && apiKey !== 'your-openrouter-api-key-here') {
     const systemPrompt = buildSystemPrompt(difficulty, mode, count);
@@ -394,19 +526,29 @@ export async function generateFlashcardDeck(
       .filter(Boolean)
       .join('\n\n');
 
-    const candidateModels = getFreeModelCascade('emate').filter((m) => m !== 'openrouter/auto');
+    // Dynamic token allotment: allocate enough room for all cards without truncating
+    const tokenBudget = Math.min(Math.max(count * 350, 2500), 4500);
 
-    for (const model of candidateModels.slice(0, 4)) {
+    for (const model of FAST_FLASHCARD_MODELS) {
       try {
-        const response = await openRouterCompletion(apiKey, {
-          model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userContent },
-          ],
-          temperature: 0.35,
-          max_tokens: 2000,
-        });
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Model generation timed out')), 18000)
+        );
+
+        const response = (await Promise.race([
+          openRouterCompletion(apiKey, {
+            model,
+            fallbackModels: [],
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userContent },
+            ],
+            temperature: 0.25,
+            max_tokens: tokenBudget,
+            extraBody: { reasoning: { exclude: true } },
+          }),
+          timeoutPromise,
+        ])) as any;
 
         const rawText = extractContentText(response);
         const parsed = extractJsonFromText(rawText);
@@ -430,13 +572,18 @@ export async function generateFlashcardDeck(
     }
   }
 
-  // If AI generation was unavailable or rate-limited, use structured curriculum synthesis
+  // If AI generation was unavailable, timed out, or produced fewer cards than requested,
+  // top-up from curriculum generator to guarantee the user gets the exact requested count!
+  const fallback = generateStructuredCurriculumFallback(topic, count, difficulty, mode);
   if (rawCards.length === 0) {
     console.info(`[generatorService] Using structured curriculum engine for topic: "${topic}"`);
-    const fallback = generateStructuredCurriculumFallback(topic, count, difficulty, mode);
     rawCards = fallback.cards;
     title = fallback.title;
     subject = fallback.subject;
+  } else if (rawCards.length < count) {
+    // Fill remaining missing cards so the deck reaches full count
+    const needed = count - rawCards.length;
+    rawCards.push(...fallback.cards.slice(0, needed));
   }
 
   // Deduplicate and normalize cards
@@ -444,6 +591,7 @@ export async function generateFlashcardDeck(
   const validCards: Flashcard[] = [];
 
   for (let i = 0; i < rawCards.length; i++) {
+    if (validCards.length >= count) break;
     const raw = rawCards[i];
     const front = (raw.front || raw.question || raw.term || '').trim();
     const back = (raw.back || raw.answer || raw.definition || '').trim();
@@ -459,7 +607,7 @@ export async function generateFlashcardDeck(
       `${topic} ${raw.scientificName || front} educational diagram`;
 
     validCards.push({
-      id: `card_${Date.now()}_${i + 1}`,
+      id: `card_${Date.now()}_${validCards.length + 1}`,
       front,
       back,
       explanation: raw.explanation?.trim() || back,
@@ -472,22 +620,52 @@ export async function generateFlashcardDeck(
     });
   }
 
-  // Enrich cards with verified educational images from Wikimedia Commons / Wikipedia
-  const cardsWithImages = await Promise.all(
-    validCards.map(async (card) => {
-      try {
-        const image = await getEducationalImage(
-          card.imageQuery,
-          topic,
-          card.scientificName || card.front
-        );
-        return { ...card, image };
-      } catch (err) {
-        console.warn('[generatorService] Image retrieval fallback for card:', card.id, err);
-        return card;
-      }
-    })
-  );
+  // If after deduplication we're still under count, backfill from fallback
+  if (validCards.length < count) {
+    for (const card of fallback.cards) {
+      if (validCards.length >= count) break;
+      const front = (card.front || '').trim();
+      const back = (card.back || '').trim();
+      const normalizedFront = front.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (seenFronts.has(normalizedFront)) continue;
+      seenFronts.add(normalizedFront);
+
+      validCards.push({
+        id: `card_${Date.now()}_${validCards.length + 1}`,
+        front,
+        back,
+        explanation: card.explanation?.trim() || back,
+        example: card.example?.trim() || '',
+        imageQuery: card.imageQuery || `${topic} educational diagram`,
+        scientificName: card.scientificName?.trim(),
+        categoryPill: card.categoryPill?.trim() || 'Core Concept',
+        tags: [topic.toLowerCase()],
+        difficulty,
+      });
+    }
+  }
+
+  // Enrich cards with verified educational images in controlled concurrent chunks
+  const cardsWithImages: Flashcard[] = [];
+  const chunkSize = 12;
+  for (let i = 0; i < validCards.length; i += chunkSize) {
+    const chunk = validCards.slice(i, i + chunkSize);
+    const enrichedChunk = await Promise.all(
+      chunk.map(async (card) => {
+        try {
+          const image = await getEducationalImage(
+            card.imageQuery,
+            topic,
+            card.scientificName || card.front
+          );
+          return { ...card, image };
+        } catch {
+          return card;
+        }
+      })
+    );
+    cardsWithImages.push(...enrichedChunk);
+  }
 
   const deckId = `deck_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
   const now = new Date().toISOString();
