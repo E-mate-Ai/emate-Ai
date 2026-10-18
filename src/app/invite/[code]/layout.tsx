@@ -32,6 +32,10 @@ export function generateMetadata(): Metadata {
       description: 'Join 10,000+ students using e-Mate AI to ace every exam. Sign up free!',
       images: [`${siteUrl}/invite-og.png`],
     },
+    robots: {
+      index: false,
+      follow: false,
+    },
   };
 }
 

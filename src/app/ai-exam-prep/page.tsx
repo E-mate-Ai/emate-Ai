@@ -1,88 +1,333 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import Script from 'next/script';
 import AppLayout from '@/components/AppLayout';
+import PublicFooter from '@/components/PublicFooter';
+import {
+  GraduationCap,
+  Sparkles,
+  CheckCircle2,
+  Brain,
+  Layers,
+  Calendar,
+  AlertTriangle,
+  ArrowRight,
+  ShieldCheck,
+  Target,
+  Clock,
+  Zap,
+} from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'AI Exam Preparation Assistant — e-Mate AI',
+  title: 'AI Exam Preparation & High-Yield Revision Assistant',
   description:
-    'Prepare for exams with AI-generated revision prompts, question practice, summaries, and strategic study workflows designed for exam readiness.',
+    'Master exam preparation with e-Mate AI. High-yield syllabus summaries, simulated question drills, weak-point detection, and active recall revision routines.',
+  keywords: [
+    'AI exam prep',
+    'exam preparation AI assistant',
+    'high yield exam revision',
+    'test preparation AI',
+    'final exam revision tool',
+    'syllabus exam prep',
+    'e-Mate AI',
+  ],
   alternates: {
     canonical: '/ai-exam-prep',
   },
 };
 
-const bullets = [
-  'Build practice questions around your current syllabus',
-  'Get concise revision summaries before each test',
-  'Review common weak points and exam traps',
-  'Turn revision into a repeatable exam-prep system',
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  process.env.NEXT_PUBLIC_APP_URL ||
+  'https://emate-ai.runs-on.dev';
+
+const prepPillars = [
+  {
+    title: 'High-Yield Concept Prioritization',
+    desc: 'Don’t treat every syllabus page equally. e-Mate AI identifies foundational principles, recurring formulas, and high-weightage topics.',
+    icon: <Target className="text-emerald-600 dark:text-emerald-400" size={20} />,
+  },
+  {
+    title: 'Active Question Drills',
+    desc: 'Practice under simulated pressure with targeted MCQs, calculation derivations, and conceptual tests with instant pedagogical explanations.',
+    icon: <Brain className="text-blue-600 dark:text-blue-400" size={20} />,
+  },
+  {
+    title: 'Exam Trap & Error Analysis',
+    desc: 'Highlights common cognitive misconceptions and distractor tricks so you avoid avoidable mistakes on high-stakes exams.',
+    icon: <AlertTriangle className="text-amber-600 dark:text-amber-400" size={20} />,
+  },
+  {
+    title: 'Rapid Last-Mile Revision',
+    desc: 'Generate concise, bulleted high-yield cheat sheets and flashcard sprints designed for the crucial 48 hours before the exam.',
+    icon: <Zap className="text-purple-600 dark:text-purple-400" size={20} />,
+  },
+];
+
+const examCountdownTimeline = [
+  {
+    period: 'T-Minus 14 Days',
+    focus: 'Comprehensive Syllabus Coverage',
+    action: 'Upload all notebook chapters and build structured flashcard decks for each unit.',
+  },
+  {
+    period: 'T-Minus 7 Days',
+    focus: 'Active Quizzing & Diagnostic Audit',
+    action: 'Run multiple 20-question quizzes to map out high-error topics requiring reinforcement.',
+  },
+  {
+    period: 'T-Minus 3 Days',
+    focus: 'Weak-Spot Sprints',
+    action: 'Revisit flagged difficult flashcards and practice targeted multi-step derivations.',
+  },
+  {
+    period: 'T-Minus 24 Hours',
+    focus: 'Confidence Consolidation',
+    action: 'Review concise formula sheets and rest without late-night cramming.',
+  },
+];
+
+const faqs = [
+  {
+    q: 'How does e-Mate AI help when I have very little time left before an exam?',
+    a: 'When time is tight, e-Mate AI switches to Sprint Mode: it synthesizes your notes into high-yield summaries, highlights definitions most likely to be tested, and drills you on core active recall flashcards.',
+  },
+  {
+    q: 'Can e-Mate simulate competitive exams?',
+    a: 'Yes. Whether preparing for university midterms, AP / IB tests, or national entrance exams (such as MCAT, USMLE, JEE, or NEET), e-Mate can generate conceptual questions formatted to your exam style.',
+  },
+  {
+    q: 'How does it help with test anxiety?',
+    a: 'Test anxiety often stems from uncertainty about what you actually know. Active recall quizzes and continuous mastery tracking show you tangible proof of your preparation, instilling genuine confidence.',
+  },
 ];
 
 export default function AIExamPrepPage() {
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'e-Mate AI Exam Preparation Assistant',
+    applicationCategory: 'EducationalApplication',
+    operatingSystem: 'Any',
+    url: `${siteUrl}/ai-exam-prep`,
+    description:
+      'AI exam preparation assistant that provides high-yield revision summaries, practice question drills, and weak-point detection for students.',
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'USD',
+    },
+  };
+
   return (
     <AppLayout>
+      <Script
+        id="exam-prep-schema"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
       <main className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-        <section className="rounded-[32px] border border-zinc-200 bg-white p-6 shadow-sm sm:p-10">
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700">
-            AI exam prep
+        {/* Hero Section */}
+        <section className="rounded-[32px] border border-zinc-200 bg-white p-6 shadow-sm sm:p-10 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3.5 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+            <GraduationCap size={13} />
+            <span>AI Exam Preparation</span>
           </div>
 
           <div className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
             <div>
-              <h1 className="max-w-xl text-4xl font-black tracking-tight text-zinc-900 sm:text-5xl">
-                AI exam preparation assistant built for real study pressure.
+              <h1 className="text-4xl font-black tracking-tight text-zinc-900 sm:text-5xl dark:text-white leading-[1.15]">
+                AI exam preparation engineered for real study pressure.
               </h1>
-              <p className="mt-5 max-w-2xl text-lg text-zinc-600">
-                e-Mate helps you practice the right concepts, revisit weak topics, and build confidence before your next exam with structured preparation.
+              <p className="mt-5 max-w-2xl text-lg text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                e-Mate AI filters the noise, surfaces high-yield concepts, tests your recall with realistic questions, and eliminates knowledge gaps before test day arrives.
               </p>
 
-              <div className="mt-7 flex flex-wrap gap-3">
+              <div className="mt-8 flex flex-wrap items-center gap-3">
                 <Link
-                  href="/ai-topper-chat"
-                  className="inline-flex items-center justify-center rounded-full bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                  href="/"
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-600 px-7 py-3.5 text-sm font-semibold text-white shadow-md shadow-emerald-500/20 transition hover:bg-emerald-700 active:scale-95"
                 >
-                  Start exam prep
+                  <Sparkles size={15} />
+                  <span>Start Exam Prep Free</span>
                 </Link>
                 <Link
                   href="/ai-study-planner"
-                  className="inline-flex items-center justify-center rounded-full border border-zinc-200 px-5 py-3 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-50"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-5 py-3.5 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
                 >
-                  View study planner
+                  <Calendar size={14} />
+                  <span>Study Planner</span>
                 </Link>
               </div>
             </div>
 
-            <div className="rounded-[28px] border border-zinc-200 bg-zinc-50 p-5">
-              <div className="rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-600 p-4 text-white shadow-lg">
-                <p className="text-sm font-medium text-emerald-100">Exam readiness</p>
-                <p className="mt-3 text-2xl font-bold">Practice. Review. Repeat.</p>
+            <div className="rounded-[28px] border border-zinc-200 bg-zinc-50 p-6 dark:border-zinc-800 dark:bg-zinc-800/40">
+              <div className="rounded-2xl bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 p-5 text-white shadow-lg">
+                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-100">
+                  Exam Readiness Protocol
+                </p>
+                <p className="mt-2 text-2xl font-bold">Focus. Practice. Conquer.</p>
               </div>
-              <ul className="mt-5 space-y-3 text-sm text-zinc-700">
-                {bullets.map((item) => (
-                  <li key={item} className="flex items-start gap-2">
-                    <span className="mt-1 inline-block h-2.5 w-2.5 rounded-full bg-emerald-600" />
-                    <span>{item}</span>
-                  </li>
-                ))}
+              <ul className="mt-5 space-y-3 text-xs text-zinc-700 dark:text-zinc-300">
+                <li className="flex items-center gap-2.5">
+                  <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
+                  <span>High-yield syllabus synthesis & formula sheets</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
+                  <span>Active retrieval question drills under timed conditions</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
+                  <span>Diagnostic review of common traps and errors</span>
+                </li>
               </ul>
             </div>
           </div>
         </section>
 
-        <section className="mt-12 grid gap-6 md:grid-cols-3">
-          <article className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-bold text-zinc-900">Revision-first</h2>
-            <p className="mt-3 text-zinc-600">Focus on the concepts most likely to appear in tests and finals instead of rereading everything equally.</p>
-          </article>
-          <article className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-bold text-zinc-900">Practice blocks</h2>
-            <p className="mt-3 text-zinc-600">Turn notes into targeted question practice and quick-answer recall exercises.</p>
-          </article>
-          <article className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-bold text-zinc-900">Confidence support</h2>
-            <p className="mt-3 text-zinc-600">Build a more disciplined exam routine by reviewing your weak areas before the test day arrives.</p>
-          </article>
+        {/* 4 Pillars of Readiness */}
+        <section className="mt-14">
+          <div className="text-center max-w-2xl mx-auto mb-10">
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-white">
+              Systematic exam readiness features
+            </h2>
+            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+              Designed to optimize revision efficiency in the weeks and days before high-stakes exams.
+            </p>
+          </div>
+
+          <div className="grid gap-6 sm:grid-cols-2">
+            {prepPillars.map((item) => (
+              <div
+                key={item.title}
+                className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+              >
+                <div className="mb-4 inline-flex p-3 rounded-2xl bg-zinc-100 dark:bg-zinc-800">
+                  {item.icon}
+                </div>
+                <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-2">
+                  {item.title}
+                </h3>
+                <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
+                  {item.desc}
+                </p>
+              </div>
+            ))}
+          </div>
         </section>
+
+        {/* Countdown Sprint Protocol */}
+        <section className="mt-14 rounded-3xl border border-zinc-200 bg-zinc-50 p-6 sm:p-10 dark:border-zinc-800 dark:bg-zinc-900/60">
+          <h2 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white mb-2">
+            The Exam Countdown Revision Cycle
+          </h2>
+          <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-6">
+            How e-Mate structures your study progression as test day approaches.
+          </p>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {examCountdownTimeline.map((item) => (
+              <div
+                key={item.period}
+                className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900 shadow-2xs flex flex-col justify-between"
+              >
+                <div>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                    {item.period}
+                  </span>
+                  <h3 className="text-sm font-bold text-zinc-900 dark:text-white mt-1.5 mb-2">
+                    {item.focus}
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    {item.action}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Tool Hub Grid */}
+        <section className="mt-14">
+          <h2 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white mb-6">
+            Complete your exam prep toolkit
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Link
+              href="/ai-quiz-generator"
+              className="p-5 rounded-2xl border border-zinc-200 bg-white hover:border-pink-500 transition shadow-sm dark:border-zinc-800 dark:bg-zinc-900 group"
+            >
+              <Brain className="text-pink-600 mb-2.5" size={20} />
+              <h3 className="font-bold text-sm text-zinc-900 dark:text-white group-hover:text-pink-600 transition">
+                AI Practice Quizzes →
+              </h3>
+              <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
+                Test yourself with adaptive MCQs and instant diagnostic feedback.
+              </p>
+            </Link>
+
+            <Link
+              href="/ai-flashcard-generator"
+              className="p-5 rounded-2xl border border-zinc-200 bg-white hover:border-blue-500 transition shadow-sm dark:border-zinc-800 dark:bg-zinc-900 group"
+            >
+              <Layers className="text-blue-600 mb-2.5" size={20} />
+              <h3 className="font-bold text-sm text-zinc-900 dark:text-white group-hover:text-blue-600 transition">
+                AI Flashcards Engine →
+              </h3>
+              <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
+                Visual cards and spaced repetition for fast active recall drills.
+              </p>
+            </Link>
+
+            <Link
+              href="/ai-study-planner"
+              className="p-5 rounded-2xl border border-zinc-200 bg-white hover:border-violet-500 transition shadow-sm dark:border-zinc-800 dark:bg-zinc-900 group"
+            >
+              <Calendar className="text-violet-600 mb-2.5" size={20} />
+              <h3 className="font-bold text-sm text-zinc-900 dark:text-white group-hover:text-violet-600 transition">
+                AI Study Planner →
+              </h3>
+              <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
+                Map out daily study blocks around your exam countdown dates.
+              </p>
+            </Link>
+          </div>
+        </section>
+
+        {/* FAQ */}
+        <section className="mt-14 rounded-3xl border border-zinc-200 bg-white p-6 sm:p-10 dark:border-zinc-800 dark:bg-zinc-900">
+          <h2 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white mb-6">
+            Exam Prep FAQ
+          </h2>
+          <div className="space-y-4">
+            {faqs.map((f) => (
+              <div
+                key={f.q}
+                className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5 dark:border-zinc-800 dark:bg-zinc-800/50"
+              >
+                <h3 className="text-sm font-bold text-zinc-900 dark:text-white">{f.q}</h3>
+                <p className="text-xs text-zinc-600 dark:text-zinc-300 mt-2 leading-relaxed">{f.a}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* CTA */}
+        <section className="mt-14 text-center">
+          <h2 className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-white">
+            Walk into your exam with total confidence.
+          </h2>
+          <Link
+            href="/"
+            className="mt-6 inline-flex items-center justify-center gap-2 rounded-full bg-emerald-600 px-8 py-3.5 text-sm font-semibold text-white shadow-md shadow-emerald-500/20 transition hover:bg-emerald-700 active:scale-95"
+          >
+            <Sparkles size={16} />
+            <span>Launch Exam Prep Workspace</span>
+          </Link>
+        </section>
+
+        <PublicFooter />
       </main>
     </AppLayout>
   );

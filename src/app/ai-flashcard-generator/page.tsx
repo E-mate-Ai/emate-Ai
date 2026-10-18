@@ -8,6 +8,7 @@ import { useAppTheme } from '@/hooks/useAppTheme';
 import FlashcardLearningView from '@/components/flashcards/FlashcardLearningView';
 import FlashcardGeneratorPanel from '@/components/flashcards/FlashcardGeneratorPanel';
 import FlashcardLibraryView from '@/components/flashcards/FlashcardLibraryView';
+import PublicFooter from '@/components/PublicFooter';
 import {
   Sparkles,
   BookOpen,
@@ -918,6 +919,7 @@ export default function AIFlashcardGeneratorPage() {
             </button>
           </section>
         </div>
+        <PublicFooter />
       </main>
     </AppLayout>
   );

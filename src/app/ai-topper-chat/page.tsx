@@ -5,11 +5,15 @@ import AITopperChatScreen from './components/AITopperChatScreen';
 import SkeletonLoader from '@/components/SkeletonLoader';
 
 export const metadata: Metadata = {
-  title: 'AI Study Workspace & Exam Copilot — e-Mate AI',
+  title: 'AI Study Workspace & Exam Copilot',
   description:
     'Interactive AI study workspace with syllabus context anchoring, smart flashcards, practice quizzes, and real-time document explanations.',
   alternates: {
     canonical: '/ai-topper-chat',
+  },
+  robots: {
+    index: false,
+    follow: false,
   },
 };
 

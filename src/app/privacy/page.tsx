@@ -3,9 +3,10 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowLeft, Shield, Lock, FileText, Mail, MapPin, Phone } from 'lucide-react';
+import PublicFooter from '@/components/PublicFooter';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy — e-Mate AI',
+  title: 'Privacy Policy',
   description:
     'Read the e-Mate AI Privacy Policy. Learn how we handle student data, syllabus uploads, session transcripts, cookies, and strict data security protocols.',
   alternates: {
@@ -176,17 +177,7 @@ export default function PrivacyPolicyPage() {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-zinc-200 dark:border-zinc-800 py-6 text-center text-xs text-zinc-500">
-        <div className="max-w-4xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p>© {new Date().getFullYear()} e-Mate AI Technologies. All rights reserved.</p>
-          <div className="flex items-center gap-4">
-            <Link href="/terms" className="hover:underline">Terms of Service</Link>
-            <Link href="/thank-you" className="hover:underline">Thank You</Link>
-            <Link href="/ai-topper-chat" className="hover:underline">AI Workspace</Link>
-          </div>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }

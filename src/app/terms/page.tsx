@@ -3,9 +3,10 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowLeft, FileText, CheckCircle2, ShieldAlert, Mail, MapPin, Phone } from 'lucide-react';
+import PublicFooter from '@/components/PublicFooter';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service — e-Mate AI',
+  title: 'Terms of Service',
   description:
     'Review the e-Mate AI Terms of Service. Understand subscription policies, student academic integrity, usage terms, and intellectual property guidelines.',
   alternates: {
@@ -166,17 +167,7 @@ export default function TermsOfServicePage() {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-zinc-200 dark:border-zinc-800 py-6 text-center text-xs text-zinc-500">
-        <div className="max-w-4xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p>© {new Date().getFullYear()} e-Mate AI Technologies. All rights reserved.</p>
-          <div className="flex items-center gap-4">
-            <Link href="/privacy" className="hover:underline">Privacy Policy</Link>
-            <Link href="/thank-you" className="hover:underline">Thank You</Link>
-            <Link href="/upgrade" className="hover:underline">Pricing</Link>
-          </div>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }

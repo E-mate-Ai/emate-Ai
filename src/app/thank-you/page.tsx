@@ -5,11 +5,15 @@ import Image from 'next/image';
 import { CheckCircle2, Sparkles, ArrowRight, BookOpen, ShieldCheck, Mail, Phone, MapPin } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Thank You — e-Mate AI',
+  title: 'Thank You',
   description:
     'Thank you for joining e-Mate AI. Your AI study workspace, flashcard engine, and personalized study tools are ready.',
   alternates: {
     canonical: '/thank-you',
+  },
+  robots: {
+    index: false,
+    follow: false,
   },
 };
 
