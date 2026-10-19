@@ -7,6 +7,7 @@ import '../styles/tailwind.css';
 import RouteTracker from '@/components/RouteTracker';
 import { AuthListener } from '@/components/AuthListener';
 import CookieBanner from '@/components/CookieBanner';
+import { Analytics } from '@vercel/analytics/next';
 import { cn } from "@/lib/utils";
 
 const outfit = Outfit({
@@ -220,6 +221,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         />
         <AuthListener />
         <RouteTracker />
+        <Analytics />
         {children}
         <CookieBanner />
         <Toaster

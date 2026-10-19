@@ -1,6 +1,7 @@
 import { MetadataRoute } from 'next';
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://emate.live';
+const CANONICAL_URL = 'https://emate.live';
+const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || CANONICAL_URL).replace(/\/+$/, '');
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
