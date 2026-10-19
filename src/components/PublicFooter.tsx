@@ -139,8 +139,8 @@ export default function PublicFooter() {
               </li>
               <li className="pt-2 text-[11px] text-zinc-500">
                 Institutional queries:{' '}
-                <a href="mailto:support@emate-ai.com" className="text-blue-600 underline dark:text-blue-400">
-                  support@emate-ai.com
+                <a href="mailto:support@emate.live" className="text-blue-600 underline dark:text-blue-400">
+                  support@emate.live
                 </a>
               </li>
             </ul>

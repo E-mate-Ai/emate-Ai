@@ -74,7 +74,7 @@ export async function searchEducationalImages(
 
     const response = await fetch(searchUrl, {
       headers: {
-        'User-Agent': 'e-Mate-AI-Educational-Assistant/1.0 (academic study copilot; contact@emate-ai.com)',
+        'User-Agent': 'e-Mate-AI-Educational-Assistant/1.0 (academic study copilot; contact@emate.live)',
         Accept: 'application/json',
       },
       signal: controller.signal,
@@ -161,7 +161,7 @@ async function fetchFromWikipediaSummary(query: string): Promise<EducationalImag
 
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'e-Mate-AI-Educational-Assistant/1.0 (academic study copilot; contact@emate-ai.com)',
+        'User-Agent': 'e-Mate-AI-Educational-Assistant/1.0 (academic study copilot; contact@emate.live)',
         Accept: 'application/json',
       },
       signal: controller.signal,
@@ -269,7 +269,7 @@ export function generateEducationalDiagramSVG(concept: string, topic: string): E
     url: dataUrl,
     alt: `${concept} educational visual diagram`,
     sourceName: 'e-Mate Visual System',
-    sourceUrl: 'https://emate-ai.com',
+    sourceUrl: 'https://emate.live',
     license: 'CC BY-SA 4.0 (Educational Visual)',
     attribution: 'e-Mate AI Visual Learning Engine',
     width: 600,

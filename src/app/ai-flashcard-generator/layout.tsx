@@ -5,7 +5,7 @@ import Script from 'next/script';
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ||
   process.env.NEXT_PUBLIC_APP_URL ||
-  'https://emate-ai.runs-on.dev';
+  'https://emate.live';
 
 export const metadata: Metadata = {
   title: 'AI Flashcard Generator & Visual Study Decks',

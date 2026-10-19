@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 const siteUrl =
   process.env.NEXT_PUBLIC_APP_URL ||
   process.env.NEXT_PUBLIC_SITE_URL ||
-  'https://emate-ai.runs-on.dev';
+  'https://emate.live';
 
 export function generateMetadata(): Metadata {
   const ogImage = {

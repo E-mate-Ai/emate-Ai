@@ -29,16 +29,33 @@ export const metadata: Metadata = {
     'syllabus revision planner',
     'exam countdown planner',
     'e-Mate AI',
+    'emate.live',
   ],
   alternates: {
     canonical: '/ai-study-planner',
+  },
+  openGraph: {
+    title: 'AI Study Planner & Exam Schedule Builder — e-Mate AI',
+    description:
+      'Build realistic, syllabus-grounded daily study plans with e-Mate AI. Pace your exam revision, schedule active recall sessions, and hit your academic milestones.',
+    url: '/ai-study-planner',
+    siteName: 'e-Mate AI',
+    type: 'website',
+    images: ['/opengraph-image.png'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'AI Study Planner & Exam Schedule Builder — e-Mate AI',
+    description:
+      'Build realistic, syllabus-grounded daily study plans with e-Mate AI. Pace your exam revision, schedule active recall sessions, and hit your academic milestones.',
+    images: ['/opengraph-image.png'],
   },
 };
 
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ||
   process.env.NEXT_PUBLIC_APP_URL ||
-  'https://emate-ai.runs-on.dev';
+  'https://emate.live';
 
 const planningPillars = [
   {

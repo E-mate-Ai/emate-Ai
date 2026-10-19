@@ -9,15 +9,38 @@ export const metadata: Metadata = {
   title: 'Contact Us & Student Support',
   description:
     'Contact the e-Mate AI support team for assistance with student accounts, university partnerships, technical issues, or product inquiries.',
+  keywords: [
+    'contact e-Mate AI',
+    'student support',
+    'e-Mate AI helpdesk',
+    'e-Mate AI',
+    'emate.live',
+  ],
   alternates: {
     canonical: '/contact',
+  },
+  openGraph: {
+    title: 'Contact Us & Student Support — e-Mate AI',
+    description:
+      'Contact the e-Mate AI support team for assistance with student accounts, university partnerships, technical issues, or product inquiries.',
+    url: '/contact',
+    siteName: 'e-Mate AI',
+    type: 'website',
+    images: ['/opengraph-image.png'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Contact Us & Student Support — e-Mate AI',
+    description:
+      'Contact the e-Mate AI support team for assistance with student accounts, university partnerships, technical issues, or product inquiries.',
+    images: ['/opengraph-image.png'],
   },
 };
 
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ||
   process.env.NEXT_PUBLIC_APP_URL ||
-  'https://emate-ai.runs-on.dev';
+  'https://emate.live';
 
 export default function ContactPage() {
   const contactSchema = {
@@ -30,7 +53,7 @@ export default function ContactPage() {
         '@type': 'ContactPoint',
         telephone: '+91-8860911070',
         contactType: 'customer support',
-        email: 'support@emate-ai.com',
+        email: 'support@emate.live',
         areaServed: 'Worldwide',
         availableLanguage: ['English', 'Hindi'],
       },
@@ -74,10 +97,10 @@ export default function ContactPage() {
               </div>
               <p className="mt-1 text-xs text-zinc-500">For account, billing, and technical questions</p>
               <a
-                href="mailto:support@emate-ai.com"
+                href="mailto:support@emate.live"
                 className="mt-3 inline-block text-sm font-semibold text-blue-600 hover:underline dark:text-blue-400"
               >
-                support@emate-ai.com
+                support@emate.live
               </a>
             </div>
 

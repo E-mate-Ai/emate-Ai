@@ -6,11 +6,17 @@ export async function middleware(request: NextRequest) {
   const canonicalOrigin =
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.NEXT_PUBLIC_SITE_URL ||
-    'https://emate-ai.runs-on.dev';
+    'https://emate.live';
 
-  // 1. Permanently redirect old preview domain to canonical domain
+  // 1. Permanently redirect old preview/runs-on/www domains to canonical domain
   const host = request.headers.get('host') || '';
-  if (host.includes('isachinbishts-projects.vercel.app')) {
+  if (
+    host.includes('isachinbishts-projects.vercel.app') ||
+    host.includes('runs-on.dev') ||
+    host.includes('emate-ai.com') ||
+    host.includes('emate-ai.vercel.app') ||
+    host === 'www.emate.live'
+  ) {
     const redirectUrl = new URL(pathname + request.nextUrl.search, canonicalOrigin);
     return NextResponse.redirect(redirectUrl, 301);
   }

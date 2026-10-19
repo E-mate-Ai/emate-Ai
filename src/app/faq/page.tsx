@@ -9,8 +9,32 @@ export const metadata: Metadata = {
   title: 'FAQ — Common Questions About e-Mate AI',
   description:
     'Find answers about how e-Mate AI works, syllabus PDF uploads, AI flashcard generation, practice quizzes, exam revision planners, and student data privacy.',
+  keywords: [
+    'e-Mate AI FAQ',
+    'frequently asked questions',
+    'AI flashcards help',
+    'study copilot FAQ',
+    'e-Mate AI',
+    'emate.live',
+  ],
   alternates: {
     canonical: '/faq',
+  },
+  openGraph: {
+    title: 'FAQ — Common Questions About e-Mate AI',
+    description:
+      'Find answers about how e-Mate AI works, syllabus PDF uploads, AI flashcard generation, practice quizzes, and student data privacy.',
+    url: '/faq',
+    siteName: 'e-Mate AI',
+    type: 'website',
+    images: ['/opengraph-image.png'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'FAQ — Common Questions About e-Mate AI',
+    description:
+      'Find answers about how e-Mate AI works, syllabus PDF uploads, AI flashcard generation, practice quizzes, and student data privacy.',
+    images: ['/opengraph-image.png'],
   },
 };
 

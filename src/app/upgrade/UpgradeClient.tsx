@@ -338,7 +338,7 @@ export default function UpgradeClient() {
             </div>
           </div>
           <a
-            href="mailto:support@emate-ai.com?subject=Student%20Discount%20Verification"
+            href="mailto:support@emate.live?subject=Student%20Discount%20Verification"
             className="shrink-0 px-5 py-2.5 rounded-full border border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-500 text-sm font-semibold hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors cursor-pointer"
           >
             Verify Student Status

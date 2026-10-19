@@ -9,8 +9,31 @@ export const metadata: Metadata = {
   title: 'Privacy Policy',
   description:
     'Read the e-Mate AI Privacy Policy. Learn how we handle student data, syllabus uploads, session transcripts, cookies, and strict data security protocols.',
+  keywords: [
+    'e-Mate AI privacy',
+    'student data privacy',
+    'AI data security',
+    'e-Mate AI',
+    'emate.live',
+  ],
   alternates: {
     canonical: '/privacy',
+  },
+  openGraph: {
+    title: 'Privacy Policy — e-Mate AI',
+    description:
+      'Read the e-Mate AI Privacy Policy. Learn how we handle student data, syllabus uploads, session transcripts, cookies, and strict data security protocols.',
+    url: '/privacy',
+    siteName: 'e-Mate AI',
+    type: 'website',
+    images: ['/opengraph-image.png'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Privacy Policy — e-Mate AI',
+    description:
+      'Read the e-Mate AI Privacy Policy. Learn how we handle student data, syllabus uploads, and strict data security protocols.',
+    images: ['/opengraph-image.png'],
   },
 };
 
@@ -151,8 +174,8 @@ export default function PrivacyPolicyPage() {
                 <span className="font-semibold text-zinc-900 dark:text-white block">Official Email</span>
                 <div className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400">
                   <Mail size={14} className="text-blue-600 shrink-0" />
-                  <a href="mailto:support@emate-ai.com" className="hover:underline text-blue-600 dark:text-blue-400">
-                    support@emate-ai.com
+                  <a href="mailto:support@emate.live" className="hover:underline text-blue-600 dark:text-blue-400">
+                    support@emate.live
                   </a>
                 </div>
                 <div className="text-[11px] text-zinc-500">

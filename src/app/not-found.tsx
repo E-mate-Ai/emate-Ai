@@ -70,7 +70,7 @@ export default function NotFound() {
             Terms of Service
           </Link>
           <span>•</span>
-          <a href="mailto:support@emate-ai.com" className="hover:text-blue-600 dark:hover:text-blue-400 transition flex items-center gap-1">
+          <a href="mailto:support@emate.live" className="hover:text-blue-600 dark:hover:text-blue-400 transition flex items-center gap-1">
             <HelpCircle size={13} /> Support
           </a>
         </div>

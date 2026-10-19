@@ -30,16 +30,33 @@ export const metadata: Metadata = {
     'final exam revision tool',
     'syllabus exam prep',
     'e-Mate AI',
+    'emate.live',
   ],
   alternates: {
     canonical: '/ai-exam-prep',
+  },
+  openGraph: {
+    title: 'AI Exam Preparation & High-Yield Revision Assistant — e-Mate AI',
+    description:
+      'Master exam preparation with e-Mate AI. High-yield syllabus summaries, simulated question drills, weak-point detection, and active recall revision routines.',
+    url: '/ai-exam-prep',
+    siteName: 'e-Mate AI',
+    type: 'website',
+    images: ['/opengraph-image.png'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'AI Exam Preparation & High-Yield Revision Assistant — e-Mate AI',
+    description:
+      'Master exam preparation with e-Mate AI. High-yield syllabus summaries, simulated question drills, weak-point detection, and active recall revision routines.',
+    images: ['/opengraph-image.png'],
   },
 };
 
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ||
   process.env.NEXT_PUBLIC_APP_URL ||
-  'https://emate-ai.runs-on.dev';
+  'https://emate.live';
 
 const prepPillars = [
   {

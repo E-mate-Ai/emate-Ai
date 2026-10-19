@@ -37,7 +37,7 @@ export const viewport: Viewport = {
   ],
 };
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://emate-ai.runs-on.dev';
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://emate.live';
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -51,6 +51,7 @@ export const metadata: Metadata = {
   keywords: [
     'AI study assistant',
     'e-Mate AI',
+    'emate.live',
     'flashcard generator',
     'AI topper',
     'quiz generator',
@@ -99,7 +100,7 @@ export const metadata: Metadata = {
     type: 'website',
     images: [
       {
-        url: '/opengraph-image',
+        url: '/opengraph-image.png',
         width: 1200,
         height: 630,
         alt: 'e-Mate AI — Smart Study Copilot & Academic Topper Workspace',
@@ -112,7 +113,7 @@ export const metadata: Metadata = {
     description:
       'AI-powered study workspace for interactive flashcards, quizzes, PDF summarization, and hands-free voice studying.',
     creator: '@emate_ai',
-    images: ['/opengraph-image'],
+    images: ['/opengraph-image.png'],
   },
   robots: {
     index: true,
@@ -164,13 +165,18 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                   '@id': `${siteUrl}/#website`,
                   url: siteUrl,
                   name: 'e-Mate AI',
-                  alternateName: ['eMate AI', 'eMate', 'e-Mate'],
+                  alternateName: ['eMate AI', 'eMate', 'e-Mate', 'emate.live'],
                   description:
                     'AI-powered study assistant that helps students plan their preparation, understand concepts, practice with quizzes, revise effectively, and prepare for exams.',
                   publisher: {
                     '@id': `${siteUrl}/#organization`,
                   },
                   inLanguage: 'en-US',
+                  potentialAction: {
+                    '@type': 'SearchAction',
+                    target: `${siteUrl}/?q={search_term_string}`,
+                    'query-input': 'required name=search_term_string',
+                  },
                 },
                 {
                   '@type': 'Organization',
@@ -186,7 +192,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                   contactPoint: {
                     '@type': 'ContactPoint',
                     contactType: 'customer support',
-                    email: 'support@emate-ai.com',
+                    email: 'support@emate.live',
                     availableLanguage: ['English'],
                   },
                 },

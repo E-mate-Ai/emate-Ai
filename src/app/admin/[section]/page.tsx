@@ -1,8 +1,17 @@
+import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import AdminDashboard, { type AdminSection } from '../AdminDashboard';
 import { requireAdminAccess } from '../access';
 
 export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = {
+  title: 'Admin Dashboard',
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 const ADMIN_SECTIONS: AdminSection[] = [
   'activity',

@@ -8,8 +8,31 @@ export const metadata: Metadata = {
   title: 'About Us — Purpose-Driven AI Study Assistant',
   description:
     'Learn what e-Mate AI is, who it is built for, and how our AI-powered study workspace helps students study smarter with active recall, flashcards, and exam preparation.',
+  keywords: [
+    'about e-Mate AI',
+    'AI study copilot mission',
+    'student learning platform',
+    'e-Mate AI',
+    'emate.live',
+  ],
   alternates: {
     canonical: '/about',
+  },
+  openGraph: {
+    title: 'About Us — Purpose-Driven AI Study Assistant — e-Mate AI',
+    description:
+      'Learn what e-Mate AI is, who it is built for, and how our AI-powered study workspace helps students study smarter.',
+    url: '/about',
+    siteName: 'e-Mate AI',
+    type: 'website',
+    images: ['/opengraph-image.png'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'About Us — Purpose-Driven AI Study Assistant — e-Mate AI',
+    description:
+      'Learn what e-Mate AI is, who it is built for, and how our AI-powered study workspace helps students study smarter.',
+    images: ['/opengraph-image.png'],
   },
 };
 

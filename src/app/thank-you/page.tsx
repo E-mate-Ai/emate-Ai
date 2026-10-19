@@ -115,8 +115,8 @@ export default function ThankYouPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-zinc-200 dark:border-zinc-800/80">
             <div className="flex items-center gap-2">
               <Mail size={15} className="text-blue-600 dark:text-blue-400 shrink-0" />
-              <a href="mailto:support@emate-ai.com" className="hover:underline font-medium text-zinc-800 dark:text-zinc-200">
-                support@emate-ai.com
+              <a href="mailto:support@emate.live" className="hover:underline font-medium text-zinc-800 dark:text-zinc-200">
+                support@emate.live
               </a>
             </div>
             <div className="flex items-center gap-2">

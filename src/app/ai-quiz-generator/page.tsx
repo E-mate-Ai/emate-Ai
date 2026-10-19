@@ -28,16 +28,33 @@ export const metadata: Metadata = {
     'exam practice quiz AI',
     'syllabus quiz generator',
     'e-Mate AI',
+    'emate.live',
   ],
   alternates: {
     canonical: '/ai-quiz-generator',
+  },
+  openGraph: {
+    title: 'AI Quiz Generator & Active Recall Practice — e-Mate AI',
+    description:
+      'Turn lecture notes, textbook PDFs, and syllabus topics into multiple-choice quizzes and active recall practice questions with instant diagnostic explanations.',
+    url: '/ai-quiz-generator',
+    siteName: 'e-Mate AI',
+    type: 'website',
+    images: ['/opengraph-image.png'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'AI Quiz Generator & Active Recall Practice — e-Mate AI',
+    description:
+      'Turn lecture notes, textbook PDFs, and syllabus topics into multiple-choice quizzes and active recall practice questions with instant diagnostic explanations.',
+    images: ['/opengraph-image.png'],
   },
 };
 
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ||
   process.env.NEXT_PUBLIC_APP_URL ||
-  'https://emate-ai.runs-on.dev';
+  'https://emate.live';
 
 const quizFormats = [
   {

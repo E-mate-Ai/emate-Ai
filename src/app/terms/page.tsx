@@ -9,8 +9,31 @@ export const metadata: Metadata = {
   title: 'Terms of Service',
   description:
     'Review the e-Mate AI Terms of Service. Understand subscription policies, student academic integrity, usage terms, and intellectual property guidelines.',
+  keywords: [
+    'e-Mate AI terms',
+    'terms of service',
+    'student platform terms',
+    'e-Mate AI',
+    'emate.live',
+  ],
   alternates: {
     canonical: '/terms',
+  },
+  openGraph: {
+    title: 'Terms of Service — e-Mate AI',
+    description:
+      'Review the e-Mate AI Terms of Service. Understand subscription policies, student academic integrity, usage terms, and intellectual property guidelines.',
+    url: '/terms',
+    siteName: 'e-Mate AI',
+    type: 'website',
+    images: ['/opengraph-image.png'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Terms of Service — e-Mate AI',
+    description:
+      'Review the e-Mate AI Terms of Service. Understand subscription policies, student academic integrity, and usage terms.',
+    images: ['/opengraph-image.png'],
   },
 };
 
@@ -141,8 +164,8 @@ export default function TermsOfServicePage() {
                 <span className="font-semibold text-zinc-900 dark:text-white block">Support & Compliance</span>
                 <div className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400">
                   <Mail size={14} className="text-blue-600 shrink-0" />
-                  <a href="mailto:support@emate-ai.com" className="hover:underline text-blue-600 dark:text-blue-400">
-                    support@emate-ai.com
+                  <a href="mailto:support@emate.live" className="hover:underline text-blue-600 dark:text-blue-400">
+                    support@emate.live
                   </a>
                 </div>
                 <div className="text-[11px] text-zinc-500">

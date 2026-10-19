@@ -116,8 +116,8 @@ npm install
 Create a `.env.local` file in the root directory and add the following:
 
 ```env
-NEXT_PUBLIC_APP_URL=https://emate-ai.runs-on.dev
-NEXT_PUBLIC_SITE_URL=https://emate-ai.runs-on.dev
+NEXT_PUBLIC_APP_URL=https://emate.live
+NEXT_PUBLIC_SITE_URL=https://emate.live
 OPENROUTER_API_KEY=your_api_key_here
 DATABASE_URL=your_database_url_here
 # Add any additional keys your integrations require
@@ -166,7 +166,7 @@ emate-ai/
 | **Growth** | $8 / seat / month | Power learners who want full RAG, active agents, and unlimited momentum |
 | **Scale** | $25 / seat / month | Teams and enterprises needing dedicated infrastructure and SSO |
 
-Full pricing details available at [emate-ai.runs-on.dev](https://emate-ai.runs-on.dev/#pricing).
+Full pricing details available at [emate.live](https://emate.live/#pricing).
 
 ---
 
@@ -199,7 +199,7 @@ Please open an issue first to discuss significant changes before submitting a PR
 
 ## Security
 
-If you discover a security vulnerability, please **do not** open a public issue. Instead, email **support@emate.ai** directly with details, and we will respond as soon as possible.
+If you discover a security vulnerability, please **do not** open a public issue. Instead, email **support@emate.live** directly with details, and we will respond as soon as possible.
 
 ---
 
@@ -213,8 +213,8 @@ This project is licensed under the MIT License — see the [LICENSE](./LICENSE) 
 
 ## Contact
 
-- **Website:** [emate-ai.runs-on.dev](https://emate-ai.runs-on.dev)
-- **Email:** [support@emate.ai](mailto:support@emate.ai)
+- **Website:** [emate.live](https://emate.live)
+- **Email:** [support@emate.live](mailto:support@emate.live)
 - **X (Twitter):** [@Try_Emate](https://x.com/Try_Emate)
 
 <div align="center">

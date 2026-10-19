@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   const canonicalOrigin =
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.NEXT_PUBLIC_SITE_URL ||
-    'https://emate-ai.runs-on.dev';
+    'https://emate.live';
 
   if (!code) {
     return NextResponse.redirect(

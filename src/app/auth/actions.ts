@@ -73,7 +73,7 @@ export async function signInWithGoogle() {
       ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
       : process.env.VERCEL_URL
       ? `https://${process.env.VERCEL_URL}`
-      : 'https://emate-ai.runs-on.dev');
+      : 'https://emate.live');
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',

@@ -28,16 +28,33 @@ export const metadata: Metadata = {
     'syllabus revision assistant',
     'active recall study tool',
     'e-Mate AI',
+    'emate.live',
   ],
   alternates: {
     canonical: '/ai-study-assistant',
+  },
+  openGraph: {
+    title: 'AI Study Assistant for Students & Exam Prep — e-Mate AI',
+    description:
+      'Turn your syllabus, lecture notes, and textbook PDFs into a personalized AI study flow with active recall flashcards, practice quizzes, and adaptive learning support.',
+    url: '/ai-study-assistant',
+    siteName: 'e-Mate AI',
+    type: 'website',
+    images: ['/opengraph-image.png'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'AI Study Assistant for Students & Exam Prep — e-Mate AI',
+    description:
+      'Turn your syllabus, lecture notes, and textbook PDFs into a personalized AI study flow with active recall flashcards, practice quizzes, and adaptive learning support.',
+    images: ['/opengraph-image.png'],
   },
 };
 
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ||
   process.env.NEXT_PUBLIC_APP_URL ||
-  'https://emate-ai.runs-on.dev';
+  'https://emate.live';
 
 const workflows = [
   {

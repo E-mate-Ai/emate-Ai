@@ -552,7 +552,10 @@ export default function ChatMainArea({
   }, [currentUserId]);
 
   const referralLink = useMemo(() => {
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://emate-ai.runs-on.dev';
+    const origin =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      (typeof window !== 'undefined' ? window.location.origin : 'https://emate.live');
     return `${origin}/invite/${referralCode}`;
   }, [referralCode]);
 

@@ -938,8 +938,8 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
               <h4 className="font-semibold text-sm text-zinc-900 dark:text-white">Direct Support Contact</h4>
               <p className="text-zinc-500 leading-relaxed">Reach out to our engineering and student support team for instant assistance.</p>
               <div className="flex flex-col sm:flex-row gap-2 pt-1">
-                <a href="mailto:support@emate-ai.com" className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold hover:bg-blue-500/20 transition-colors">
-                  <Mail size={14} /> support@emate-ai.com
+                <a href="mailto:support@emate.live" className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold hover:bg-blue-500/20 transition-colors">
+                  <Mail size={14} /> support@emate.live
                 </a>
                 <a href="tel:+918860911070" className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-200/60 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-semibold hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">
                   <Phone size={14} /> +91 8860911070
