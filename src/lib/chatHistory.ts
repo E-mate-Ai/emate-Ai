@@ -58,6 +58,12 @@ export interface ChatMessage {
   analyzerReport?: import('@/lib/agents/types').StudyAnalyzerReport;
   /** Generated visual flashcards rendered inline. */
   flashcardDeck?: import('@/lib/flashcards/types').FlashcardDeck;
+  /** Multimodal output blocks (code manifests, files, structured data, images) */
+  blocks?: import('@/lib/multimodal/types').OutputBlock[];
+  /** Underlying model used for generation */
+  modelUsed?: string;
+  /** Notice shown when fallback or capability routing occurred */
+  fallbackNotice?: string;
 }
 
 export interface ChatHistoryItem {

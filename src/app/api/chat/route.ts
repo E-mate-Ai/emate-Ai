@@ -10,6 +10,8 @@ import { createClient as createSupabaseServer } from '@/lib/supabase/server';
 import { toolRegistry, evaluateRetrievalConfidence } from '@/lib/tools';
 import { buildChatPrompt } from '@/lib/prompts';
 import { buildRecurringUserPatternContext, sanitizeUserPatternContext } from '@/lib/chatMemory';
+import { classifyTask } from '@/lib/multimodal/orchestrator';
+import { resolveModelForTask } from '@/lib/multimodal/registry';
 
 const MAX_CHAT_RESPONSE_TOKENS = 2000;
 
@@ -212,9 +214,36 @@ export async function POST(req: Request) {
     // so they never fail due to paid model requirements, invalid model IDs, or burned cascade slots.
     const isUsingServerKey = !userKey;
     const activeEngine = runtimeSettings.modelConfig.activeEngineForEmate || PRIMARY_MODEL;
-    const selectedModel = (isGuest || isUsingServerKey || !model || model === 'emate')
-      ? activeEngine
-      : model;
+
+    // Auto (Task-Aware) model selection: classify prompt and pick the best capable model
+    let selectedModel: string;
+    if (!isGuest && !isUsingServerKey && model === 'auto') {
+      const lastUserText = (() => {
+        const lastMsg = (messages as Array<{ role: string; content: unknown }>)
+          .filter((m) => m.role === 'user')
+          .pop();
+        if (!lastMsg) return '';
+        if (typeof lastMsg.content === 'string') return lastMsg.content;
+        if (Array.isArray(lastMsg.content)) {
+          return (lastMsg.content as Array<{ type?: string; text?: string }>)
+            .filter((p) => p.type === 'text')
+            .map((p) => p.text || '')
+            .join(' ');
+        }
+        return '';
+      })();
+      const hasVisionAttachment = Array.isArray(attachments) &&
+        (attachments as Array<{ mimeType?: string; fileName?: string }>).some(
+          (att) => att.mimeType?.startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(att.fileName || '')
+        );
+      const { taskType } = classifyTask(lastUserText, attachments, undefined);
+      const resolution = resolveModelForTask(undefined, taskType, hasVisionAttachment);
+      selectedModel = resolution.model.id;
+    } else if (isGuest || isUsingServerKey || !model || model === 'emate') {
+      selectedModel = activeEngine;
+    } else {
+      selectedModel = model;
+    }
 
     // ── Semantic RAG Retrieval & Re-ranking via Tool-Calling Layer ──────────
     const lastUserMessageObj = messages.filter((m: any) => m.role === 'user').pop();

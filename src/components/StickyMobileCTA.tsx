@@ -62,11 +62,13 @@ export default function StickyMobileCTA({ onQuickPrompt }: StickyMobileCTAProps)
         <button
           type="button"
           onClick={handleUpgradeOrNotes}
-          className="flex h-[48px] min-w-[92px] items-center justify-center gap-1.5 rounded-2xl border border-amber-200 bg-gradient-to-b from-amber-50 to-orange-50 px-3 text-[12px] font-semibold text-amber-700 shadow-sm transition active:scale-[0.99]"
-          title="Upgrade"
+          className="flex h-[48px] items-center justify-center gap-1.5 rounded-2xl bg-[#2563EB] hover:bg-[#1D4ED8] px-3.5 text-xs font-semibold text-white shadow-sm transition active:scale-95"
+          title="Upgrade to Pro"
         >
-          <Zap size={13} className="text-amber-500" />
-          <span>Go Pro</span>
+          <span>Upgrade</span>
+          <span className="rounded-full bg-white/22 px-2 py-0.5 text-[10px] font-bold text-white">
+            Pro
+          </span>
         </button>
       </div>
     </div>

@@ -19,6 +19,22 @@ const StudyAnalyzerReport = dynamic(() => import('@/components/StudyAnalyzerRepo
   ssr: false,
 });
 
+const CodeManifestCard = dynamic(() => import('@/components/multimodal/CodeManifestCard'), {
+  ssr: false,
+});
+
+const StructuredDataCard = dynamic(() => import('@/components/multimodal/StructuredDataCard'), {
+  ssr: false,
+});
+
+const DocumentArtifactCard = dynamic(() => import('@/components/multimodal/DocumentArtifactCard'), {
+  ssr: false,
+});
+
+const StatusFallbackBanner = dynamic(() => import('@/components/multimodal/StatusFallbackBanner'), {
+  ssr: false,
+});
+
 // ─── Process step definitions ────────────────────────────────────────────────
 const PROCESS_STEPS = [
   'Loaded subject notebook settings',
@@ -755,6 +771,54 @@ export default function ChatMessageBubble({
             )
           )}
         </div>
+
+        {/* Transparent Fallback Notice */}
+        {message.fallbackNotice && (
+          <StatusFallbackBanner message={message.fallbackNotice} />
+        )}
+
+        {/* Multimodal Output Blocks */}
+        {message.blocks && message.blocks.length > 0 && (
+          <div className="space-y-3 w-full">
+            {message.blocks.map((block) => {
+              if (block.type === 'status' && block.state === 'fallback') {
+                return (
+                  <StatusFallbackBanner
+                    key={block.id}
+                    message={block.message}
+                    selectedModel={block.selectedModel}
+                    fallbackFromModel={block.fallbackFromModel}
+                  />
+                );
+              }
+              if (block.type === 'code' && block.files && block.files.length > 0) {
+                return <CodeManifestCard key={block.id} files={block.files} theme={theme} />;
+              }
+              if (block.type === 'structured_data') {
+                return (
+                  <StructuredDataCard
+                    key={block.id}
+                    format={block.format}
+                    data={block.data}
+                    schemaTitle={block.schemaTitle}
+                    theme={theme}
+                  />
+                );
+              }
+              if (block.type === 'file') {
+                return (
+                  <DocumentArtifactCard
+                    key={block.id}
+                    title={block.filename}
+                    content={block.summary || ''}
+                    format={block.format === 'txt' ? 'txt' : 'markdown'}
+                  />
+                );
+              }
+              return null;
+            })}
+          </div>
+        )}
 
         {message.quiz && onQuizSubmit && (
           <InlineMCQQuiz

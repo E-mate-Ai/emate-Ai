@@ -80,7 +80,9 @@ import {
 } from '@/lib/credits';
 import { toast } from 'sonner';
 import StickyMobileCTA from '@/components/StickyMobileCTA';
+import UpgradeProButton from '@/components/UpgradeProButton';
 import { ALL_FREE_MODELS } from '@/lib/modelConfig';
+import { classifyTask, extractCodeBlocks } from '@/lib/multimodal/orchestrator';
 
 import type { MCQQuiz, MCQSubmission } from '@/lib/agents/types';
 
@@ -1699,6 +1701,35 @@ export default function ChatMainArea({
       return;
     }
 
+    // Natural-language image intent detection (no slash command required)
+    // Covers: "generate an image of X", "draw a diagram of X", "illustrate X", etc.
+    if (!isSystemAction && !imageGenMode && !isGuest) {
+      const { taskType: nlTaskType } = classifyTask(content, undefined, undefined);
+      if (nlTaskType === 'image_generation' && !imageCmdMatch) {
+        const cleanImagePrompt = content
+          .replace(/^\/(image|img)\s+/i, '')
+          .replace(/^(generate (an? )?image of|draw (an? )?image of|illustrate|render a diagram of|create a visual of)\s+/i, '')
+          .trim();
+        const userMsg: ChatMessage = {
+          id: createMessageId(),
+          role: 'user',
+          content,
+          mode,
+          timestamp: new Date().toISOString(),
+          subject: selectedContext.subject,
+        };
+        pendingQuestionScrollRef.current = userMsg.id;
+        setMessages((prev) => [...prev, userMsg]);
+        router.push(`/ai-topper-chat?chatId=${targetChatId}`, { scroll: false });
+        try {
+          await handleImageSend(cleanImagePrompt || content);
+        } finally {
+          sendInFlightRef.current = false;
+        }
+        return;
+      }
+    }
+
     // Image Gen Mode intercepts before the text/credit path
     if (imageGenMode && !isGuest) {
       router.push(`/ai-topper-chat?chatId=${targetChatId}`, { scroll: false });
@@ -2018,6 +2049,36 @@ export default function ChatMainArea({
           'ai'
         );
       }
+
+      // Extract code blocks from finished response and attach as structured OutputBlock[]
+      // so CodeManifestCard can render multi-file download tabs automatically.
+      const { codeBlocks: extractedBlocks } = extractCodeBlocks(accumulatedText);
+      if (extractedBlocks.length >= 1) {
+        const hasFilenames = extractedBlocks.some((b) => b.filename);
+        const hasMultipleBlocks = extractedBlocks.length > 1;
+        // Only attach structured block when there are named files or multiple code blocks
+        if (hasFilenames || hasMultipleBlocks) {
+          const outputBlock: import('@/lib/multimodal/types').CodeOutputBlock = {
+            id: `${assistantMsgId}-code`,
+            type: 'code',
+            language: extractedBlocks[0].language,
+            code: extractedBlocks[0].code,
+            files: extractedBlocks.map((b) => ({
+              filename: b.filename || `snippet.${b.language === 'typescript' ? 'ts' : b.language === 'python' ? 'py' : b.language === 'javascript' ? 'js' : 'txt'}`,
+              language: b.language,
+              content: b.code,
+            })),
+            timestamp: new Date().toISOString(),
+          };
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMsgId
+                ? { ...m, blocks: [outputBlock] }
+                : m
+            )
+          );
+        }
+      }
     } catch (err: any) {
       const rawMsg = err.message || 'Failed to connect to server.';
 
@@ -2293,18 +2354,11 @@ export default function ChatMainArea({
             </button>
           )}
 
-          {isPast48Hours ? (
-            /* Upgrade Button — automatically switches 48 hours after joining */
-            <button
-              type="button"
-              onClick={() => router.push('/upgrade')}
-              className="flex h-8 items-center gap-1.5 rounded-full border border-blue-200/90 bg-gradient-to-r from-blue-50 to-indigo-50 px-2.5 text-[10px] font-semibold text-blue-600 shadow-xs transition-all hover:from-blue-100 hover:to-indigo-100 hover:shadow-sm dark:border-blue-900/60 dark:bg-gradient-to-r dark:from-blue-950/50 dark:to-indigo-950/50 dark:text-blue-400 dark:hover:from-blue-900/60 dark:hover:to-indigo-900/60 sm:h-9 sm:gap-2 sm:px-4 sm:text-xs active:scale-95 cursor-pointer"
-              title="Upgrade to e-Mate Plus"
-            >
-              <Sparkles size={13} className="text-blue-600 dark:text-blue-400" />
-              <span>Upgrade</span>
-            </button>
-          ) : isReferralProgramEnabled ? (
+          {/* Upgrade to Pro Button */}
+          <UpgradeProButton />
+
+          {/* Invite Button with 48h reward card (if referral program enabled and within 48h) */}
+          {isReferralProgramEnabled && !isPast48Hours ? (
             /* Invite Button with 48h reward card */
             <div
               className="relative flex items-center"
