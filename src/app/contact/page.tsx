@@ -4,6 +4,8 @@ import AppLayout from '@/components/AppLayout';
 import PublicFooter from '@/components/PublicFooter';
 import Script from 'next/script';
 import { Mail, Phone, MapPin, Sparkles, Clock, MessageSquare } from 'lucide-react';
+import Breadcrumbs from '@/components/Breadcrumbs';
+import ContactForm from './ContactForm';
 
 export const metadata: Metadata = {
   title: 'Contact Us & Student Support',
@@ -76,6 +78,7 @@ export default function ContactPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(contactSchema) }}
       />
       <main className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
+        <Breadcrumbs items={[{ label: 'Contact', href: '/contact' }]} className="mb-6" />
         <section className="rounded-[32px] border border-zinc-200 bg-white p-6 shadow-sm sm:p-10 dark:border-zinc-800 dark:bg-zinc-900">
           <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-slate-100 px-3.5 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-700 dark:bg-zinc-800 dark:text-zinc-300">
             Support & Inquiries
@@ -130,6 +133,9 @@ export default function ContactPage() {
               </p>
             </div>
           </div>
+
+          {/* Working Contact Form */}
+          <ContactForm />
 
           <div className="mt-8 flex flex-wrap gap-3">
             <Link

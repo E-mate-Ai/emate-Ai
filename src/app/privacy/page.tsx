@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowLeft, Shield, Lock, FileText, Mail, MapPin, Phone } from 'lucide-react';
 import PublicFooter from '@/components/PublicFooter';
+import Breadcrumbs from '@/components/Breadcrumbs';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
@@ -61,6 +62,7 @@ export default function PrivacyPolicyPage() {
 
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-6 py-12 flex-1 w-full">
+        <Breadcrumbs items={[{ label: 'Privacy Policy', href: '/privacy' }]} className="mb-6" />
         {/* Title & Badge */}
         <div className="mb-10 text-left border-b border-zinc-200 dark:border-zinc-800 pb-8">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 text-xs font-semibold mb-3 border border-blue-200 dark:border-blue-800">

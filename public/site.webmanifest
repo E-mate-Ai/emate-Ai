@@ -1,8 +1,10 @@
 {
+  "id": "/",
   "name": "e-Mate AI",
   "short_name": "e-Mate AI",
   "description": "AI-powered study copilot with flashcards, quizzes, and syllabus-anchored assistance",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",

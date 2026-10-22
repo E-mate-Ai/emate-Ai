@@ -3,6 +3,7 @@ import Link from 'next/link';
 import Script from 'next/script';
 import AppLayout from '@/components/AppLayout';
 import PublicFooter from '@/components/PublicFooter';
+import Breadcrumbs from '@/components/Breadcrumbs';
 import { Sparkles, HelpCircle, ArrowRight } from 'lucide-react';
 
 export const metadata: Metadata = {
@@ -98,6 +99,7 @@ export default function FAQPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqStructuredData) }}
       />
       <main className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+        <Breadcrumbs items={[{ label: 'FAQ', href: '/faq' }]} className="mb-6" />
         <section className="rounded-[32px] border border-zinc-200 bg-white p-6 shadow-sm sm:p-10 dark:border-zinc-800 dark:bg-zinc-900">
           <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-violet-50 px-3.5 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-violet-700 dark:bg-violet-950/60 dark:text-violet-300">
             Frequently Asked Questions

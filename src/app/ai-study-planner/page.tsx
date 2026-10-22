@@ -3,6 +3,7 @@ import Link from 'next/link';
 import Script from 'next/script';
 import AppLayout from '@/components/AppLayout';
 import PublicFooter from '@/components/PublicFooter';
+import Breadcrumbs from '@/components/Breadcrumbs';
 import {
   Calendar,
   Sparkles,
@@ -143,6 +144,7 @@ export default function AIStudyPlannerPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
       <main className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+        <Breadcrumbs items={[{ label: 'AI Study Planner', href: '/ai-study-planner' }]} className="mb-6" />
         {/* Hero Section */}
         <section className="rounded-[32px] border border-zinc-200 bg-white p-6 shadow-sm sm:p-10 dark:border-zinc-800 dark:bg-zinc-900">
           <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-violet-50 px-3.5 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-violet-700 dark:bg-violet-950/60 dark:text-violet-300">

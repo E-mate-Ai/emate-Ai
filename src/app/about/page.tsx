@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import AppLayout from '@/components/AppLayout';
 import PublicFooter from '@/components/PublicFooter';
+import Breadcrumbs from '@/components/Breadcrumbs';
 import { Sparkles, Brain, BookOpen, Layers, CheckCircle2, ArrowRight } from 'lucide-react';
 
 export const metadata: Metadata = {
@@ -70,6 +71,7 @@ export default function AboutPage() {
   return (
     <AppLayout>
       <main className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+        <Breadcrumbs items={[{ label: 'About', href: '/about' }]} className="mb-6" />
         <section className="rounded-[32px] border border-zinc-200 bg-white p-6 shadow-sm sm:p-10 dark:border-zinc-800 dark:bg-zinc-900">
           <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3.5 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
             About e-Mate AI

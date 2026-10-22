@@ -44,6 +44,91 @@ const nextConfig = {
         formats: ['image/avif', 'image/webp'],
         qualities: [75, 85, 100],
     },
+
+    // 301 Permanent Redirects
+    // These are evaluated at the edge before any page rendering.
+    async redirects() {
+        return [
+            // Normalize old/alternate URL patterns
+            {
+                source: '/home',
+                destination: '/',
+                permanent: true,
+            },
+            {
+                source: '/index',
+                destination: '/',
+                permanent: true,
+            },
+            // Redirect old chat URL patterns to current workspace
+            {
+                source: '/chat',
+                destination: '/ai-topper-chat',
+                permanent: true,
+            },
+            {
+                source: '/study',
+                destination: '/ai-study-assistant',
+                permanent: true,
+            },
+            {
+                source: '/flashcards',
+                destination: '/ai-flashcard-generator',
+                permanent: true,
+            },
+            {
+                source: '/quiz',
+                destination: '/ai-quiz-generator',
+                permanent: true,
+            },
+            {
+                source: '/planner',
+                destination: '/ai-study-planner',
+                permanent: true,
+            },
+            {
+                source: '/exam-prep',
+                destination: '/ai-exam-prep',
+                permanent: true,
+            },
+            // Legacy/alternative URL patterns
+            {
+                source: '/privacy-policy',
+                destination: '/privacy',
+                permanent: true,
+            },
+            {
+                source: '/terms-of-service',
+                destination: '/terms',
+                permanent: true,
+            },
+            {
+                source: '/terms-and-conditions',
+                destination: '/terms',
+                permanent: true,
+            },
+            {
+                source: '/help',
+                destination: '/faq',
+                permanent: true,
+            },
+            {
+                source: '/support',
+                destination: '/contact',
+                permanent: true,
+            },
+            {
+                source: '/pricing',
+                destination: '/upgrade',
+                permanent: true,
+            },
+            {
+                source: '/plans',
+                destination: '/upgrade',
+                permanent: true,
+            },
+        ];
+    },
     
     // Optimize barrel package imports for lightning-fast compilation and minimal bundle size
     experimental: {

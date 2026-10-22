@@ -9,6 +9,7 @@ import { AuthListener } from '@/components/AuthListener';
 import CookieBanner from '@/components/CookieBanner';
 import { Analytics } from '@vercel/analytics/next';
 import { cn } from "@/lib/utils";
+import GoogleAnalytics from '@/components/GoogleAnalytics';
 
 const outfit = Outfit({
   subsets: ['latin'],
@@ -83,6 +84,7 @@ export const metadata: Metadata = {
     apple: [
       { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
     ],
+    shortcut: '/favicon.ico',
     other: [
       {
         rel: 'mask-icon',
@@ -127,18 +129,101 @@ export const metadata: Metadata = {
       'max-snippet': -1,
     },
   },
+  verification: {
+    // Add your Google Search Console verification code in NEXT_PUBLIC_GSC_VERIFICATION env var
+    // or replace the value below with your actual verification string.
+    google: process.env.NEXT_PUBLIC_GSC_VERIFICATION || 'googlec8f09d5210bf4299',
+  },
+};
+
+const websiteJsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'WebSite',
+      '@id': 'https://emate.live/#website',
+      url: 'https://emate.live/',
+      name: 'e-Mate AI',
+      alternateName: ['eMate AI', 'eMate', 'e-Mate', 'emate.live'],
+      description:
+        'AI-powered study assistant that helps students plan their preparation, understand concepts, practice with quizzes, revise effectively, and prepare for exams.',
+      publisher: {
+        '@id': 'https://emate.live/#organization',
+      },
+      inLanguage: 'en-US',
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: {
+          '@type': 'EntryPoint',
+          urlTemplate: 'https://emate.live/?q={search_term_string}',
+        },
+        'query-input': 'required name=search_term_string',
+      },
+    },
+    {
+      '@type': 'Organization',
+      '@id': 'https://emate.live/#organization',
+      name: 'e-Mate AI',
+      alternateName: ['eMate AI', 'emate.live'],
+      url: 'https://emate.live/',
+      logo: {
+        '@type': 'ImageObject',
+        '@id': 'https://emate.live/#logo',
+        url: 'https://emate.live/android-chrome-512x512.png',
+        contentUrl: 'https://emate.live/android-chrome-512x512.png',
+        width: 512,
+        height: 512,
+        caption: 'e-Mate AI',
+      },
+      image: { '@id': 'https://emate.live/#logo' },
+      sameAs: [
+        'https://emate.live',
+      ],
+      contactPoint: {
+        '@type': 'ContactPoint',
+        contactType: 'customer support',
+        email: 'support@emate.live',
+        availableLanguage: ['English'],
+      },
+    },
+    {
+      '@type': 'SoftwareApplication',
+      '@id': 'https://emate.live/#software',
+      name: 'e-Mate AI',
+      applicationCategory: 'EducationalApplication',
+      operatingSystem: 'Any',
+      offers: {
+        '@type': 'Offer',
+        price: '0',
+        priceCurrency: 'USD',
+      },
+      description:
+        'AI-powered study workspace for interactive flashcards, quizzes, PDF summarization, and personalized revision workflows for students.',
+      url: 'https://emate.live/',
+      author: {
+        '@id': 'https://emate.live/#organization',
+      },
+    },
+  ],
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={cn("overflow-x-hidden w-full max-w-[100vw]", "font-sans", geist.variable)} suppressHydrationWarning>
       <head>
+        {/* Favicons — explicit link tags alongside Next.js metadata for maximum compatibility */}
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" type="image/png" sizes="192x192" href="/android-chrome-192x192.png" />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/site.webmanifest" />
+        {/* Site-wide structured data — rendered synchronously so Googlebot sees it on first parse */}
+        <script
+          id="structured-data-schema"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -154,71 +239,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         suppressHydrationWarning={true}
         className={`${geist.className} ${geist.variable} ${outfit.variable} ${jetbrainsMono.variable} overflow-x-hidden w-full max-w-[100vw] antialiased min-h-screen bg-background text-foreground`}
       >
-        <Script
-          id="structured-data-schema"
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              '@context': 'https://schema.org',
-              '@graph': [
-                {
-                  '@type': 'WebSite',
-                  '@id': `${siteUrl}/#website`,
-                  url: siteUrl,
-                  name: 'e-Mate AI',
-                  alternateName: ['eMate AI', 'eMate', 'e-Mate', 'emate.live'],
-                  description:
-                    'AI-powered study assistant that helps students plan their preparation, understand concepts, practice with quizzes, revise effectively, and prepare for exams.',
-                  publisher: {
-                    '@id': `${siteUrl}/#organization`,
-                  },
-                  inLanguage: 'en-US',
-                  potentialAction: {
-                    '@type': 'SearchAction',
-                    target: `${siteUrl}/?q={search_term_string}`,
-                    'query-input': 'required name=search_term_string',
-                  },
-                },
-                {
-                  '@type': 'Organization',
-                  '@id': `${siteUrl}/#organization`,
-                  name: 'e-Mate AI',
-                  url: siteUrl,
-                  logo: {
-                    '@type': 'ImageObject',
-                    url: `${siteUrl}/android-chrome-512x512.png`,
-                    width: 512,
-                    height: 512,
-                  },
-                  contactPoint: {
-                    '@type': 'ContactPoint',
-                    contactType: 'customer support',
-                    email: 'support@emate.live',
-                    availableLanguage: ['English'],
-                  },
-                },
-                {
-                  '@type': 'SoftwareApplication',
-                  '@id': `${siteUrl}/#software`,
-                  name: 'e-Mate AI',
-                  applicationCategory: 'EducationalApplication',
-                  operatingSystem: 'Any',
-                  offers: {
-                    '@type': 'Offer',
-                    price: '0',
-                    priceCurrency: 'USD',
-                  },
-                  description:
-                    'AI-powered study workspace for interactive flashcards, quizzes, PDF summarization, and personalized revision workflows for students.',
-                  url: siteUrl,
-                  author: {
-                    '@id': `${siteUrl}/#organization`,
-                  },
-                },
-              ],
-            }),
-          }}
-        />
+        {/* Structured data is now in <head> above — no duplicate Script needed here */}
+        <GoogleAnalytics />
         <AuthListener />
         <RouteTracker />
         <Analytics />

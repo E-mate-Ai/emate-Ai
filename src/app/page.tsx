@@ -11,13 +11,13 @@ export const metadata: Metadata = {
   description:
     'e-Mate AI is an intelligent study assistant for students. Anchor sessions to your syllabus, generate interactive flashcards, practice quizzes, and prepare for exams.',
   alternates: {
-    canonical: '/',
+    canonical: 'https://emate.live/',
   },
   openGraph: {
     title: 'e-Mate AI — AI Study Assistant & Academic Exam Workspace',
     description:
       'e-Mate AI is an intelligent study assistant for students. Anchor sessions to your syllabus, generate interactive flashcards, practice quizzes, and prepare for exams.',
-    url: '/',
+    url: 'https://emate.live/',
     siteName: 'e-Mate AI',
     type: 'website',
     images: [
@@ -38,12 +38,35 @@ export const metadata: Metadata = {
   },
 };
 
+const homePageJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebPage',
+  '@id': 'https://emate.live/#webpage',
+  url: 'https://emate.live/',
+  name: 'e-Mate AI — AI Study Assistant & Academic Exam Workspace',
+  isPartOf: { '@id': 'https://emate.live/#website' },
+  about: { '@id': 'https://emate.live/#organization' },
+  primaryImageOfPage: {
+    '@type': 'ImageObject',
+    url: 'https://emate.live/opengraph-image.png',
+  },
+  description:
+    'e-Mate AI is an intelligent study assistant for students. Anchor sessions to your syllabus, generate interactive flashcards, practice quizzes, and prepare for exams.',
+  inLanguage: 'en-US',
+};
+
 export default function RootHomePage() {
   return (
-    <AppLayout>
-      <Suspense fallback={<SkeletonLoader />}>
-        <AITopperChatScreen />
-      </Suspense>
-    </AppLayout>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(homePageJsonLd) }}
+      />
+      <AppLayout>
+        <Suspense fallback={<SkeletonLoader />}>
+          <AITopperChatScreen />
+        </Suspense>
+      </AppLayout>
+    </>
   );
 }
