@@ -725,14 +725,6 @@ export default function Sidebar({
             borderColor: theme === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
           }}
         >
-          {/* Upgrade to Pro */}
-          <div className="flex items-center justify-between w-full px-2.5 py-1.5 rounded-2xl bg-blue-50/60 dark:bg-blue-950/25 border border-blue-200/50 dark:border-blue-900/30">
-            <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-              e-Mate Pro
-            </span>
-            <UpgradeProButton size="sm" />
-          </div>
-
           <button
             onClick={() => onOpenSettings?.()}
             className="flex items-center gap-3 w-full rounded-2xl px-2.5 py-2 text-sm font-medium transition hover:bg-black/5 dark:hover:bg-white/5"
