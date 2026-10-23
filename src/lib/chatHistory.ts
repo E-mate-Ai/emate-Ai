@@ -64,6 +64,16 @@ export interface ChatMessage {
   modelUsed?: string;
   /** Notice shown when fallback or capability routing occurred */
   fallbackNotice?: string;
+  /** Generated document artifact (DOCX/PPTX/MD) */
+  generatedDoc?: {
+    id: string;
+    title: string;
+    content: string;
+    format: 'docx' | 'pptx' | 'markdown';
+    wordCount?: number;
+    status: 'generating' | 'done' | 'error';
+    errorMessage?: string;
+  };
 }
 
 export interface ChatHistoryItem {

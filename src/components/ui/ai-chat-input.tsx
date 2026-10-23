@@ -18,6 +18,8 @@ import {
   Sparkles,
   Zap,
   UploadCloud,
+  FileText,
+  Presentation,
 } from 'lucide-react';
 
 // ----------------------------------------------------------------------
@@ -551,6 +553,10 @@ export interface PromptInputProps {
   imageGenPlaceholder?: string;
   /** When true, renders as a sleek, slim floating pill input bar */
   isSlim?: boolean;
+  /** Current document generation mode: false = off, 'docx' = Word doc, 'pptx' = Presentation */
+  docGenMode?: false | 'docx' | 'pptx';
+  /** Fired when the user clicks the document-generation toggle. Cycles off → docx → pptx → off */
+  onDocGenToggle?: () => void;
 }
 
 export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
@@ -573,6 +579,8 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
       onImageGenToggle,
       imageGenPlaceholder = 'Describe the diagram, chart, or visual you want e-Mate to generate...',
       isSlim = false,
+      docGenMode = false,
+      onDocGenToggle,
     },
     ref
   ) => {
@@ -1353,6 +1361,16 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
             </div>
           )}
 
+          {/* Active Document Gen Mode pill */}
+          {docGenMode && (
+            <div className="flex items-center gap-1.5 pb-2 px-1 -mt-1">
+              <FileText size={12} className="text-violet-500 dark:text-violet-400" />
+              <span className="text-[11px] font-medium text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/30 border border-violet-200 dark:border-violet-700/50 px-2 py-0.5 rounded-md flex items-center gap-1">
+                {docGenMode === 'pptx' ? 'Presentation Mode' : 'Document Mode'} Active
+              </span>
+            </div>
+          )}
+
           {/* Bottom Row: Toolbar Controls */}
           <div className="flex items-center justify-between pt-2.5 mt-2 border-t border-zinc-100 dark:border-zinc-800/60 w-full">
             {/* Left Side: Attach menu + Model & effort (always visible) */}
@@ -1605,6 +1623,28 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
                   }`}
                 >
                   <Wand2 className="w-4 h-4" />
+                </button>
+              )}
+
+              {/* Document Generation Mode toggle — cycles off → docx → pptx → off */}
+              {onDocGenToggle && (
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={onDocGenToggle}
+                  title={docGenMode === 'pptx' ? 'Presentation mode (click to disable)' : docGenMode === 'docx' ? 'Switch to presentation mode' : 'Generate document'}
+                  aria-pressed={!!docGenMode}
+                  aria-label="Toggle document generation mode"
+                  className={`h-8 w-8 rounded-full flex items-center justify-center transition-colors outline-none cursor-pointer relative ${
+                    docGenMode
+                      ? 'text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/30'
+                      : 'text-zinc-500 hover:text-violet-600 dark:text-zinc-400 dark:hover:text-violet-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                  }`}
+                >
+                  {docGenMode === 'pptx' ? <Presentation className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+                  {docGenMode && (
+                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-violet-500" />
+                  )}
                 </button>
               )}
 

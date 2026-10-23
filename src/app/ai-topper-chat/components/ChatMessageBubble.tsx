@@ -31,6 +31,10 @@ const DocumentArtifactCard = dynamic(() => import('@/components/multimodal/Docum
   ssr: false,
 });
 
+const DocumentGenerationCard = dynamic(() => import('@/components/multimodal/DocumentGenerationCard'), {
+  ssr: false,
+});
+
 const StatusFallbackBanner = dynamic(() => import('@/components/multimodal/StatusFallbackBanner'), {
   ssr: false,
 });
@@ -924,6 +928,14 @@ export default function ChatMessageBubble({
               />
             ))}
           </div>
+        )}
+
+        {/* Generated document artifact */}
+        {message.generatedDoc && (
+          <DocumentGenerationCard
+            doc={message.generatedDoc}
+            theme={theme}
+          />
         )}
 
         {/* Study Analyzer Report */}

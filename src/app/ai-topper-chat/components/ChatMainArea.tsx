@@ -83,6 +83,7 @@ import StickyMobileCTA from '@/components/StickyMobileCTA';
 import UpgradeProButton from '@/components/UpgradeProButton';
 import { ALL_FREE_MODELS } from '@/lib/modelConfig';
 import { classifyTask, extractCodeBlocks } from '@/lib/multimodal/orchestrator';
+import ArtifactsSidebar from '@/components/multimodal/ArtifactsSidebar';
 
 import type { MCQQuiz, MCQSubmission } from '@/lib/agents/types';
 
@@ -749,6 +750,16 @@ export default function ChatMainArea({
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [imageGenMode, setImageGenMode] = useState(false);
+  const [docGenMode, setDocGenMode] = useState<false | 'docx' | 'pptx'>(false);
+  const [isArtifactsOpen, setIsArtifactsOpen] = useState(false);
+
+  // All completed generated documents in this conversation
+  const conversationArtifacts = useMemo(() => {
+    return messages
+      .filter((m) => m.generatedDoc && m.generatedDoc.status === 'done')
+      .map((m) => m.generatedDoc!);
+  }, [messages]);
+
   const [quizLoading, setQuizLoading] = useState(false);
   // Preserved quiz data for the reinforce flow.
   const lastQuizRef = useRef<MCQQuiz | null>(null);
@@ -1099,36 +1110,18 @@ export default function ChatMainArea({
       saveChatTranscript(sessionIdRef.current, newMessages);
     }
 
-    // Pre-flight key verification: check if user has a connected OpenRouter key
+    // Get user's personal OpenRouter key if available (server falls back to Flux generator)
     const userApiKey = typeof window !== 'undefined'
       ? localStorage.getItem('user_openrouter_key') ||
         (document.cookie.split('; ').find((row) => row.startsWith('user_openrouter_key='))?.split('=')[1] ?? '')
       : '';
 
-    if (!userApiKey) {
-      toast.error('AI Image & Visual Note Generation is an e-Mate Plus feature. Upgrade to e-Mate Plus or connect your OpenRouter key to continue.');
-      handleConnectOpenRouter();
-      setMessages((prev) =>
-        prev.map((m) => {
-          if (m.id !== assistantMsg.id || !m.images?.length) return m;
-          return {
-            ...m,
-            images: [{ ...m.images[0], status: 'error' }],
-            content: 'AI Image & Visual Note Generation is an e-Mate Plus feature. Upgrade to e-Mate Plus or connect your OpenRouter key to continue.',
-          };
-        })
-      );
-      setIsStreaming(false);
-      return;
-    }
-
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (userApiKey) headers['Authorization'] = `Bearer ${userApiKey}`;
       const res = await fetch('/api/generate-image', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${userApiKey}`,
-        },
+        headers,
         body: JSON.stringify({ prompt }),
       });
 
@@ -1202,31 +1195,12 @@ export default function ChatMainArea({
         (document.cookie.split('; ').find((row) => row.startsWith('user_openrouter_key='))?.split('=')[1] ?? '')
       : '';
 
-    if (!userApiKey) {
-      toast.error('Image generation is available only for connected accounts. Connect your OpenRouter key to continue.');
-      handleConnectOpenRouter();
-      setMessages((prev) =>
-        prev.map((m) => {
-          if (m.id !== messageId || !m.images) return m;
-          return {
-            ...m,
-            images: m.images.map((img) =>
-              img.id === imageId ? { ...img, status: 'error' as const } : img
-            ),
-          };
-        })
-      );
-      setIsStreaming(false);
-      return;
-    }
-
     try {
+      const regenHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (userApiKey) regenHeaders['Authorization'] = `Bearer ${userApiKey}`;
       const res = await fetch('/api/generate-image', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${userApiKey}`,
-        },
+        headers: regenHeaders,
         body: JSON.stringify({ prompt }),
       });
 
@@ -1262,6 +1236,112 @@ export default function ChatMainArea({
             images: m.images.map((img) =>
               img.id === imageId ? { ...img, status: 'error' as const } : img
             ),
+          };
+        })
+      );
+    } finally {
+      setIsStreaming(false);
+    }
+  };
+
+  // ── Document Generation ────────────────────────────────────────────────────
+
+  /** Generate a document (DOCX / PPTX) and attach it to the chat as an artifact. */
+  const handleDocumentSend = async (prompt: string, format: 'docx' | 'pptx') => {
+    if (!prompt.trim() || isStreaming) return;
+    setDocGenMode(false);
+
+    const formatTimestamp = () => {
+      try { return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+      catch (_) { return ''; }
+    };
+
+    const userMsg: ChatMessage = {
+      id: createMessageId(),
+      role: 'user',
+      content: prompt,
+      mode,
+      timestamp: formatTimestamp(),
+      subject: selectedContext.subject,
+      isGeneralChat: !isStudyMode,
+    };
+
+    const docId = `doc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const assistantMsg: ChatMessage = {
+      id: createMessageId(),
+      role: 'assistant',
+      content: '',
+      mode,
+      timestamp: formatTimestamp(),
+      subject: selectedContext.subject,
+      isGeneralChat: !isStudyMode,
+      generatedDoc: {
+        id: docId,
+        title: prompt.length > 60 ? prompt.slice(0, 57) + '…' : prompt,
+        content: '',
+        format,
+        status: 'generating',
+      },
+    };
+
+    pendingQuestionScrollRef.current = userMsg.id;
+    setMessages((prev) => [...prev, userMsg, assistantMsg]);
+    setInputValue('');
+    setIsStreaming(true);
+
+    const userApiKey = typeof window !== 'undefined'
+      ? localStorage.getItem('user_openrouter_key') ||
+        (document.cookie.split('; ').find((row) => row.startsWith('user_openrouter_key='))?.split('=')[1] ?? '')
+      : '';
+
+    try {
+      const docHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (userApiKey) docHeaders['Authorization'] = `Bearer ${userApiKey}`;
+
+      const res = await fetch('/api/generate-document', {
+        method: 'POST',
+        headers: docHeaders,
+        body: JSON.stringify({ prompt, format }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || `Document generation failed (${res.status})`);
+      }
+
+      const { content, title, wordCount } = data as { content: string; title: string; wordCount: number };
+
+      const assistantNarration = format === 'pptx'
+        ? `I have crafted a presentation outline for **${title}**. You can download the complete PowerPoint presentation (.pptx) or preview the slides below.`
+        : `I have prepared a comprehensive document for **${title}**. You can download the complete Word document (.docx) or view the structured sections below.`;
+
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id !== assistantMsg.id || !m.generatedDoc) return m;
+          return {
+            ...m,
+            content: assistantNarration,
+            generatedDoc: {
+              ...m.generatedDoc,
+              title,
+              content,
+              wordCount,
+              status: 'done',
+            },
+          };
+        })
+      );
+      setIsArtifactsOpen(true);
+    } catch (err: any) {
+      const msg = err?.message || 'Document generation failed. Please try again.';
+      toast.error(msg);
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id !== assistantMsg.id || !m.generatedDoc) return m;
+          return {
+            ...m,
+            content: msg,
+            generatedDoc: { ...m.generatedDoc, status: 'error', errorMessage: msg },
           };
         })
       );
@@ -1730,11 +1810,57 @@ export default function ChatMainArea({
       }
     }
 
-    // Image Gen Mode intercepts before the text/credit path
-    if (imageGenMode && !isGuest) {
+    const lowerContent = content.trim().toLowerCase();
+
+    // 1. Image Gen Intent: explicit mode, /image command, or natural language
+    const isImageIntent =
+      imageGenMode ||
+      /^\/(image|img|draw)\b/i.test(lowerContent) ||
+      /\b(generate|create|draw|make|show me|paint|render)\b.*\b(images?|pictures?|photos?|illustrations?|drawings?|visuals?|artworks?)\b/i.test(lowerContent) ||
+      /\b(images?|pictures?|photos?)\s+(of|for|about)\b/i.test(lowerContent) ||
+      /^(draw|paint)\s+(a|an|the|me)?\s*\w+/i.test(lowerContent);
+
+    if (isImageIntent) {
+      router.push(`/ai-topper-chat?chatId=${targetChatId}`, { scroll: false });
+      const promptToUse = content
+        .replace(/^\/(image|img|draw)\s+/i, '')
+        .replace(/^(please\s+)?(generate|create|draw|make|show me|paint|render)\s+(an?\s+)?(image|picture|photo|illustration|drawing|visual|graphic|artwork)\s+(of|about|for)?\s*/i, '')
+        .trim();
+      try {
+        await handleImageSend(promptToUse || content);
+      } finally {
+        sendInFlightRef.current = false;
+      }
+      return;
+    }
+
+    // 2. Presentation / PPT Intent: explicit mode or natural language
+    const isPptxIntent =
+      docGenMode === 'pptx' ||
+      /\b(create|make|generate|build|prepare|design|give me|write)\b.*\b(presentation|ppt|pptx|powerpoint|slide deck|slides?)\b/i.test(lowerContent) ||
+      /\b(presentation|ppt|pptx|powerpoint|slide deck)\b.*\b(about|on|for|regarding)\b/i.test(lowerContent) ||
+      /^(make|create|generate)\s+(a\s+)?(ppt|presentation|slide deck)\b/i.test(lowerContent);
+
+    if (isPptxIntent) {
       router.push(`/ai-topper-chat?chatId=${targetChatId}`, { scroll: false });
       try {
-        await handleImageSend(content);
+        await handleDocumentSend(content, 'pptx');
+      } finally {
+        sendInFlightRef.current = false;
+      }
+      return;
+    }
+
+    // 3. Document / DOCX Intent: explicit mode or natural language
+    const isDocxIntent =
+      docGenMode === 'docx' ||
+      /\b(create|make|generate|build|write|prepare)\b.*\b(a document|a docx|word doc|a report|document file|notes doc)\b/i.test(lowerContent) ||
+      /\b(document|docx|word doc)\b.*\b(about|on|for|regarding)\b/i.test(lowerContent);
+
+    if (isDocxIntent) {
+      router.push(`/ai-topper-chat?chatId=${targetChatId}`, { scroll: false });
+      try {
+        await handleDocumentSend(content, 'docx');
       } finally {
         sendInFlightRef.current = false;
       }
@@ -2354,6 +2480,26 @@ export default function ChatMainArea({
             </button>
           )}
 
+          {/* Claude-style Artifacts / Files Drawer Toggle */}
+          <button
+            type="button"
+            onClick={() => setIsArtifactsOpen((v) => !v)}
+            className={`flex h-8 items-center gap-1.5 px-3 rounded-full text-xs font-semibold shadow-xs transition-all cursor-pointer border ${
+              isArtifactsOpen
+                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                : 'bg-white/80 dark:bg-zinc-900/80 border-zinc-200/80 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+            }`}
+            title="View artifacts & generated documents"
+          >
+            <Layers size={13} className={isArtifactsOpen ? 'text-amber-400' : 'text-zinc-400'} />
+            <span>Files</span>
+            {conversationArtifacts.length > 0 && (
+              <span className="flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-black">
+                {conversationArtifacts.length}
+              </span>
+            )}
+          </button>
+
           {/* Upgrade to Pro Button */}
           <UpgradeProButton />
 
@@ -2746,13 +2892,22 @@ export default function ChatMainArea({
               efforts={['Quick', 'Balanced', 'Deep']}
               allowAttachments={!isGuest}
               placeholder={
-                !isStudyMode
-                  ? "Ask anything, brainstorm ideas, debug code, or type / for commands..."
-                  : "Ask a study question, paste notes, or type / for commands..."
+                docGenMode === 'pptx'
+                  ? 'Describe the presentation topic, audience, and key points to cover…'
+                  : docGenMode === 'docx'
+                    ? 'Describe what document you want — topic, format, and key sections…'
+                    : !isStudyMode
+                      ? "Ask anything, brainstorm ideas, debug code, or type / for commands..."
+                      : "Ask a study question, paste notes, or type / for commands..."
               }
               className="mx-auto w-full max-w-2xl mb-3.5"
               imageGenMode={imageGenMode}
-              onImageGenToggle={!isGuest ? () => setImageGenMode((v) => !v) : undefined}
+              onImageGenToggle={() => setImageGenMode((v) => !v)}
+              docGenMode={docGenMode}
+              onDocGenToggle={() => {
+                setDocGenMode((v) => (v === false ? 'docx' : v === 'docx' ? 'pptx' : false));
+                if (!docGenMode) setImageGenMode(false);
+              }}
             />
 
             {/* Framer AI / v0 Inspired Pre-Suggestion Card with Category Tabs & Hover Arrows */}
@@ -2907,20 +3062,36 @@ export default function ChatMainArea({
               }}
               efforts={['Quick', 'Balanced', 'Deep']}
               allowAttachments={!isGuest}
-              placeholder={
-                !isStudyMode
-                  ? 'Ask e-Mate a question, debug code, or request help...'
-                  : mode === 'sprint'
-                    ? 'Ask for a rapid summary, formula, or exam cram tip...'
-                    : 'Ask for a step-by-step explanation, proof, or derivation...'
-              }
               imageGenMode={imageGenMode}
-              onImageGenToggle={!isGuest ? () => setImageGenMode((v) => !v) : undefined}
+              onImageGenToggle={() => setImageGenMode((v) => !v)}
+              docGenMode={docGenMode}
+              onDocGenToggle={() => {
+                setDocGenMode((v) => (v === false ? 'docx' : v === 'docx' ? 'pptx' : false));
+                if (!docGenMode) setImageGenMode(false);
+              }}
+              placeholder={
+                docGenMode === 'pptx'
+                  ? 'Describe the presentation topic, audience, and key points to cover…'
+                  : docGenMode === 'docx'
+                    ? 'Describe what document you want — topic, format, and key sections…'
+                    : !isStudyMode
+                      ? 'Ask e-Mate a question, debug code, or request help...'
+                      : mode === 'sprint'
+                        ? 'Ask for a rapid summary, formula, or exam cram tip...'
+                        : 'Ask for a step-by-step explanation, proof, or derivation...'
+              }
             />
           </div>
         </div>
       )}
 
+      {/* Claude-style Artifacts Sidebar Drawer */}
+      <ArtifactsSidebar
+        isOpen={isArtifactsOpen}
+        onClose={() => setIsArtifactsOpen(false)}
+        artifacts={conversationArtifacts}
+        theme={theme}
+      />
     </div>
   );
 }

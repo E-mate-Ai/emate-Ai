@@ -1,6 +1,7 @@
 import React from 'react';
 import type { Metadata } from 'next';
 import Script from 'next/script';
+import { Analytics } from "@vercel/analytics/next"
 
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ||
@@ -61,36 +62,12 @@ export default function FlashcardLayout({
     },
   };
 
-  const breadcrumbSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      {
-        '@type': 'ListItem',
-        position: 1,
-        name: 'Home',
-        item: siteUrl,
-      },
-      {
-        '@type': 'ListItem',
-        position: 2,
-        name: 'AI Flashcard Generator',
-        item: `${siteUrl}/ai-flashcard-generator`,
-      },
-    ],
-  };
-
   return (
     <>
       <Script
         id="flashcard-software-schema"
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(flashcardSchema) }}
-      />
-      <Script
-        id="flashcard-breadcrumb-schema"
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
       />
       {children}
     </>

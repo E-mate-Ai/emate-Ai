@@ -10,7 +10,7 @@ const nextConfig = {
     // Fix workspace root resolution to avoid scanning parent user directory
     outputFileTracingRoot: path.resolve(__dirname),
     
-    serverExternalPackages: ['pdf-parse', 'pdfjs-dist', 'mammoth', '@napi-rs/canvas'],
+    serverExternalPackages: ['pdf-parse', 'pdfjs-dist', 'mammoth', '@napi-rs/canvas', 'docx', 'pptxgenjs'],
     
     // Explicitly trace pdfjs worker into Vercel/Next serverless function bundles
     outputFileTracingIncludes: {
@@ -145,7 +145,16 @@ const nextConfig = {
         ],
     },
     
-    webpack(config, { dev }) {
+    webpack(config, { dev, isServer }) {
+        if (!isServer) {
+            config.resolve.fallback = {
+                ...config.resolve.fallback,
+                fs: false,
+                path: false,
+                child_process: false,
+                'node:fs': false,
+            };
+        }
         if (dev) {
             // Only enable component-tagger if explicitly requested to avoid AST parsing overhead
             if (process.env.ENABLE_COMPONENT_TAGGER === 'true') {
