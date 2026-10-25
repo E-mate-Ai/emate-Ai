@@ -47,7 +47,9 @@
         "lint:fix": "next lint --fix",
         "format": "prettier --write \"src/**/*.{ts,tsx,css,md,json}\"",
         "serve": "next start",
-        "type-check": "tsc --noEmit"
+        "type-check": "tsc --noEmit",
+        "test:agent-skills": "bash scripts/test-agent-skills.sh",
+        "test:chat-stream": "bash scripts/test-chat-stream.sh"
     },
     "dependencies": {
         "@base-ui/react": "^1.8.0",

@@ -1,44 +1,55 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   X,
   Download,
   ChevronLeft,
   ChevronRight,
-  Maximize2,
   Minimize2,
+  Play,
+  Pause,
   Presentation,
   FileText,
   Copy,
   Check,
   Loader2,
-  Sparkles,
-  BookOpen,
-  Eye,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { exportToDocx, exportToPptx, downloadFile } from '@/lib/documentExport';
+import {
+  createPresentationCoverSvg,
+  omitModelTitleSlide,
+  extractPresentationCoverData,
+} from '@/lib/presentationCover';
+import { parseMarkdownDocument, detectDocumentTemplate, type MarkdownBlock } from '@/lib/standardDocument';
 import type { GeneratedDocument } from './DocumentGenerationCard';
 
 interface DocumentLivePreviewModalProps {
   doc: GeneratedDocument | null;
   isOpen: boolean;
   onClose: () => void;
+  onMinimize?: () => void;
   theme?: 'light' | 'dark';
+  inline?: boolean;
 }
 
 interface ParsedSlide {
   title: string;
   bullets: string[];
   notes?: string;
+  isCover?: boolean;
 }
 
-function parseSlides(markdown: string): ParsedSlide[] {
-  const rawSections = markdown.split(/---SLIDE:[^-]*---/).filter((s) => s.trim().length > 0);
+function parseSlides(markdown: string, presentationTitle: string): ParsedSlide[] {
+  const presentationContent = omitModelTitleSlide(markdown);
+  const rawSections = presentationContent.split(/---SLIDE:[^-]*---/).filter((s) => s.trim().length > 0);
+  let contentSlides: ParsedSlide[];
 
   if (rawSections.length > 0) {
-    return rawSections.map((sec, idx) => {
+    contentSlides = rawSections.map((sec, idx) => {
       const lines = sec.trim().split('\n');
       const titleLine = lines.find((l) => l.trim().startsWith('## ') || l.trim().startsWith('# '));
       const title = titleLine ? titleLine.replace(/^#{1,2}\s+/, '').trim() : `Slide ${idx + 1}`;
@@ -69,42 +80,176 @@ function parseSlides(markdown: string): ParsedSlide[] {
         notes,
       };
     });
+  } else {
+    // Fallback split by ##
+    const parts = presentationContent.split(/(?=^##\s+)/m).filter(Boolean);
+    if (parts.length > 1) {
+      contentSlides = parts.map((part, idx) => {
+        const lines = part.trim().split('\n');
+        const title = lines[0].replace(/^##\s+/, '').trim();
+        const bullets = lines
+          .slice(1)
+          .filter((l) => l.trim().length > 0)
+          .map((l) => l.replace(/^[-*•]\s+/, '').trim());
+        return {
+          title: title || `Slide ${idx + 1}`,
+          bullets: bullets.length > 0 ? bullets : ['Key point overview'],
+        };
+      });
+    } else {
+      contentSlides = [{ title: 'Overview', bullets: [presentationContent.slice(0, 300)] }];
+    }
   }
 
-  // Fallback split by ##
-  const parts = markdown.split(/(?=^##\s+)/m).filter(Boolean);
-  if (parts.length > 1) {
-    return parts.map((part, idx) => {
-      const lines = part.trim().split('\n');
-      const title = lines[0].replace(/^##\s+/, '').trim();
-      const bullets = lines
-        .slice(1)
-        .filter((l) => l.trim().length > 0)
-        .map((l) => l.replace(/^[-*•]\s+/, '').trim());
-      return {
-        title: title || `Slide ${idx + 1}`,
-        bullets: bullets.length > 0 ? bullets : ['Key point overview'],
-      };
-    });
+  const coverData = extractPresentationCoverData(markdown, presentationTitle);
+  return [
+    {
+      title: coverData.title,
+      bullets: coverData.subtitle ? [coverData.subtitle] : [],
+      notes: coverData.speakerNotes,
+      isCover: true,
+    },
+    ...contentSlides,
+  ];
+}
+
+// ── Height-aware pagination for true A4 page flow ─────────────────────────
+function estimateBlockHeight(block: MarkdownBlock): number {
+  switch (block.type) {
+    case 'h1':
+      return 62;
+    case 'h2':
+      return 48;
+    case 'h3':
+      return 36;
+    case 'two-column-row':
+      return 28;
+    case 'contact-bar':
+      return 32;
+    case 'equation':
+      return 65;
+    case 'callout':
+      return 75;
+    case 'blockquote':
+      return 65;
+    case 'table':
+      return 45 + (block.data.rows?.length || 1) * 38 + 24;
+    case 'bullet-list':
+      return (block.items?.length || 1) * 28 + 12;
+    case 'ordered-list':
+      return (block.items?.length || 1) * 28 + 12;
+    case 'divider':
+      return 26;
+    case 'paragraph':
+    default: {
+      const len = (block as any).text?.length || 60;
+      const lines = Math.ceil(len / 85);
+      return Math.max(34, lines * 23 + 12);
+    }
+  }
+}
+
+function paginateDocumentBlocks(blocks: MarkdownBlock[]): MarkdownBlock[][] {
+  if (!blocks || blocks.length === 0) return [[]];
+
+  const pages: MarkdownBlock[][] = [];
+  let currentPage: MarkdownBlock[] = [];
+  let currentHeight = 0;
+
+  // Page 1 header block consumes ~140px, so page 1 available content is ~700px
+  // Pages 2+ have running header and full body area, so available content is ~860px
+  let pageMaxHeight = 700;
+
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i];
+    const blockH = estimateBlockHeight(block);
+
+    if (currentPage.length > 0 && currentHeight + blockH > pageMaxHeight) {
+      // Prevent orphan heading at the very bottom of the page
+      const lastBlock = currentPage[currentPage.length - 1];
+      if (lastBlock.type === 'h1' || lastBlock.type === 'h2' || lastBlock.type === 'h3') {
+        currentPage.pop();
+        pages.push(currentPage);
+        currentPage = [lastBlock, block];
+        currentHeight = estimateBlockHeight(lastBlock) + blockH;
+      } else {
+        pages.push(currentPage);
+        currentPage = [block];
+        currentHeight = blockH;
+      }
+      pageMaxHeight = 860;
+    } else {
+      currentPage.push(block);
+      currentHeight += blockH;
+    }
   }
 
-  return [{ title: 'Overview', bullets: [markdown.slice(0, 300)] }];
+  if (currentPage.length > 0) {
+    pages.push(currentPage);
+  }
+
+  return pages.length > 0 ? pages : [[]];
+}
+
+function renderInlineContent(text: string, isDark: boolean): React.ReactNode {
+  const regex = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g;
+  const parts = text.split(regex);
+
+  return parts.map((part, idx) => {
+    if (!part) return null;
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={idx} className={`font-semibold ${isDark ? 'text-white' : 'text-zinc-950'}`}>
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    if (part.startsWith('*') && part.endsWith('*')) {
+      return (
+        <em key={idx} className={`italic ${isDark ? 'text-zinc-300' : 'text-zinc-700'}`}>
+          {part.slice(1, -1)}
+        </em>
+      );
+    }
+    if (part.startsWith('`') && part.endsWith('`')) {
+      return (
+        <code
+          key={idx}
+          className={`px-1.5 py-0.5 rounded text-xs font-mono ${
+            isDark ? 'bg-zinc-800 text-blue-400' : 'bg-zinc-100 text-blue-600'
+          }`}
+        >
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    return part;
+  });
 }
 
 export default function DocumentLivePreviewModal({
   doc,
   isOpen,
   onClose,
+  onMinimize,
   theme = 'dark',
+  inline = false,
 }: DocumentLivePreviewModalProps) {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [fitToView, setFitToView] = useState(true);
+  const [docScale, setDocScale] = useState(100);
   const isDark = theme === 'dark';
 
   const isPptx = doc?.format === 'pptx';
-  const slides = isPptx && doc?.content ? parseSlides(doc.content) : [];
+  const slides = isPptx && doc?.content ? parseSlides(doc.content, doc.title) : [];
+
+  const parsedDoc = useMemo(() => {
+    if (isPptx || !doc?.content) return null;
+    return parseMarkdownDocument(doc.content, doc.title);
+  }, [isPptx, doc?.content, doc?.title]);
 
   // Keyboard navigation for presentation slides
   const handleKeyDown = useCallback(
@@ -117,14 +262,10 @@ export default function DocumentLivePreviewModal({
         e.preventDefault();
         setCurrentSlideIndex((prev) => Math.max(prev - 1, 0));
       } else if (e.key === 'Escape') {
-        if (isFullscreen) {
-          setIsFullscreen(false);
-        } else {
-          onClose();
-        }
+        onClose();
       }
     },
-    [isOpen, isPptx, slides.length, isFullscreen, onClose]
+    [isOpen, isPptx, slides.length, onClose]
   );
 
   useEffect(() => {
@@ -136,12 +277,27 @@ export default function DocumentLivePreviewModal({
   useEffect(() => {
     if (isOpen) {
       setCurrentSlideIndex(0);
+      setIsPlaying(false);
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isPlaying || slides.length < 2) return;
+    const timer = window.setInterval(() => {
+      setCurrentSlideIndex((index) => (index + 1 >= slides.length ? 0 : index + 1));
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [isPlaying, slides.length]);
 
   if (!isOpen || !doc) return null;
 
   const currentSlide = slides[currentSlideIndex];
+  const coverSvg = isPptx && doc
+    ? createPresentationCoverSvg(doc.title || 'Presentation', doc.content, { slideCount: slides.length })
+    : '';
+  const coverImage = isPptx
+    ? `url("data:image/svg+xml,${encodeURIComponent(coverSvg)}")`
+    : undefined;
   const safeTitle = (doc.title || 'document').replace(/[^a-z0-9_-]/gi, '_');
 
   const handleDownload = async () => {
@@ -175,12 +331,12 @@ export default function DocumentLivePreviewModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+    <div className={inline
+      ? 'flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden'
+      : `fixed inset-0 z-[70] flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in duration-200 ${isPptx ? '' : 'p-3 sm:p-6'}`}>
       {/* Container */}
       <div
-        className={`relative flex flex-col w-full rounded-3xl border shadow-2xl overflow-hidden transition-all duration-300 ${
-          isFullscreen ? 'h-full max-w-none rounded-none' : 'max-w-5xl h-[88vh] max-h-[900px]'
-        } ${isDark ? 'bg-[#0f1117] border-white/10 text-zinc-100' : 'bg-[#fafafa] border-zinc-200 text-zinc-900'}`}
+        className={`relative flex min-h-0 min-w-0 flex-col overflow-hidden ${inline ? 'h-full w-full max-w-none' : isPptx ? 'h-full w-full max-w-none' : 'h-[88vh] max-h-[900px] w-full max-w-5xl rounded-3xl border shadow-2xl'} ${isDark ? 'bg-[#0f1117] text-zinc-100' : 'bg-[#fafafa] text-zinc-900'}`}
       >
         {/* ── Top Header Bar ── */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/10 dark:border-white/10 bg-black/10">
@@ -206,14 +362,78 @@ export default function DocumentLivePreviewModal({
                 <p className="text-sm font-semibold truncate">{doc.title}</p>
               </div>
               <p className="text-xs text-zinc-400 mt-0.5">
-                {isPptx ? `Presentation · ${slides.length} slides` : 'Word Document · Structured Markdown'}
+                {isPptx
+                  ? `Presentation · ${slides.length} slides`
+                  : parsedDoc
+                    ? `${parsedDoc.metadata.docType} · ${paginateDocumentBlocks(parsedDoc.blocks).length} page${paginateDocumentBlocks(parsedDoc.blocks).length !== 1 ? 's' : ''}`
+                    : 'Document · .docx'}
               </p>
             </div>
           </div>
 
+          {/* Doc Zoom Controls — accessible 0-100 scale option */}
+          {!isPptx && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 shrink-0" role="group" aria-label="Document page scale">
+              <button
+                type="button"
+                aria-label="Decrease page size (-)"
+                title="Zoom out"
+                onClick={() => setDocScale((s) => Math.max(0, s - 10))}
+                className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                disabled={docScale <= 0}
+              >
+                <ZoomOut size={14} />
+              </button>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={docScale}
+                onChange={(e) => setDocScale(Number(e.target.value))}
+                className="w-24 h-1 accent-amber-400 cursor-pointer"
+                aria-label="Page scale (0-100)"
+              />
+              <button
+                type="button"
+                aria-label="Increase page size (+)"
+                title="Zoom in"
+                onClick={() => setDocScale((s) => Math.min(100, s + 10))}
+                className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                disabled={docScale >= 100}
+              >
+                <ZoomIn size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setDocScale(100)}
+                className={`px-2 py-0.5 rounded-md text-[11px] font-bold tabular-nums transition-colors cursor-pointer ${
+                  docScale !== 100
+                    ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 border border-amber-500/30'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+                title="Reset scale to 100%"
+                aria-label="Reset scale to 100%"
+              >
+                {docScale}%
+              </button>
+            </div>
+          )}
+
           {/* Action buttons */}
           <div className="flex items-center gap-2 shrink-0">
-            <button
+            {isPptx && onMinimize && (
+              <button
+                type="button"
+                onClick={onMinimize}
+                className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                title="Minimize to Files"
+                aria-label="Minimize preview to Files"
+              >
+                <Minimize2 size={16} />
+              </button>
+            )}
+            {!inline && <button
               type="button"
               onClick={handleCopy}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border border-white/10 hover:bg-white/10 transition-colors cursor-pointer text-zinc-300"
@@ -221,7 +441,21 @@ export default function DocumentLivePreviewModal({
             >
               {copied ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
               <span className="hidden sm:inline">{copied ? 'Copied' : 'Copy'}</span>
-            </button>
+            </button>}
+            {isPptx && <button
+              type="button"
+              onClick={() => setFitToView((fit) => !fit)}
+              className="rounded-xl border border-white/10 px-3 py-2 text-xs text-zinc-300 hover:bg-white/10"
+              aria-label={fitToView ? 'Use actual slide size' : 'Fit slide to panel'}
+              title={fitToView ? 'Fit' : '100%'}
+            >{fitToView ? 'Fit' : '100%'}</button>}
+            {isPptx && <button
+              type="button"
+              onClick={() => setIsPlaying((playing) => !playing)}
+              className="rounded-xl border border-white/10 p-2 text-zinc-300 hover:bg-white/10"
+              aria-label={isPlaying ? 'Pause slideshow' : 'Play slideshow'}
+              title={isPlaying ? 'Pause' : 'Play'}
+            >{isPlaying ? <Pause size={16} /> : <Play size={16} />}</button>}
 
             <button
               type="button"
@@ -232,17 +466,6 @@ export default function DocumentLivePreviewModal({
               {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
               <span>Download {isPptx ? '.pptx' : '.docx'}</span>
             </button>
-
-            {isPptx && (
-              <button
-                type="button"
-                onClick={() => setIsFullscreen((v) => !v)}
-                className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-              >
-                {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-              </button>
-            )}
 
             <button
               type="button"
@@ -259,15 +482,13 @@ export default function DocumentLivePreviewModal({
         <div className="flex-1 overflow-hidden flex flex-col min-h-0">
           {isPptx ? (
             /* ── Presentation 16:9 Canvas Viewer ── */
-            <div className="flex-1 flex flex-col justify-between p-4 sm:p-6 overflow-hidden bg-black/40">
+              <div className="flex-1 flex flex-col justify-between p-3 sm:p-5 overflow-hidden bg-black/40">
               {/* Slide Screen (16:9 Aspect Ratio) */}
-              <div className="flex-1 flex items-center justify-center min-h-0">
+                <div className="flex-1 flex items-center justify-center min-h-0 overflow-auto">
                 <div
-                  className="relative w-full max-w-4xl aspect-[16/9] rounded-2xl p-8 sm:p-12 shadow-2xl flex flex-col justify-between overflow-hidden border border-white/10"
+                  className={`relative aspect-[16/9] overflow-hidden border border-white/10 rounded-2xl p-6 sm:p-10 shadow-2xl flex flex-col justify-between ${fitToView ? 'w-full max-w-6xl' : 'w-[960px] max-w-none shrink-0'}`}
                   style={{
-                    background: currentSlideIndex === 0
-                      ? 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)'
-                      : 'linear-gradient(135deg, #18181b 0%, #27272a 100%)',
+                    background: 'linear-gradient(135deg, #18181b 0%, #27272a 100%)',
                   }}
                 >
                   {/* Slide Header */}
@@ -283,26 +504,49 @@ export default function DocumentLivePreviewModal({
 
                     <h2
                       className={`font-bold tracking-tight text-white ${
-                        currentSlideIndex === 0 ? 'text-2xl sm:text-4xl' : 'text-xl sm:text-3xl'
+                        currentSlideIndex === 0 ? 'text-2xl sm:text-4xl lg:text-5xl' : 'text-xl sm:text-3xl'
                       }`}
                     >
                       {currentSlide?.title}
                     </h2>
+
+                    {currentSlideIndex === 0 && (
+                      <div className="h-1 w-16 sm:w-20 rounded-full bg-amber-400 mt-3 sm:mt-4" />
+                    )}
                   </div>
 
                   {/* Slide Bullets */}
                   <div className="my-auto py-4 space-y-3">
-                    {currentSlide?.bullets.map((bullet, bi) => {
-                      const cleanBullet = bullet.replace(/\*\*(.*?)\*\*/g, '$1');
-                      return (
-                        <div key={bi} className="flex items-start gap-3">
-                          <span className="flex h-2 w-2 rounded-full bg-amber-400 mt-2 shrink-0 shadow-xs shadow-amber-400/50" />
-                          <p className="text-sm sm:text-base leading-relaxed text-zinc-200 font-medium">
-                            {cleanBullet}
-                          </p>
-                        </div>
-                      );
-                    })}
+                    {currentSlideIndex === 0 && currentSlide?.bullets.length > 0 ? (
+                      <div className="space-y-3">
+                        <p className="text-base sm:text-xl text-zinc-300 font-normal leading-relaxed max-w-3xl">
+                          {currentSlide.bullets[0].replace(/\*\*(.*?)\*\*/g, '$1')}
+                        </p>
+                        {currentSlide.bullets.slice(1).map((bullet, bi) => {
+                          const cleanBullet = bullet.replace(/\*\*(.*?)\*\*/g, '$1');
+                          return (
+                            <div key={bi} className="flex items-start gap-3 pt-1">
+                              <span className="flex h-2 w-2 rounded-full bg-amber-400 mt-2 shrink-0 shadow-xs shadow-amber-400/50" />
+                              <p className="text-sm sm:text-base leading-relaxed text-zinc-200 font-medium">
+                                {cleanBullet}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      currentSlide?.bullets.map((bullet, bi) => {
+                        const cleanBullet = bullet.replace(/\*\*(.*?)\*\*/g, '$1');
+                        return (
+                          <div key={bi} className="flex items-start gap-3">
+                            <span className="flex h-2 w-2 rounded-full bg-amber-400 mt-2 shrink-0 shadow-xs shadow-amber-400/50" />
+                            <p className="text-sm sm:text-base leading-relaxed text-zinc-200 font-medium">
+                              {cleanBullet}
+                            </p>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
 
                   {/* Slide Footer / Speaker Notes */}
@@ -359,72 +603,371 @@ export default function DocumentLivePreviewModal({
               </div>
             </div>
           ) : (
-            /* ── Document Reader A4 View ── */
-            <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex justify-center bg-zinc-950/40">
-              <div
-                className={`w-full max-w-3xl rounded-2xl p-6 sm:p-12 shadow-2xl border transition-colors ${
-                  isDark
-                    ? 'bg-[#18181b] border-white/10 text-zinc-200'
-                    : 'bg-white border-zinc-200 text-zinc-900 shadow-zinc-200'
-                }`}
-                style={{ fontFamily: "'Calibri', 'Inter', sans-serif" }}
-              >
-                <div className="prose dark:prose-invert max-w-none space-y-4">
-                  {doc.content.split('\n\n').map((block, bIdx) => {
-                    const trimmed = block.trim();
-                    if (!trimmed) return null;
+            /* ── Paginated Document Reader (Word Print-Layout style) ── */
+            <div
+              className={`flex-1 overflow-y-auto overflow-x-auto flex justify-center ${
+                isDark ? 'bg-[#3f4245]' : 'bg-[#b8bcc0]'
+              }`}
+              style={{ padding: '28px 16px' }}
+            >
+              {parsedDoc && (() => {
+                const pages = paginateDocumentBlocks(parsedDoc.blocks);
 
-                    if (trimmed.startsWith('# ')) {
-                      return (
-                        <h1
-                          key={bIdx}
-                          className="text-2xl sm:text-3xl font-bold tracking-tight text-blue-600 dark:text-blue-400 border-b pb-2 mb-4"
-                        >
-                          {trimmed.replace(/^#\s+/, '')}
-                        </h1>
-                      );
-                    }
-                    if (trimmed.startsWith('## ')) {
-                      return (
-                        <h2
-                          key={bIdx}
-                          className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-800 dark:text-zinc-100 mt-6 mb-3"
-                        >
-                          {trimmed.replace(/^##\s+/, '')}
-                        </h2>
-                      );
-                    }
-                    if (trimmed.startsWith('### ')) {
-                      return (
-                        <h3
-                          key={bIdx}
-                          className="text-lg font-semibold text-zinc-700 dark:text-zinc-200 mt-4 mb-2"
-                        >
-                          {trimmed.replace(/^###\s+/, '')}
-                        </h3>
-                      );
-                    }
-                    if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-                      const items = trimmed.split('\n').filter(Boolean);
-                      return (
-                        <ul key={bIdx} className="space-y-1.5 list-disc pl-5">
-                          {items.map((it, itIdx) => (
-                            <li key={itIdx} className="text-sm leading-relaxed">
-                              {it.replace(/^[-*]\s+/, '').replace(/\*\*(.*?)\*\*/g, '$1')}
-                            </li>
-                          ))}
-                        </ul>
-                      );
-                    }
+                // Template-derived page styles
+                const isResume = parsedDoc.template === 'resume';
+                const isInvoice = parsedDoc.template === 'invoice';
+                const isAcademic = parsedDoc.template === 'academic';
+                const isAssignment = parsedDoc.template === 'assignment';
+                const isSerifDoc = !isInvoice;
 
-                    return (
-                      <p key={bIdx} className="text-sm sm:text-base leading-relaxed text-zinc-300">
-                        {trimmed.replace(/\*\*(.*?)\*\*/g, '$1')}
-                      </p>
-                    );
-                  })}
-                </div>
-              </div>
+                const pageBg = isInvoice ? '#f8faff' : '#ffffff';
+                const pageFont = isInvoice
+                  ? "'Calibri', 'Segoe UI', -apple-system, sans-serif"
+                  : "'Georgia', 'Cambria', 'Times New Roman', serif";
+
+                // Scale 0-100 adjusts page width between 500px and 816px (full A4 size)
+                // Text remains standard readable size while page size adjusts smoothly
+                const pageWidth = Math.round(500 + (docScale / 100) * (816 - 500));
+                const pageMinHeight = Math.round(pageWidth * 1.414);
+                const horizontalPadding = Math.round(44 + (docScale / 100) * (64 - 44));
+                const verticalPadding = Math.round(48 + (docScale / 100) * (64 - 48));
+
+                return (
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '24px',
+                      paddingBottom: '32px',
+                    }}
+                  >
+                    {pages.map((pageBlocks, pageIdx) => (
+                      <div
+                        key={pageIdx}
+                        style={{
+                          width: `${pageWidth}px`,
+                          minHeight: `${pageMinHeight}px`,
+                          background: pageBg,
+                          boxShadow: '0 4px 20px rgba(0,0,0,0.22), 0 1px 4px rgba(0,0,0,0.12)',
+                          borderRadius: '2px',
+                          padding: `${verticalPadding}px ${horizontalPadding}px`,
+                          fontFamily: pageFont,
+                          fontSize: '13.5px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          boxSizing: 'border-box',
+                          position: 'relative',
+                          transition: 'width 0.12s ease-out, min-height 0.12s ease-out',
+                        }}
+                      >
+                        {/* Page Header (running title, shown on pages 2+) */}
+                        {pageIdx > 0 && (
+                          <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            fontSize: '10.5px',
+                            color: '#94a3b8',
+                            fontFamily: "'Calibri', 'Segoe UI', sans-serif",
+                            borderBottom: '1px solid #e2e8f0',
+                            paddingBottom: '8px',
+                            marginBottom: '20px',
+                            flexShrink: 0,
+                          }}>
+                            <span style={{ fontStyle: 'italic', maxWidth: '70%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {parsedDoc.title}
+                            </span>
+                            <span>e-Mate AI Studio</span>
+                          </div>
+                        )}
+
+                        {/* Page Content */}
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                          {/* First page: Template-specific header */}
+                          {pageIdx === 0 && (
+                            <>
+                              {isResume ? (
+                                <header style={{ marginBottom: '20px', flexShrink: 0 }}>
+                                  <h1 style={{ fontSize: '26px', fontWeight: 900, letterSpacing: '-0.02em', textTransform: 'uppercase', color: '#000', margin: 0, lineHeight: 1.1 }}>
+                                    {parsedDoc.title}
+                                  </h1>
+                                  {(() => {
+                                    const cb = parsedDoc.blocks.find(b => b.type === 'contact-bar') as any;
+                                    return cb ? (
+                                      <p style={{ marginTop: '8px', fontSize: '11.5px', color: '#333', borderBottom: '1.5px solid #000', paddingBottom: '8px' }}>
+                                        {cb.items.join('   |   ')}
+                                      </p>
+                                    ) : (
+                                      <div style={{ borderBottom: '1.5px solid #000', marginTop: '10px', paddingBottom: '4px' }} />
+                                    );
+                                  })()}
+                                </header>
+                              ) : isAssignment ? (
+                                <header style={{ marginBottom: '28px', textAlign: 'center', borderBottom: '1px solid #cbd5e1', paddingBottom: '20px', flexShrink: 0 }}>
+                                  <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#0f172a', margin: '0 0 6px', fontFamily: 'Georgia, serif' }}>
+                                    {parsedDoc.title}
+                                  </h1>
+                                  {parsedDoc.subtitle && (
+                                    <p style={{ margin: '4px 0', fontSize: '14px', color: '#334155', fontFamily: 'Georgia, serif' }}>
+                                      {parsedDoc.subtitle}
+                                    </p>
+                                  )}
+                                  {parsedDoc.authorInfo?.email && (
+                                    <p style={{ margin: '4px 0', fontSize: '12px', color: '#64748b', fontFamily: 'monospace' }}>
+                                      {parsedDoc.authorInfo.email}
+                                    </p>
+                                  )}
+                                  <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#64748b', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>
+                                    {parsedDoc.authorInfo?.institution || `e-Mate University — ${parsedDoc.metadata.date}`}
+                                  </p>
+                                </header>
+                              ) : isInvoice ? (
+                                <header style={{ marginBottom: '24px', paddingBottom: '16px', borderBottom: '3px solid #003366', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexShrink: 0 }}>
+                                  <div>
+                                    <p style={{ fontSize: '12px', fontWeight: 800, color: '#003366', textTransform: 'uppercase', letterSpacing: '0.12em', margin: 0 }}>
+                                      EMATE ENTERPRISES
+                                    </p>
+                                    <p style={{ fontSize: '11px', color: '#64748b', marginTop: '3px' }}>
+                                      contact@emate.ai  ·  (800) 555-0199
+                                    </p>
+                                  </div>
+                                  <div style={{ textAlign: 'right' }}>
+                                    <h1 style={{ fontSize: '24px', fontWeight: 900, color: '#003366', textTransform: 'uppercase', letterSpacing: '-0.01em', margin: 0 }}>
+                                      {parsedDoc.title}
+                                    </h1>
+                                    <p style={{ fontSize: '11.5px', color: '#64748b', marginTop: '3px' }}>
+                                      {parsedDoc.metadata.date}
+                                    </p>
+                                  </div>
+                                </header>
+                              ) : isAcademic ? (
+                                <header style={{ marginBottom: '26px', borderBottom: '1px solid #cbd5e1', paddingBottom: '18px', flexShrink: 0 }}>
+                                  <h1 style={{ fontSize: '26px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px', fontFamily: 'Georgia, serif', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+                                    {parsedDoc.title}
+                                  </h1>
+                                  {parsedDoc.subtitle && (
+                                    <p style={{ margin: '6px 0 0', fontSize: '14.5px', color: '#475569', fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>
+                                      {parsedDoc.subtitle}
+                                    </p>
+                                  )}
+                                </header>
+                              ) : (
+                                /* Executive & General Reports — matching professional document standards */
+                                <header style={{ marginBottom: '24px', paddingBottom: '14px', borderBottom: '2px solid #0f172a', flexShrink: 0 }}>
+                                  <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px', letterSpacing: '-0.02em', lineHeight: 1.25, fontFamily: 'Georgia, serif' }}>
+                                    {parsedDoc.title}
+                                  </h1>
+                                  {parsedDoc.subtitle && (
+                                    <p style={{ margin: '0 0 8px', fontSize: '14px', color: '#475569', fontStyle: 'italic', lineHeight: 1.5, fontFamily: 'Georgia, serif' }}>
+                                      {renderInlineContent(parsedDoc.subtitle, false)}
+                                    </p>
+                                  )}
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11.5px', color: '#64748b', paddingTop: '4px', fontFamily: "'Calibri', sans-serif" }}>
+                                    <span style={{ fontWeight: 600, color: '#334155' }}>e-Mate AI Studio</span>
+                                    <span>{parsedDoc.metadata.date}</span>
+                                  </div>
+                                </header>
+                              )}
+                            </>
+                          )}
+
+                          {/* Blocks for this page */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '11px', flex: 1 }}>
+                            {pageBlocks.map((block, blockIdx) => {
+                              // Skip first h1 on page 0 (already rendered in header above)
+                              if (pageIdx === 0 && block.type === 'h1' && (blockIdx === 0 || (blockIdx === 1 && pageBlocks[0].type === 'h1'))) return null;
+                              // Skip contact-bar on page 0 — shown in resume header
+                              if (pageIdx === 0 && isResume && block.type === 'contact-bar') return null;
+
+                              // ── H1 (chapter / major title) ──────────────────
+                              if (block.type === 'h1') {
+                                return (
+                                  <h1 key={blockIdx} style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '22px 0 6px', letterSpacing: '-0.02em', lineHeight: 1.2, fontFamily: isSerifDoc ? 'Georgia, serif' : 'inherit', borderBottom: isResume ? '2px solid #000' : '1px solid #e2e8f0', paddingBottom: '6px' }}>
+                                    {block.text}
+                                  </h1>
+                                );
+                              }
+
+                              // ── H2 (section heading) ─────────────────────────
+                              if (block.type === 'h2') {
+                                if (isResume) {
+                                  return (
+                                    <h2 key={blockIdx} style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#111', margin: '20px 0 6px', paddingBottom: '3px', borderBottom: '1.5px solid #111', fontFamily: 'Georgia, serif' }}>
+                                      {block.text}
+                                    </h2>
+                                  );
+                                }
+                                return (
+                                  <h2 key={blockIdx} style={{ fontSize: '16.5px', fontWeight: 700, color: isInvoice ? '#003366' : '#0f172a', margin: '20px 0 6px', paddingBottom: '4px', borderBottom: `1.5px solid ${isInvoice ? '#003366' : '#e2e8f0'}`, lineHeight: 1.3, fontFamily: isSerifDoc ? 'Georgia, serif' : 'inherit' }}>
+                                    {block.text}
+                                  </h2>
+                                );
+                              }
+
+                              // ── H3 (subsection) ──────────────────────────────
+                              if (block.type === 'h3') {
+                                if (isResume) {
+                                  return <h3 key={blockIdx} style={{ fontSize: '13px', fontWeight: 700, color: '#111', margin: '10px 0 1px', fontFamily: 'Georgia, serif' }}>{block.text}</h3>;
+                                }
+                                return (
+                                  <h3 key={blockIdx} style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b', margin: '14px 0 4px', fontFamily: isSerifDoc ? 'Georgia, serif' : 'inherit', letterSpacing: '-0.01em' }}>
+                                    {block.text}
+                                  </h3>
+                                );
+                              }
+
+                              // ── Two-column row (job title | date, company | city) ──
+                              if (block.type === 'two-column-row') {
+                                return (
+                                  <div key={blockIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px', margin: '1px 0' }}>
+                                    <span style={{ fontSize: '12px', fontWeight: block.isBold ? 700 : 400, fontStyle: block.isItalic ? 'italic' : 'normal', color: '#0f172a' }}>
+                                      {block.left.replace(/^\*+|\*+$/g, '')}
+                                    </span>
+                                    <span style={{ fontSize: '11.5px', color: '#64748b', flexShrink: 0, fontStyle: block.isItalic ? 'italic' : 'normal', textAlign: 'right' }}>
+                                      {block.right.replace(/^\*+|\*+$/g, '')}
+                                    </span>
+                                  </div>
+                                );
+                              }
+
+                              // ── Contact bar (resume) ──────────────────────────
+                              if (block.type === 'contact-bar') {
+                                return (
+                                  <p key={blockIdx} style={{ fontSize: '11.5px', color: '#475569', borderBottom: '1.5px solid #111', paddingBottom: '6px', margin: '2px 0 8px', letterSpacing: '0.01em' }}>
+                                    {block.items.join('  |  ')}
+                                  </p>
+                                );
+                              }
+
+                              // ── Equation (assignment) ─────────────────────────
+                              if (block.type === 'equation') {
+                                return (
+                                  <div key={blockIdx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '12px 24px', padding: '10px 20px', background: '#f8fafc', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
+                                    <span style={{ flex: 1, textAlign: 'center', fontStyle: 'italic', fontFamily: 'Georgia, serif', fontSize: '14.5px', color: '#0f172a' }}>{block.formula}</span>
+                                    {block.number && <span style={{ fontSize: '12px', color: '#64748b', fontFamily: 'monospace', flexShrink: 0 }}>({block.number})</span>}
+                                  </div>
+                                );
+                              }
+
+                              // ── Callout / note box ───────────────────────────
+                              if (block.type === 'callout') {
+                                return (
+                                  <div key={blockIdx} style={{ display: 'flex', gap: '10px', padding: '10px 14px', background: '#f8fafc', borderLeft: '4px solid #334155', borderRadius: '0 4px 4px 0', margin: '6px 0' }}>
+                                    <span style={{ fontSize: '15px', flexShrink: 0, lineHeight: 1.4, color: '#334155' }}>{block.icon || 'ⓘ'}</span>
+                                    <div>
+                                      {block.calloutTitle && <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#475569', margin: '0 0 2px', fontFamily: 'Calibri, sans-serif' }}>{block.calloutTitle}</p>}
+                                      <p style={{ fontSize: '12.5px', color: '#334155', margin: 0, lineHeight: 1.55 }}>{renderInlineContent(block.text, false)}</p>
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              // ── Blockquote ───────────────────────────────────
+                              if (block.type === 'blockquote') {
+                                return (
+                                  <blockquote key={blockIdx} style={{ borderLeft: '4px solid #0f172a', background: 'rgba(15,23,42,0.03)', margin: '8px 0', padding: '9px 14px', fontStyle: 'italic', color: '#334155', fontSize: '13px', lineHeight: 1.6 }}>
+                                    {renderInlineContent(block.text, false)}
+                                  </blockquote>
+                                );
+                              }
+
+                              // ── Bullet list ──────────────────────────────────
+                              if (block.type === 'bullet-list') {
+                                return (
+                                  <ul key={blockIdx} style={{ margin: '4px 0 8px', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '4px', listStyleType: 'disc' }}>
+                                    {block.items.map((it, ii) => (
+                                      <li key={ii} style={{ color: '#1e293b', fontSize: '13px', lineHeight: 1.6, fontFamily: isSerifDoc ? 'Georgia, serif' : 'inherit' }}>
+                                        {renderInlineContent(it, false)}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                );
+                              }
+
+                              // ── Ordered list ─────────────────────────────────
+                              if (block.type === 'ordered-list') {
+                                return (
+                                  <ol key={blockIdx} style={{ margin: '4px 0 8px', paddingLeft: '22px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    {block.items.map((it, ii) => (
+                                      <li key={ii} style={{ color: '#1e293b', fontSize: '13px', lineHeight: 1.6, fontFamily: isSerifDoc ? 'Georgia, serif' : 'inherit' }}>
+                                        {renderInlineContent(it, false)}
+                                      </li>
+                                    ))}
+                                  </ol>
+                                );
+                              }
+
+                              // ── Table ────────────────────────────────────────
+                              if (block.type === 'table') {
+                                const { headers, rows } = block.data;
+                                return (
+                                  <div key={blockIdx} style={{ margin: '10px 0', overflowX: 'auto' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', tableLayout: 'auto', border: '1px solid #cbd5e1' }}>
+                                      <thead>
+                                        <tr style={{ background: isInvoice ? '#003366' : '#f1f5f9', borderBottom: '2px solid #94a3b8' }}>
+                                          {headers.map((h, hi) => (
+                                            <th key={hi} style={{ padding: '8px 12px', fontWeight: 700, textAlign: 'left', color: isInvoice ? '#fff' : '#0f172a', fontSize: '11px', textTransform: isInvoice ? 'uppercase' : 'none', letterSpacing: isInvoice ? '0.05em' : 'normal', borderRight: '1px solid #e2e8f0' }}>
+                                              {renderInlineContent(h, false)}
+                                            </th>
+                                          ))}
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {rows.map((row, ri) => (
+                                          <tr key={ri} style={{ background: ri % 2 === 1 ? '#f8fafc' : '#ffffff', borderTop: '1px solid #e2e8f0' }}>
+                                            {row.map((cell, ci) => (
+                                              <td key={ci} style={{ padding: '7px 12px', color: '#1e293b', fontSize: '12px', verticalAlign: 'top', borderRight: '1px solid #f1f5f9' }}>
+                                                {renderInlineContent(cell, false)}
+                                              </td>
+                                            ))}
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                );
+                              }
+
+                              // ── Divider ──────────────────────────────────────
+                              if (block.type === 'divider') {
+                                return <hr key={blockIdx} style={{ margin: '14px 0', border: 'none', borderTop: '1px solid #e2e8f0' }} />;
+                              }
+
+                              // ── Paragraph ────────────────────────────────────
+                              return (
+                                <p key={blockIdx} style={{ color: '#1e293b', margin: '0', lineHeight: 1.7, fontSize: '13px', fontFamily: pageFont, textAlign: isAcademic ? 'justify' : 'left' }}>
+                                  {renderInlineContent(block.text, false)}
+                                </p>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Page Footer — natural flex child at bottom, NEVER overlaps content */}
+                        <div style={{
+                          marginTop: 'auto',
+                          paddingTop: '16px',
+                          borderTop: '1px solid #e2e8f0',
+                          display: 'flex',
+                          justifyContent: isAssignment ? 'center' : 'space-between',
+                          alignItems: 'center',
+                          fontSize: '11px',
+                          color: '#64748b',
+                          fontFamily: "'Calibri', 'Segoe UI', sans-serif",
+                          flexShrink: 0,
+                        }}>
+                          {!isAssignment && <span style={{ fontStyle: 'italic', maxWidth: '40%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{parsedDoc.title}</span>}
+                          <span style={{ fontWeight: 600, color: '#475569' }}>
+                            {isAssignment ? (pageIdx + 1) : `Page ${pageIdx + 1} of ${pages.length}`}
+                          </span>
+                          {!isAssignment && <span>{parsedDoc.metadata.date}</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>

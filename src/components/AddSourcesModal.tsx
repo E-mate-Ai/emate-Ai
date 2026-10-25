@@ -16,6 +16,7 @@ import {
   File,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 import { getNotebook, saveNotebook, addSubject, type NotebookEntry } from '@/lib/notebook';
 import { isGuestSession } from '@/lib/chatHistory';
 
@@ -475,19 +476,20 @@ export default function AddSourcesModal({ isOpen, onClose, subject: initialSubje
                   />
                 </div>
                 <div className="flex items-center justify-end gap-2 pt-3">
-                  <button
+                  <Button
+                    variant="outline"
+                    size="sm"
                     type="button"
                     onClick={() => setActiveInputMode('none')}
-                    className="px-3 py-1.5 rounded-xl text-xs text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    size="sm"
                     type="submit"
-                    className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs"
                   >
                     Save URL
-                  </button>
+                  </Button>
                 </div>
               </form>
             )}
@@ -511,19 +513,20 @@ export default function AddSourcesModal({ isOpen, onClose, subject: initialSubje
                   />
                 </div>
                 <div className="flex items-center justify-end gap-2 pt-3">
-                  <button
+                  <Button
+                    variant="outline"
+                    size="sm"
                     type="button"
                     onClick={() => setActiveInputMode('none')}
-                    className="px-3 py-1.5 rounded-xl text-xs text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    size="sm"
                     type="submit"
-                    className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs"
                   >
                     Add Drive Link
-                  </button>
+                  </Button>
                 </div>
               </form>
             )}
@@ -551,19 +554,20 @@ export default function AddSourcesModal({ isOpen, onClose, subject: initialSubje
                   />
                 </div>
                 <div className="flex items-center justify-end gap-2 pt-2">
-                  <button
+                  <Button
+                    variant="outline"
+                    size="sm"
                     type="button"
                     onClick={() => setActiveInputMode('none')}
-                    className="px-5 py-2 rounded-full bg-[#f0f0f2] dark:bg-zinc-800 hover:bg-[#e4e4e7] dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 text-xs sm:text-sm font-medium transition-all"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    size="sm"
                     type="submit"
-                    className="px-5 py-2 rounded-full bg-[#0060df] hover:bg-[#0052cc] text-white text-xs sm:text-sm font-medium shadow-xs transition-all active:scale-[0.98]"
                   >
                     Add Text Source
-                  </button>
+                  </Button>
                 </div>
               </form>
             )}

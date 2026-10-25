@@ -4,9 +4,9 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Cookie, X, Check, Shield } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics';
+import { Button } from '@/components/ui/button';
 
 const COOKIE_CONSENT_KEY = 'nk-cookie-consent-v1';
-const SIGNUP_POPUP_SUPPRESSED_KEY = 'nk-signup-popup-suppressed';
 
 export default function CookieBanner() {
   const [visible, setVisible] = useState(false);
@@ -29,10 +29,6 @@ export default function CookieBanner() {
   }, []);
 
   const finishConsent = () => {
-    try {
-      localStorage.setItem(SIGNUP_POPUP_SUPPRESSED_KEY, 'true');
-    } catch (_) {}
-    window.dispatchEvent(new Event('nk-cookie-consent-changed'));
     setVisible(false);
   };
 
@@ -76,11 +72,11 @@ export default function CookieBanner() {
       aria-label="Cookie and Privacy Consent"
       className="fixed bottom-4 left-4 right-4 sm:left-6 sm:right-auto sm:max-w-md z-50 animate-in fade-in slide-in-from-bottom-5 duration-300"
     >
-      <div className="relative rounded-2xl bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border border-zinc-200/80 dark:border-zinc-800 shadow-2xl p-5 text-zinc-900 dark:text-zinc-100">
+      <div className="relative rounded-2xl bg-white/95 dark:bg-[#252525]/95 backdrop-blur-xl border border-zinc-200/80 dark:border-[#3b3b3b] shadow-xl p-5 text-zinc-900 dark:text-zinc-100">
         <button
           onClick={handleDeclineOptional}
           aria-label="Close cookie banner"
-          className="absolute top-3.5 right-3.5 p-1 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-[#414141] dark:hover:text-zinc-100"
         >
           <X size={16} />
         </button>
@@ -149,29 +145,31 @@ export default function CookieBanner() {
             </div>
 
             <div className="flex gap-2 pt-2">
-              <button
+              <Button
                 onClick={handleSavePreferences}
-                className="flex-1 py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition shadow-sm"
+                className="flex-1"
               >
                 Save Preferences
-              </button>
+              </Button>
             </div>
           </div>
         ) : (
           <div className="flex flex-col sm:flex-row items-center gap-2 pt-1">
-            <button
+            <Button
               onClick={handleAcceptAll}
-              className="w-full sm:flex-1 py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition shadow-sm flex items-center justify-center gap-1.5"
+              className="w-full sm:flex-1"
             >
               <Check size={14} />
               Accept All
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleDeclineOptional}
-              className="w-full sm:w-auto py-2 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-medium transition"
+              className="w-full sm:w-auto"
             >
               Necessary Only
-            </button>
+            </Button>
             <button
               onClick={() => setShowPreferences(true)}
               className="text-[11px] text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition py-1"

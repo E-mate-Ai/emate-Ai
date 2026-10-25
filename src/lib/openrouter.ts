@@ -247,56 +247,12 @@ export async function openRouterCompletion(
   throw lastError || new Error('e-Mate free AI model mesh temporarily unavailable.');
 }
 
-/** The OpenRouter model id used for image generation — FLUX.1 Schnell for high-speed educational visuals. */
-export const IMAGE_GENERATION_MODEL = 'black-forest-labs/flux-1-schnell';
+/** Preferred OpenRouter image model used by the dedicated Image API. */
+export const IMAGE_GENERATION_MODEL = 'google/gemini-3.1-flash-image';
 
 /**
- * Extract a `data:image/...` (or http) URL from an OpenRouter image-model
- * response. flux-1-schnell returns the image inline in
- * `choices[0].message.content`, either as a plain data-URL string, a markdown
- * `![alt](url)`, or a multimodal content array with `image_url` parts.
- */
-function extractImageUrl(
-  content: unknown,
-  fallbackUrl?: unknown
-): string | null {
-  // Object wrapper fallback (e.g. `{ data: [...] }`-style providers).
-  if (typeof content === 'string') {
-    const trimmed = content.trim();
-    if (trimmed.startsWith('data:image/') || trimmed.startsWith('https://')) return trimmed;
-    const md = /!\[[^\]]*\]\(([^)]+)\)/.exec(trimmed);
-    if (md && md[1]) return md[1];
-    return null;
-  }
-  if (Array.isArray(content)) {
-    for (const part of content) {
-      if (
-        part &&
-        typeof part === 'object' &&
-        'image_url' in part &&
-        (part as { image_url?: { url?: string } }).image_url?.url
-      ) {
-        return (part as { image_url: { url: string } }).image_url.url;
-      }
-      if (
-        part &&
-        typeof part === 'object' &&
-        'text' in part &&
-        typeof (part as { text?: unknown }).text === 'string'
-      ) {
-        const fromText = extractImageUrl((part as { text: string }).text);
-        if (fromText) return fromText;
-      }
-    }
-  }
-  // `fallbackUrl` — some responses surface the image in a top-level field.
-  if (typeof fallbackUrl === 'string' && fallbackUrl.startsWith('data:image/')) return fallbackUrl;
-  return null;
-}
-
-/**
- * Execute a single non-streaming image-generation request against the same
- * OpenRouter chat/completions endpoint (flux models are served there).
+ * Execute a single non-streaming image-generation request against OpenRouter's
+ * dedicated Image API and normalize its base64 response into a data URL.
  *
  * Returns `{ imageUrl }` where `imageUrl` is a data: URL. Throws an
  * `OpenRouterError` with a user-friendly, status-aware message on non-2xx.
@@ -306,25 +262,31 @@ export async function openRouterImageCompletion(
   options: {
     prompt: string;
     model?: string;
+    aspectRatio?: string;
+    resolution?: string;
     referer?: string;
     title?: string;
   }
-): Promise<{ imageUrl: string }> {
+): Promise<{ imageUrl: string; mediaType: string; usage?: Record<string, unknown> }> {
   const {
     prompt,
     model = IMAGE_GENERATION_MODEL,
+    aspectRatio,
+    resolution = '1K',
     referer,
     title,
   } = options;
 
   const payload: Record<string, unknown> = {
     model,
-    messages: [{ role: 'user', content: prompt }],
+    prompt,
+    resolution,
   };
+  if (aspectRatio) payload.aspect_ratio = aspectRatio;
 
   let response: Response;
   try {
-    response = await fetch(OPENROUTER_ENDPOINT, {
+    response = await fetch('https://openrouter.ai/api/v1/images', {
       method: 'POST',
       headers: buildOpenRouterHeaders(apiKey, referer, title),
       body: JSON.stringify(payload),
@@ -342,10 +304,8 @@ export async function openRouterImageCompletion(
     try {
       const errJson = (await response.json()) as { error?: { message?: string }; message?: string } | null;
       rawMessage = errJson?.error?.message || errJson?.message || response.statusText || '';
-      console.error('[OpenRouter API Error Details]:', { status: response.status, model, error: errJson });
     } catch {
       rawMessage = response.statusText || '';
-      console.error('[OpenRouter API Error Details]:', { status: response.status, model, text: rawMessage });
     }
 
     const err: OpenRouterError = new Error(rawMessage || getOpenRouterErrorMessage(response.status, model));
@@ -356,21 +316,23 @@ export async function openRouterImageCompletion(
   }
 
   const json = (await response.json()) as {
-    data?: unknown;
-    choices?: Array<{ message?: { content?: unknown } }>;
+    data?: Array<{ b64_json?: string; media_type?: string; url?: string }>;
+    usage?: Record<string, unknown>;
   };
-
-  const content = json?.choices?.[0]?.message?.content;
-  const imageUrl = extractImageUrl(content, json?.data);
-  if (!imageUrl) {
+  const firstImage = json?.data?.[0];
+  const mediaType = firstImage?.media_type || 'image/png';
+  const imageUrl = firstImage?.b64_json
+    ? `data:${mediaType};base64,${firstImage.b64_json}`
+    : firstImage?.url || '';
+  if (!imageUrl || (!imageUrl.startsWith('data:image/') && !/^https:\/\//i.test(imageUrl))) {
     const err: OpenRouterError = new Error(
-      'Image generation returned an empty response. Try a different prompt, or switch models.'
+      'The image model returned no image. Trying another image provider may help.'
     );
     err.retryable = true;
     throw err;
   }
 
-  return { imageUrl };
+  return { imageUrl, mediaType, usage: json.usage };
 }
 
 /**

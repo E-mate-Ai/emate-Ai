@@ -1,25 +1,24 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, Loader2, X, ArrowLeft, Mail, CheckCircle2, Sparkles, ShieldCheck, Zap, BookOpen, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, Loader2, ArrowLeft, Mail, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import { clearGuestModeEnabled, setGuestModeEnabled } from '@/lib/guest-mode';
 import { applyTheme } from '@/lib/theme';
 
-import { useRouter } from 'next/navigation';
 
 export default function AuthScreen() {
-  const router = useRouter();
   const [step, setStep] = useState<'email' | 'password' | 'confirm'>('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(true);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   useEffect(() => {
     const updateTheme = () => {
@@ -41,6 +40,9 @@ export default function AuthScreen() {
       (typeof window !== 'undefined' ? window.location.origin : 'https://emate.live');
     return `${base}/auth/callback?next=/ai-topper-chat`;
   };
+
+  // Reload through middleware so it can read the auth cookies written by Supabase.
+  const redirectToWorkspace = () => window.location.replace('/ai-topper-chat');
 
   /* ── Google OAuth ── */
   const handleGoogleSignIn = async () => {
@@ -89,6 +91,73 @@ export default function AuthScreen() {
     setStep('password');
   };
 
+  const handleSignupSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedEmail = email.trim();
+    const trimmedName = name.trim();
+    const trimmedUsername = username.trim();
+    if (!/^\S+@\S+\.\S+$/.test(trimmedEmail)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+    if (!trimmedName) {
+      setError('Please enter your full name');
+      return;
+    }
+    if (!trimmedUsername) {
+      setError('Please choose a username');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
+    setEmail(trimmedEmail);
+    setIsLoading(true);
+    setError(null);
+    const supabase = createClient();
+    const { data, error } = await supabase.auth.signUp({
+      email: trimmedEmail,
+      password,
+      options: {
+        data: { full_name: trimmedName, username: trimmedUsername },
+        emailRedirectTo: getRedirectUrl(),
+      },
+    });
+
+    if (error) {
+      setError(error.message);
+      setIsLoading(false);
+      return;
+    }
+
+    if (data.user) {
+      try {
+        await supabase.from('profiles').upsert(
+          {
+            id: data.user.id,
+            email: data.user.email,
+            full_name: trimmedName,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'id' }
+        );
+      } catch (profileError) {
+        console.error('Failed to sync profile to Supabase:', profileError);
+      }
+    }
+
+    if (data.user && !data.session) {
+      setStep('confirm');
+      setIsLoading(false);
+      return;
+    }
+    clearGuestModeEnabled();
+    toast.success('Account created! Welcome to e-Mate.');
+    redirectToWorkspace();
+  };
+
   /* ── Guest ── */
   const handleGuestContinue = async () => {
     setGuestModeEnabled(true);
@@ -105,7 +174,7 @@ export default function AuthScreen() {
     }
 
     toast.success('Continuing as guest');
-    router.push('/');
+    redirectToWorkspace();
   };
 
   /* ── Password / signup step ── */
@@ -168,7 +237,7 @@ export default function AuthScreen() {
       // Auto-confirm is ON
       clearGuestModeEnabled();
       toast.success('Account created! Welcome to e-Mate.');
-      router.push('/');
+      redirectToWorkspace();
     } else {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
@@ -188,7 +257,10 @@ export default function AuthScreen() {
       if (data.session) {
         clearGuestModeEnabled();
         toast.success('Welcome back!');
-        router.push('/');
+        redirectToWorkspace();
+      } else {
+        setError('Sign-in did not create a session. Please try again.');
+        setIsLoading(false);
       }
     }
   };
@@ -223,22 +295,22 @@ export default function AuthScreen() {
 
   /* ─────── Styles (e-Mate blue/system theme) ─────── */
   const isDark = theme === 'dark';
-  const bg = isDark ? '#0b0b0d' : '#f7f8fb';
-  const fg = isDark ? '#fafafa' : '#0b0b12';
-  const cardBg = isDark ? '#141417' : '#ffffff';
-  const cardBorder = isDark ? 'rgba(138,162,255,0.18)' : 'rgba(31,81,255,0.16)';
-  const inputBorder = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)';
-  const inputBg = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)';
-  const accent = '#1f51ff';
-  const accentBright = isDark ? '#8aa2ff' : '#1f51ff';
-  const accentText = isDark ? '#a8b8ff' : '#1f51ff';
-  const btnPrimaryBg = isDark ? accentBright : accent;
-  const btnPrimaryFg = isDark ? '#0b0b0d' : '#ffffff';
-  const dividerColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
-  const socialBg = isDark ? '#1c1c20' : '#f2f4fb';
-  const socialBorder = isDark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.08)';
-  const mutedFg = isDark ? '#9ca0ab' : '#71717a';
-  const accentSoft = isDark ? 'rgba(138,162,255,0.16)' : 'rgba(31,81,255,0.10)';
+  const bg = '#222222';
+  const fg = '#151515';
+  const cardBg = '#ffffff';
+  const cardBorder = 'rgba(0,0,0,0.08)';
+  const inputBorder = 'rgba(0,0,0,0.08)';
+  const inputBg = '#f7f7f7';
+  const accent = '#2448d8';
+  const accentBright = accent;
+  const accentText = accent;
+  const btnPrimaryBg = accent;
+  const btnPrimaryFg = '#ffffff';
+  const dividerColor = 'rgba(0,0,0,0.12)';
+  const socialBg = '#ffffff';
+  const socialBorder = 'rgba(0,0,0,0.10)';
+  const mutedFg = '#71717a';
+  const accentSoft = 'rgba(36,72,216,0.10)';
 
   const rootStyle: React.CSSProperties & Record<string, string> = {
     background: bg,
@@ -255,19 +327,11 @@ export default function AuthScreen() {
   const guestBorder = isDark ? 'rgba(138,162,255,0.35)' : 'rgba(31,81,255,0.32)';
   const guestText = isDark ? accentBright : '#1f51ff';
 
-  const brandPanelBg = isDark
-    ? 'linear-gradient(160deg,#16161a 0%,#121216 100%)'
-    : 'linear-gradient(160deg,#1f51ff 0%,#1435c8 100%)';
-
-  const perks = [
-    { icon: Zap, title: 'Turn notes into flashcards', desc: 'Feed in PDFs and notes — get quizzes in seconds.' },
-    { icon: Sparkles, title: 'AI study copilot', desc: 'Clear explanations, derivations, and cram-ready summaries.' },
-    { icon: ShieldCheck, title: 'Private by design', desc: 'Your data stays yours. No ads, no selling.' },
-  ];
+  const brandPanelBg = 'linear-gradient(135deg,#263fba 0%,#43b7f2 58%,#263fba 100%)';
 
   return (
     <div
-      className="min-h-screen w-full flex flex-col md:flex-row relative font-sans transition-colors duration-500"
+      className="min-h-screen w-full flex items-center justify-center relative font-sans p-4 sm:p-8"
       style={rootStyle}
     >
       <link
@@ -290,8 +354,9 @@ export default function AuthScreen() {
         @media (prefers-reduced-motion: reduce){ *,*::before,*::after { animation:none !important; transition:none !important } }
       `}</style>
 
-      {/* ── Brand panel (left, desktop) ── */}
-      <aside className="relative hidden md:flex md:w-[46%] lg:w-[44%] min-h-screen flex-col justify-between p-10 lg:p-14 overflow-hidden">
+      <div className="relative grid w-full max-w-[1220px] min-h-[660px] md:min-h-[calc(100dvh_-_64px)] grid-cols-1 overflow-hidden rounded-[26px] bg-white shadow-2xl md:grid-cols-[1.08fr_.92fr]">
+      {/* ── Brand panel ── */}
+      <aside className="relative flex min-h-[330px] flex-col justify-between overflow-hidden p-6 sm:p-9 md:min-h-0 md:p-10 lg:p-12">
         <div
           className="absolute inset-0"
           style={{ background: brandPanelBg }}
@@ -318,81 +383,59 @@ export default function AuthScreen() {
         </div>
 
         <div className="relative z-10 space-y-8">
-          <h1 className="text-3xl xl:text-4xl font-bold text-white leading-tight tracking-tight">
-            Your AI study copilot,
-            <br />
-            one login away.
+          <div className="mb-4 inline-flex w-fit items-center rounded-full border border-white/20 bg-white/15 px-3 py-1 text-[11px] font-medium text-white/95 backdrop-blur">
+            Join e-Mate to build ✨
+          </div>
+          <h1 className="text-3xl font-semibold leading-tight tracking-tight text-white sm:text-4xl">
+            Start your Journey
           </h1>
-          <p className="text-white/75 text-base leading-relaxed max-w-md">
-            Flashcards, quizzes, PDF summaries, and hands-free voice study — built for university students who want to study smarter.
+          <p className="mt-3 max-w-md text-sm leading-relaxed text-white/80">
+            Follow these simple steps to set up your account.
           </p>
 
-          <ul className="space-y-5 mt-2">
-            {perks.map((p) => (
-              <li key={p.title} className="flex items-start gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15 backdrop-blur border border-white/20">
-                  <p.icon size={19} className="text-white" strokeWidth={2} />
-                </div>
-                <div>
-                  <p className="text-white font-semibold text-sm">{p.title}</p>
-                  <p className="text-white/70 text-sm leading-relaxed mt-0.5">{p.desc}</p>
-                </div>
-              </li>
+          <div className="mt-7 grid grid-cols-3 gap-3">
+            {[
+              ['1', 'Register your account'],
+              ['2', 'Set up your profile'],
+              ['3', 'Start learning'],
+            ].map(([number, label], index) => (
+              <div
+                key={number}
+                className={`flex min-h-[98px] flex-col rounded-2xl border p-3 text-white backdrop-blur-md sm:min-h-[112px] sm:p-4 ${index === 0 ? 'border-white bg-white text-slate-900' : 'border-white/15 bg-white/20'}`}
+              >
+                <span className={`mb-auto flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold ${index === 0 ? 'bg-[#2448d8] text-white' : 'border border-white/40 text-white'}`}>
+                  {number}
+                </span>
+                <span className={`mt-3 text-[10px] leading-snug sm:text-xs ${index === 0 ? 'font-medium text-slate-900' : 'text-white/85'}`}>
+                  {label}
+                </span>
+              </div>
             ))}
-          </ul>
+          </div>
         </div>
 
         <p className="relative z-10 text-white/50 text-xs">
-          © {new Date().getFullYear()} e-Mate AI. All rights reserved.
+          © {new Date().getFullYear()} e-Mate AI
         </p>
       </aside>
 
       {/* ── Form side (right, or full on mobile) ── */}
-      <main className="relative flex-1 flex flex-col items-center justify-center px-4 py-10 sm:px-8">
+      <main className="relative flex min-w-0 flex-col items-center justify-center px-6 py-8 sm:px-10 md:px-12 lg:px-16">
         {/* Background glow */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none hidden overflow-hidden">
           <div
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] opacity-10 blur-[120px] rounded-full"
             style={{ background: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.04)' }}
           />
         </div>
 
-        {/* Mobile logo bar */}
-        <div className="w-full flex justify-between items-center md:hidden max-w-[440px] z-10 mb-6">
-          <a href="/" className="flex items-center gap-3" aria-label="e-Mate AI home">
-            <div
-              className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl border"
-              style={{ borderColor: 'rgba(15,23,42,0.08)', background: '#f8f9fa' }}
-            >
-              <img src="/asset/images/e.svg" alt="e-Mate AI Logo" className="h-full w-full object-contain" />
-            </div>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-zinc-500">
-              e-Mate AI
-            </p>
-          </a>
-        </div>
-
         {/* Card */}
         <div
-          className="w-full max-w-[440px] border rounded-3xl p-6 sm:p-10 shadow-2xl relative z-10 my-auto transition-all"
+          className="relative z-10 my-auto w-full max-w-[440px] p-1 transition-all sm:p-2"
           style={{
             background: cardBg,
-            borderColor: cardBorder,
-            boxShadow: isDark
-              ? '0 24px 80px -24px rgba(31,81,255,0.30)'
-              : '0 24px 80px -28px rgba(31,81,255,0.22)',
           }}
         >
-          {/* Close */}
-          <button
-            onClick={() => window.location.assign('/')}
-            className="absolute right-5 top-5 p-2 rounded-full transition focus-visible:outline-2 focus-visible:outline focus-visible:outline-offset-2"
-            style={{ color: mutedFg }}
-            aria-label="Close and return home"
-          >
-            <X size={18} />
-          </button>
-
           {/* ── Confirm screen ── */}
           {step === 'confirm' ? (
             <div className="space-y-6 text-center py-4">
@@ -448,10 +491,10 @@ export default function AuthScreen() {
             <div className="space-y-6">
               <div className="text-center space-y-2">
                 <h1 className="text-xl sm:text-2xl font-bold tracking-tight" style={{ color: fg }}>
-                  {isSignUp ? 'Create account' : 'Log in or sign up'}
+                  {isSignUp ? 'Join Us' : 'Welcome Back'}
                 </h1>
                 <p className="text-xs sm:text-sm leading-normal px-2" style={{ color: mutedFg }}>
-                  AI-powered study copilot for university students.
+                  {isSignUp ? 'Create your e-Mate account' : 'Continue your learning journey'}
                 </p>
               </div>
 
@@ -464,6 +507,51 @@ export default function AuthScreen() {
                 </div>
               )}
 
+              {isSignUp ? (
+                <>
+                  <form onSubmit={handleSignupSubmit} className="space-y-3" noValidate>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-medium text-zinc-700" htmlFor="auth-email">Email address</label>
+                      <input id="auth-email" type="email" value={email} autoComplete="email" placeholder="you@university.edu" onChange={(e) => { setEmail(e.target.value); setError(null); }} className={inputClass} style={{ borderColor: inputBorder, color: fg, backgroundColor: inputBg }} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="mb-1 block text-[11px] font-medium text-zinc-700" htmlFor="auth-name">Full name</label>
+                        <input id="auth-name" type="text" value={name} autoComplete="name" placeholder="Your full name" onChange={(e) => { setName(e.target.value); setError(null); }} className={inputClass} style={{ borderColor: inputBorder, color: fg, backgroundColor: inputBg }} />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[11px] font-medium text-zinc-700" htmlFor="auth-username">Username</label>
+                        <input id="auth-username" type="text" value={username} autoComplete="username" placeholder="Choose a username" onChange={(e) => { setUsername(e.target.value); setError(null); }} className={inputClass} style={{ borderColor: inputBorder, color: fg, backgroundColor: inputBg }} />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-medium text-zinc-700" htmlFor="auth-password">Password</label>
+                      <div className="relative">
+                        <input id="auth-password" type={showPassword ? 'text' : 'password'} value={password} autoComplete="new-password" placeholder="At least 6 characters" onChange={(e) => { setPassword(e.target.value); setError(null); }} className={`${inputClass} pr-12`} style={{ borderColor: error ? '#ef4444' : inputBorder, color: fg, backgroundColor: inputBg }} />
+                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-500" aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                    </div>
+                    <button type="submit" disabled={isLoading} className="auth-btn flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold text-white disabled:opacity-60" style={{ background: btnPrimaryBg }}>
+                      {isLoading ? <><Loader2 size={16} className="animate-spin" /> Creating account...</> : 'Continue'}
+                    </button>
+                  </form>
+                  <p className="text-center text-xs text-zinc-600">
+                    Already have an account?{' '}
+                    <button type="button" onClick={() => { setIsSignUp(false); setError(null); }} className="font-semibold text-[#2448d8] hover:underline">Login</button>
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <div className="h-px flex-1 bg-zinc-200" /><span className="text-[10px] text-zinc-500">Or</span><div className="h-px flex-1 bg-zinc-200" />
+                  </div>
+                  <button type="button" onClick={handleGoogleSignIn} disabled={googleLoading} className="auth-social flex h-11 w-full items-center justify-center gap-2 rounded-xl border text-sm font-medium disabled:opacity-50" style={{ background: socialBg, borderColor: socialBorder, color: fg }}>
+                    {googleLoading ? <Loader2 size={17} className="animate-spin" /> : <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>}
+                    Sign up with Google
+                  </button>
+                  <p className="text-center text-[10px] leading-relaxed text-zinc-500">By signing up, you agree to our <a href="/privacy" className="auth-link underline">Privacy Policy</a> and <a href="/terms" className="auth-link underline">Terms of Service</a>.</p>
+                </>
+              ) : (
+                <>
               {/* Google */}
               <button
                 type="button"
@@ -540,40 +628,15 @@ export default function AuthScreen() {
                   Continue with email
                 </button>
               </form>
+                </>
+              )}
 
-              <p className="text-center text-xs" style={{ color: mutedFg }}>
-                {isSignUp ? (
-                  <>
-                    Already have an account?{' '}
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setIsSignUp(false);
-                        setError(null);
-                      }}
-                      className="hover:underline font-semibold auth-link"
-                    >
-                      Sign in
-                    </a>
-                  </>
-                ) : (
-                  <>
-                    Don&apos;t have an account?{' '}
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setIsSignUp(true);
-                        setError(null);
-                      }}
-                      className="hover:underline font-semibold auth-link"
-                    >
-                      Sign up
-                    </a>
-                  </>
-                )}
-              </p>
+              {!isSignUp && (
+                <p className="text-center text-xs" style={{ color: mutedFg }}>
+                  Don&apos;t have an account?{' '}
+                  <button type="button" onClick={() => { setIsSignUp(true); setError(null); }} className="font-semibold text-[#2448d8] hover:underline">Sign up</button>
+                </p>
+              )}
             </div>
           ) : (
             /* ── Password step ── */
@@ -726,16 +789,19 @@ export default function AuthScreen() {
           )}
         </div>
 
-        {/* Footer disclaimer */}
-        <div
-          className="w-full max-w-md text-center text-[10px] sm:text-[11px] leading-normal px-4 z-10 mt-6"
-          style={{ color: mutedFg }}
-        >
-          By continuing you agree to our{' '}
-          <a href="/#about" className="underline cursor-pointer hover:text-current">Terms &amp; Privacy Policy</a>. Chats may be
-          reviewed to improve our models. <a href="/#faq" className="underline cursor-pointer hover:text-current">Learn more</a>
-        </div>
+        {!isSignUp && step !== 'confirm' && (
+          <div
+            className="w-full max-w-md text-center text-[10px] sm:text-[11px] leading-normal px-4 z-10 mt-6"
+            style={{ color: mutedFg }}
+          >
+            By continuing you agree to our{' '}
+            <a href="/terms" className="underline cursor-pointer hover:text-current">Terms of Service</a> and{' '}
+            <a href="/privacy" className="underline cursor-pointer hover:text-current">Privacy Policy</a>. Chats may be
+            reviewed to improve our models. <a href="/#faq" className="underline cursor-pointer hover:text-current">Learn more</a>
+          </div>
+        )}
       </main>
+      </div>
     </div>
   );
 }

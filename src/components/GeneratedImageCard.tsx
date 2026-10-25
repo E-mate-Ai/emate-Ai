@@ -1,9 +1,24 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { Download, Maximize2, RefreshCw, X, Loader2, KeyRound, Sparkles } from 'lucide-react';
+import { Download, Maximize2, RefreshCw, X, Loader2, KeyRound } from 'lucide-react';
 import type { GeneratedImage } from '@/lib/chatHistory';
 import { ImageGeneration } from '@/components/ui/ai-chat-image-generation-1';
+import { Button } from '@/components/ui/button';
+
+function getFriendlyImageError(message?: string) {
+  const value = message?.toLowerCase() ?? '';
+  if (/401|403|unauthori[sz]ed|api.?key|credential/.test(value)) {
+    return 'The image provider rejected the request. Check your image provider connection, then try again.';
+  }
+  if (/402|credit|billing|quota/.test(value)) {
+    return 'The image provider has no credits available. Add credits or choose a provider with available image credits.';
+  }
+  if (/not configured|configuration|missing provider/.test(value)) {
+    return 'Image generation is not configured yet. Add an image provider key in Settings to enable it.';
+  }
+  return 'We couldn’t create this image right now. Please try again in a moment.';
+}
 
 interface GeneratedImageCardProps {
   image: GeneratedImage;
@@ -73,6 +88,7 @@ export default function GeneratedImageCard({
   if (image.status === 'error') {
     return (
       <div
+        role="alert"
         className="max-w-md my-2 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm space-y-3"
         style={{ color: isDark ? '#fca5a5' : '#b91c1c' }}
       >
@@ -81,33 +97,30 @@ export default function GeneratedImageCard({
           Image generation failed
         </div>
         <p className="text-xs text-red-400 leading-relaxed opacity-90">
-          Image generation is available only for connected accounts. Connect your OpenRouter key to continue.
+          {getFriendlyImageError(image.errorMessage)}
         </p>
         <div className="flex flex-wrap items-center gap-2 pt-1">
-          <a
-            href="/upgrade"
-            className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
-          >
-            <Sparkles size={13} />
-            Upgrade to e-Mate Plus
-          </a>
-          <button
+          <Button
             type="button"
             onClick={handleConnectKey}
-            className="px-3 py-1.5 rounded-lg border border-red-500/30 text-xs font-medium hover:bg-red-500/10 transition-colors flex items-center gap-1.5 cursor-pointer text-red-400"
+            variant="outline"
+            size="sm"
+            className="h-9 border-red-500/30 px-3 text-xs text-red-500 hover:bg-red-500/10 dark:text-red-300"
           >
             <KeyRound size={13} />
             Connect Key
-          </button>
+          </Button>
           {onRegenerate && (
-            <button
+            <Button
               type="button"
               onClick={() => onRegenerate(image.id, image.prompt)}
-              className="px-3 py-1.5 rounded-lg border border-red-500/30 text-xs font-medium hover:bg-red-500/10 transition-colors flex items-center gap-1.5 cursor-pointer text-red-400"
+              variant="outline"
+              size="sm"
+              className="h-9 border-red-500/30 px-3 text-xs text-red-500 hover:bg-red-500/10 dark:text-red-300"
             >
               <RefreshCw size={12} />
               Retry
-            </button>
+            </Button>
           )}
         </div>
       </div>

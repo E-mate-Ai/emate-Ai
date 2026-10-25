@@ -80,7 +80,10 @@ export function classifyTask(
   const isImagePrompt =
     p.startsWith('/image') ||
     p.startsWith('/img') ||
-    /\b(generate (an? )?image|draw (an? )?image|create a visual|illustrate|render a diagram|photorealistic picture of)\b/i.test(p);
+    /\b(?:gen(?:erate|rate|arte)|create|make|draw|paint|render|illustrate|design|produce|show me)\b.{0,100}\b(?:image|picture|photo|illustration|drawing|visual|graphic|artwork)s?\b/i.test(p) ||
+    /\b(?:image|picture|photo|illustration|drawing|visual|artwork)s?\s+(?:of|for|about)\b/i.test(p) ||
+    /^\s*(?:please\s+)?(?:draw|paint|illustrate)\s+(?:(?:me|a|an|the)\s+)?[a-z]/i.test(p) ||
+    /\b(?:photorealistic|photo realistic)\s+(?:image|picture|photo)\b/i.test(p);
 
   if (isImagePrompt) {
     return { taskType: 'image_generation', targetModality: 'image', hasVisionInput };

@@ -1,15 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   X,
   Presentation,
   FileText,
   Download,
   Loader2,
-  FileCode,
   Layers,
-  Eye,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { exportToDocx, exportToPptx, downloadFile } from '@/lib/documentExport';
@@ -20,6 +18,7 @@ interface ArtifactsSidebarProps {
   isOpen: boolean;
   onClose: () => void;
   artifacts: GeneratedDocument[];
+  selectedArtifactId?: string | null;
   onSelectArtifact?: (id: string) => void;
   theme?: 'light' | 'dark';
 }
@@ -28,12 +27,21 @@ export default function ArtifactsSidebar({
   isOpen,
   onClose,
   artifacts,
+  selectedArtifactId,
   onSelectArtifact,
   theme = 'dark',
 }: ArtifactsSidebarProps) {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [activeArtifactId, setActiveArtifactId] = useState<string | null>(selectedArtifactId ?? null);
   const [previewDoc, setPreviewDoc] = useState<GeneratedDocument | null>(null);
   const isDark = theme === 'dark';
+
+  useEffect(() => {
+    if (selectedArtifactId) setActiveArtifactId(selectedArtifactId);
+  }, [selectedArtifactId]);
+
+  const activeDoc = artifacts.find((doc) => doc.id === activeArtifactId) ?? artifacts[0] ?? null;
+  const isPreviewOpen = Boolean(previewDoc);
 
   if (!isOpen) return null;
 
@@ -68,58 +76,60 @@ export default function ArtifactsSidebar({
   return (
     <>
       <aside
-        className={`fixed top-0 right-0 z-40 h-full w-80 sm:w-96 flex flex-col border-l shadow-2xl transition-all duration-300 animate-in slide-in-from-right ${
+        className={`fixed top-0 right-0 z-40 flex h-full flex-col border-l shadow-2xl transition-all duration-300 animate-in slide-in-from-right ${isPreviewOpen ? 'w-[min(62vw,1180px)] max-[700px]:w-full' : 'w-80 sm:w-96'} ${
           isDark
             ? 'bg-[#121214] border-white/10 text-zinc-100'
             : 'bg-[#fafafa] border-zinc-200 text-zinc-900'
         }`}
-        aria-label="Artifacts Panel"
+        aria-label="Files panel"
       >
-        {/* Top Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 dark:border-white/10">
+        {/* Files header is shown in list mode; the preview has its own toolbar. */}
+        {!isPreviewOpen && <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 dark:border-white/10">
           <div className="flex items-center gap-2">
             <Layers size={18} className="text-amber-500" />
-            <h2 className="text-base font-semibold tracking-tight">Artifacts</h2>
+            <h2 className="text-base font-semibold tracking-tight">Files</h2>
             <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-zinc-400 font-mono">
               {artifacts.length}
             </span>
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => {
+              setPreviewDoc(null);
+              onClose();
+            }}
             className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
             aria-label="Close artifacts panel"
           >
             <X size={18} />
           </button>
-        </div>
+        </div>}
 
-        {/* Artifacts List */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {artifacts.length === 0 ? (
-            <div className="h-64 flex flex-col items-center justify-center text-center px-4 text-zinc-500">
-              <Layers size={32} className="stroke-[1.5] mb-2 opacity-40" />
-              <p className="text-sm font-medium">No artifacts yet</p>
-              <p className="text-xs text-zinc-500 mt-1">
-                Documents and presentations generated in this chat will appear here for live preview and one-click download.
-              </p>
-            </div>
-          ) : (
-            artifacts.map((doc) => {
+        <div className="flex min-h-0 flex-1">
+          {/* File list returns when the preview is minimized. */}
+          {!isPreviewOpen && <div className={`min-h-0 w-full flex-1 space-y-2 overflow-y-auto p-3 ${isDark ? 'border-white/10' : 'border-zinc-200'}`}>
+            {artifacts.length === 0 ? (
+              <div className="flex h-36 flex-col items-center justify-center px-4 text-center text-zinc-500 sm:h-64">
+                <Layers size={30} className="mb-2 opacity-40" />
+                <p className="text-sm font-medium">No files yet</p>
+                <p className="mt-1 text-xs">Generated presentations and documents will appear here.</p>
+              </div>
+            ) : artifacts.map((doc) => {
               const isPptx = doc.format === 'pptx';
               const isDownloading = downloadingId === doc.id;
+              const isSelected = activeDoc?.id === doc.id;
 
               return (
                 <div
                   key={doc.id}
                   onClick={() => {
-                    setPreviewDoc(doc);
+                    setActiveArtifactId(doc.id);
                     onSelectArtifact?.(doc.id);
                   }}
-                  className={`group relative flex items-center justify-between p-3.5 rounded-2xl border transition-all cursor-pointer ${
-                    isDark
-                      ? 'bg-zinc-900/60 hover:bg-zinc-900 border-white/10 hover:border-amber-500/30'
-                      : 'bg-white hover:bg-zinc-50 border-zinc-200 shadow-xs hover:border-amber-500/40'
+                  className={`group relative flex cursor-pointer items-center justify-between rounded-xl border p-3 transition-all ${
+                    isSelected
+                      ? isDark ? 'border-blue-400/40 bg-blue-500/10' : 'border-blue-300 bg-blue-50'
+                      : isDark ? 'border-white/10 bg-zinc-900/60 hover:bg-zinc-900' : 'border-zinc-200 bg-white hover:bg-zinc-50'
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0 pr-3">
@@ -151,29 +161,25 @@ export default function ArtifactsSidebar({
                         <span className="text-xs text-zinc-400">
                           {isPptx ? 'Presentation · PPTX' : 'Document · DOCX'}
                         </span>
-                        <span className="text-[10px] text-amber-500/80 font-medium">· Preview</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Right Action Buttons */}
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0">
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setActiveArtifactId(doc.id);
+                        onSelectArtifact?.(doc.id);
                         setPreviewDoc(doc);
                       }}
-                      title="Open Live Preview"
-                      className={`p-1.5 rounded-lg transition-all cursor-pointer ${
-                        isDark
-                          ? 'text-zinc-400 hover:text-amber-400 hover:bg-white/10'
-                          : 'text-zinc-600 hover:text-amber-600 hover:bg-zinc-100'
-                      }`}
+                      className="rounded-full px-3 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-500/10"
+                      title="Preview presentation"
                     >
-                      <Eye size={15} />
+                      Preview
                     </button>
-
                     <button
                       type="button"
                       onClick={(e) => handleDownload(doc, e)}
@@ -194,18 +200,25 @@ export default function ArtifactsSidebar({
                   </div>
                 </div>
               );
-            })
+            })}
+          </div>}
+          {previewDoc && (
+            <section className="flex min-h-0 min-w-0 flex-1 overflow-hidden" aria-label="Document preview">
+              <DocumentLivePreviewModal
+                doc={previewDoc}
+                isOpen
+                inline
+                onClose={() => {
+                  setPreviewDoc(null);
+                  onClose();
+                }}
+                onMinimize={() => setPreviewDoc(null)}
+                theme={theme}
+              />
+            </section>
           )}
         </div>
       </aside>
-
-      {/* Live Preview Modal */}
-      <DocumentLivePreviewModal
-        doc={previewDoc}
-        isOpen={!!previewDoc}
-        onClose={() => setPreviewDoc(null)}
-        theme={theme}
-      />
     </>
   );
 }

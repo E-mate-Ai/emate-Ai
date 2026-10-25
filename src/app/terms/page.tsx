@@ -84,7 +84,8 @@ export default function TermsOfServicePage() {
               1. Acceptance of Terms
             </h2>
             <p>
-              By accessing or using e-Mate AI, creating an account, or purchasing a subscription, you agree to be bound by these Terms of Service (&quot;Terms&quot;) and our Privacy Policy. If you do not agree to these Terms, please do not use the service.
+              By accessing or using e-Mate AI, creating an account, or purchasing a subscription, you agree to be bound by these Terms of Service (&quot;Terms&quot;) and our{' '}
+              <Link href="/privacy" className="text-blue-600 underline dark:text-blue-400">Privacy Policy</Link>. If you do not agree to these Terms, please do not use the service.
             </p>
           </section>
 

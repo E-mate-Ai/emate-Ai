@@ -1,5 +1,10 @@
 import PptxGenJS from 'pptxgenjs';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
+import {
+  omitModelTitleSlide,
+  extractPresentationCoverData,
+} from '@/lib/presentationCover';
+import { buildUniversalDocx } from '@/lib/standardDocument';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,7 +13,8 @@ function parsePresentationSlides(markdown: string): Array<{
   bullets: string[];
   notes?: string;
 }> {
-  const rawSections = markdown.split(/---SLIDE:[^-]*---/).filter((s) => s.trim().length > 0);
+  const presentationContent = omitModelTitleSlide(markdown);
+  const rawSections = presentationContent.split(/---SLIDE:[^-]*---/).filter((s) => s.trim().length > 0);
 
   if (rawSections.length > 0) {
     return rawSections.map((sec, idx) => {
@@ -70,70 +76,154 @@ async function generatePptxBuffer(title: string, markdown: string): Promise<Buff
   pres.company = 'e-Mate AI Studio';
   pres.title = title;
 
+  const coverData = extractPresentationCoverData(markdown, title);
   const slides = parsePresentationSlides(markdown);
+  const totalSlides = slides.length + 1;
 
-  // 1. Title Slide (Claude Navy & Amber Accent)
+  // 1. Title Slide - matching the dark zinc & amber presentation design
   const titleSlide = pres.addSlide();
-  titleSlide.background = { color: '0F172A' };
-  titleSlide.addText(title, {
+  titleSlide.background = { color: '18181B' };
+
+  // Top header rule & kicker
+  titleSlide.addText('TITLE SLIDE', {
     x: 0.8,
-    y: 2.2,
-    w: 8.4,
-    h: 1.5,
-    fontSize: 32,
+    y: 0.35,
+    w: 6.0,
+    h: 0.4,
+    fontSize: 11,
     bold: true,
-    color: 'F8FAFC',
+    color: 'F59E0B',
     fontFace: 'Arial',
   });
-  titleSlide.addText('Prepared with e-Mate AI Studio', {
+  titleSlide.addText(`1 / ${totalSlides}`, {
+    x: 7.5,
+    y: 0.35,
+    w: 5.0,
+    h: 0.4,
+    fontSize: 11,
+    color: '71717A',
+    align: 'right',
+    fontFace: 'Arial',
+  });
+  titleSlide.addShape(pres.ShapeType.line, {
     x: 0.8,
-    y: 3.8,
-    w: 8.4,
-    h: 0.6,
-    fontSize: 16,
-    color: '94A3B8',
+    y: 0.8,
+    w: 11.7,
+    h: 0,
+    line: { color: '27272A', width: 1 },
+  });
+
+  // Hero Title
+  titleSlide.addText(coverData.title, {
+    x: 0.8,
+    y: 1.6,
+    w: 11.7,
+    h: 1.8,
+    fontSize: 34,
+    bold: true,
+    color: 'FFFFFF',
     fontFace: 'Arial',
   });
+
+  // Amber accent bar
   titleSlide.addShape(pres.ShapeType.rect, {
     x: 0.8,
-    y: 2.0,
-    w: 2.0,
-    h: 0.08,
+    y: 3.6,
+    w: 1.2,
+    h: 0.07,
     fill: { color: 'F59E0B' },
+    line: { color: 'F59E0B' },
   });
 
-  // 2. Content Slides
-  slides.forEach((s, idx) => {
-    const slide = pres.addSlide();
-    slide.background = { color: 'F8FAFC' };
+  // Subtitle / Overview
+  if (coverData.subtitle) {
+    titleSlide.addText(coverData.subtitle, {
+      x: 0.8,
+      y: 3.9,
+      w: 11.0,
+      h: 1.8,
+      fontSize: 17,
+      color: 'D4D4D8',
+      fontFace: 'Arial',
+    });
+  }
 
-    slide.addShape(pres.ShapeType.rect, {
-      x: 0,
-      y: 0,
-      w: '100%',
-      h: 1.1,
-      fill: { color: '0F172A' },
+  // Footer divider & brand
+  titleSlide.addShape(pres.ShapeType.line, {
+    x: 0.8,
+    y: 6.6,
+    w: 11.7,
+    h: 0,
+    line: { color: '27272A', width: 1 },
+  });
+  titleSlide.addText('e-Mate AI Studio', {
+    x: 0.8,
+    y: 6.75,
+    w: 4.0,
+    h: 0.4,
+    fontSize: 10,
+    color: '71717A',
+    fontFace: 'Arial',
+  });
+  titleSlide.addText(`1 / ${totalSlides}`, {
+    x: 7.5,
+    y: 6.75,
+    w: 5.0,
+    h: 0.4,
+    fontSize: 10,
+    color: '71717A',
+    align: 'right',
+    fontFace: 'Arial',
+  });
+
+  if (coverData.speakerNotes) {
+    titleSlide.addNotes(coverData.speakerNotes);
+  }
+
+  // 2. Content Slides - perfectly matching dark zinc & amber design
+  slides.forEach((s, idx) => {
+    const slideNumber = idx + 2;
+    const slide = pres.addSlide();
+    slide.background = { color: '18181B' };
+
+    // Top header kicker
+    slide.addText(`SLIDE ${slideNumber}`, {
+      x: 0.8,
+      y: 0.35,
+      w: 6.0,
+      h: 0.4,
+      fontSize: 11,
+      bold: true,
+      color: 'F59E0B',
+      fontFace: 'Arial',
+    });
+    slide.addText(`${slideNumber} / ${totalSlides}`, {
+      x: 7.5,
+      y: 0.35,
+      w: 5.0,
+      h: 0.4,
+      fontSize: 11,
+      color: '71717A',
+      align: 'right',
+      fontFace: 'Arial',
+    });
+    slide.addShape(pres.ShapeType.line, {
+      x: 0.8,
+      y: 0.8,
+      w: 11.7,
+      h: 0,
+      line: { color: '27272A', width: 1 },
     });
 
+    // Slide Title
     slide.addText(s.title, {
       x: 0.8,
-      y: 0.25,
-      w: 8.0,
-      h: 0.7,
+      y: 1.05,
+      w: 11.7,
+      h: 0.8,
       fontSize: 22,
       bold: true,
       color: 'FFFFFF',
-      fontFace: 'Arial',
-    });
-
-    slide.addText(`${idx + 1} / ${slides.length}`, {
-      x: 8.2,
-      y: 0.35,
-      w: 1.5,
-      h: 0.5,
-      fontSize: 12,
-      color: '94A3B8',
-      align: 'right',
       fontFace: 'Arial',
     });
 
@@ -142,11 +232,11 @@ async function generatePptxBuffer(title: string, markdown: string): Promise<Buff
       return {
         text: cleaned,
         options: {
-          bullet: { type: 'bullet' as const },
+          bullet: { type: 'bullet' as const, color: 'F59E0B' },
           fontSize: 14,
-          color: '334155',
+          color: 'E4E4E7',
           breakLine: true,
-          paraSpaceAfter: 10,
+          paraSpaceAfter: 12,
         },
       };
     });
@@ -154,12 +244,40 @@ async function generatePptxBuffer(title: string, markdown: string): Promise<Buff
     if (bulletItems.length > 0) {
       slide.addText(bulletItems, {
         x: 0.8,
-        y: 1.6,
-        w: 8.4,
-        h: 4.8,
+        y: 2.05,
+        w: 11.7,
+        h: 4.3,
         fontFace: 'Arial',
       });
     }
+
+    // Footer divider & brand
+    slide.addShape(pres.ShapeType.line, {
+      x: 0.8,
+      y: 6.6,
+      w: 11.7,
+      h: 0,
+      line: { color: '27272A', width: 1 },
+    });
+    slide.addText('e-Mate AI Studio', {
+      x: 0.8,
+      y: 6.75,
+      w: 4.0,
+      h: 0.4,
+      fontSize: 10,
+      color: '71717A',
+      fontFace: 'Arial',
+    });
+    slide.addText(`${slideNumber} / ${totalSlides}`, {
+      x: 7.5,
+      y: 6.75,
+      w: 5.0,
+      h: 0.4,
+      fontSize: 10,
+      color: '71717A',
+      align: 'right',
+      fontFace: 'Arial',
+    });
 
     if (s.notes) {
       slide.addNotes(s.notes);
@@ -171,82 +289,7 @@ async function generatePptxBuffer(title: string, markdown: string): Promise<Buff
 }
 
 async function generateDocxBuffer(title: string, markdown: string): Promise<Buffer> {
-  const lines = markdown.split('\n');
-  const docParagraphs: any[] = [];
-
-  docParagraphs.push(
-    new Paragraph({
-      text: title,
-      heading: HeadingLevel.TITLE,
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 300, before: 100 },
-    })
-  );
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      docParagraphs.push(new Paragraph({ text: '', spacing: { after: 120 } }));
-      continue;
-    }
-
-    if (trimmed.startsWith('# ')) {
-      docParagraphs.push(
-        new Paragraph({
-          text: trimmed.replace(/^#\s+/, ''),
-          heading: HeadingLevel.HEADING_1,
-          spacing: { before: 240, after: 120 },
-        })
-      );
-    } else if (trimmed.startsWith('## ')) {
-      docParagraphs.push(
-        new Paragraph({
-          text: trimmed.replace(/^##\s+/, ''),
-          heading: HeadingLevel.HEADING_2,
-          spacing: { before: 200, after: 100 },
-        })
-      );
-    } else if (trimmed.startsWith('### ')) {
-      docParagraphs.push(
-        new Paragraph({
-          text: trimmed.replace(/^###\s+/, ''),
-          heading: HeadingLevel.HEADING_3,
-          spacing: { before: 160, after: 80 },
-        })
-      );
-    } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.startsWith('• ')) {
-      const content = trimmed.replace(/^[-*•]\s+/, '');
-      docParagraphs.push(
-        new Paragraph({
-          text: content.replace(/\*\*(.*?)\*\*/g, '$1'),
-          bullet: { level: 0 },
-          spacing: { after: 80 },
-        })
-      );
-    } else {
-      docParagraphs.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: trimmed.replace(/\*\*(.*?)\*\*/g, '$1'),
-              size: 24,
-            }),
-          ],
-          spacing: { after: 120 },
-        })
-      );
-    }
-  }
-
-  const doc = new Document({
-    sections: [
-      {
-        properties: {},
-        children: docParagraphs,
-      },
-    ],
-  });
-
+  const doc = buildUniversalDocx(title, markdown);
   return await Packer.toBuffer(doc);
 }
 

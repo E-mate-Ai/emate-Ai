@@ -62,7 +62,7 @@ export default function NotebookOverlay({ subjectName, onClose, theme }: Noteboo
   };
 
   const bdr = theme === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
-  const surface = theme === 'dark' ? '#111113' : '#f9f9fb';
+  const surface = theme === 'dark' ? '#252525' : '#f5f5f5';
   const cardBg = theme === 'dark' ? '#18181b' : '#ffffff';
   const textPrimary = theme === 'dark' ? '#f4f4f5' : '#18181b';
 

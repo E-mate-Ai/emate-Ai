@@ -4,6 +4,7 @@ import React from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Sparkles, Zap, ArrowRight } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics';
+import { Button } from '@/components/ui/button';
 
 interface StickyMobileCTAProps {
   onQuickPrompt?: (promptText: string) => void;
@@ -43,12 +44,11 @@ export default function StickyMobileCTA({ onQuickPrompt }: StickyMobileCTAProps)
   };
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200/70 bg-white/85 px-3 pb-[max(0.8rem,env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-xl shadow-[0_-12px_26px_rgba(15,23,42,0.08)] md:hidden">
+    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 px-3 pb-[max(0.8rem,env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-xl shadow-[0_-12px_26px_rgba(15,23,42,0.08)] md:hidden">
       <div className="mx-auto flex w-full max-w-md items-center gap-2.5">
-        <button
-          type="button"
+        <Button
           onClick={handleStartStudy}
-          className="group relative flex flex-1 items-center justify-between overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 px-4 py-3 text-left text-white shadow-[0_10px_30px_rgba(37,99,235,0.28)] transition active:scale-[0.99]"
+          className="group h-12 flex-1 justify-between px-4 text-left"
         >
           <div className="flex items-center gap-2.5">
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/12">
@@ -57,19 +57,20 @@ export default function StickyMobileCTA({ onQuickPrompt }: StickyMobileCTAProps)
             <span className="text-[13px] font-semibold tracking-[-0.01em]">Study sprint</span>
           </div>
           <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" />
-        </button>
+        </Button>
 
-        <button
-          type="button"
+        <Button
+          variant="outline"
+          size="sm"
           onClick={handleUpgradeOrNotes}
-          className="flex h-[48px] items-center justify-center gap-1.5 rounded-2xl bg-[#2563EB] hover:bg-[#1D4ED8] px-3.5 text-xs font-semibold text-white shadow-sm transition active:scale-95"
+          className="h-12 shrink-0 gap-1.5 px-3.5 text-xs font-semibold"
           title="Upgrade to Pro"
         >
           <span>Upgrade</span>
-          <span className="rounded-full bg-white/22 px-2 py-0.5 text-[10px] font-bold text-white">
+          <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-[10px] font-bold text-zinc-800 dark:bg-white/15 dark:text-white">
             Pro
           </span>
-        </button>
+        </Button>
       </div>
     </div>
   );

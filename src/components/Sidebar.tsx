@@ -378,7 +378,7 @@ export default function Sidebar({
         className="relative flex flex-col shrink-0 transition-colors duration-300"
         style={{
           width: `${width}px`,
-          background: theme === 'dark' ? '#080809' : '#f9f9fb',
+          background: theme === 'dark' ? '#252525' : '#fafafa',
           borderRight:
             theme === 'dark' ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.07)',
           position: 'sticky',
@@ -469,7 +469,7 @@ export default function Sidebar({
                 className="ml-auto text-[9px] font-medium px-1.5 py-0.5 rounded"
                 style={{
                   color: theme === 'dark' ? '#8aa2ff' : '#1f51ff',
-                  background: theme === 'dark' ? 'rgba(138,162,255,0.12)' : 'rgba(31,81,255,0.08)',
+                  background: theme === 'dark' ? 'rgba(20,119,242,0.16)' : 'rgba(20,119,242,0.08)',
                 }}
               >
                 ⌘K
@@ -535,7 +535,7 @@ export default function Sidebar({
               <span
                 className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full"
                 style={{
-                  background: theme === 'dark' ? 'rgba(138,162,255,0.12)' : 'rgba(31,81,255,0.08)',
+                  background: theme === 'dark' ? 'rgba(20,119,242,0.16)' : 'rgba(20,119,242,0.08)',
                   color: theme === 'dark' ? '#8aa2ff' : '#1f51ff',
                   border: `1px solid ${theme === 'dark' ? 'rgba(138,162,255,0.2)' : 'rgba(31,81,255,0.15)'}`,
                 }}
@@ -1024,7 +1024,7 @@ export default function Sidebar({
                 <div
                   className="relative w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden"
                   style={{
-                    background: theme === 'dark' ? '#111111' : '#ffffff',
+                    background: theme === 'dark' ? '#404040' : '#ffffff',
                     border:
                       theme === 'dark'
                         ? '1px solid rgba(255,255,255,0.1)'
@@ -1284,7 +1284,7 @@ export default function Sidebar({
                 <div
                   className="w-full max-w-sm rounded-2xl p-6 shadow-2xl"
                   style={{
-                    background: theme === 'dark' ? '#1a1a1a' : '#ffffff',
+                    background: theme === 'dark' ? '#303030' : '#ffffff',
                     border:
                       theme === 'dark'
                         ? '1px solid rgba(255,255,255,0.1)'

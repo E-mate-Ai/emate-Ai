@@ -2,41 +2,41 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  Settings,
-  LayoutGrid,
-  Wallet,
-  ShieldCheck,
-  Key,
-  MessageSquare,
-  Monitor,
-  Lock,
-  HelpCircle,
-  FileText,
-  LogOut,
-  X,
-  Sun,
-  Moon,
-  ArrowUpRight,
-  ChevronRight,
-  Check,
-  Compass,
-  BookOpen,
-  Trash2,
-  Plus,
-  Mail,
-  Phone,
-  Laptop,
-  Smartphone,
-  Sparkles,
-  Database,
-  Globe,
-  ExternalLink,
-  ShieldAlert,
-  CreditCard,
-  Zap,
-  User,
-  Search,
-} from 'lucide-react';
+  Cog6ToothIcon as Settings,
+  Squares2X2Icon as LayoutGrid,
+  WalletIcon as Wallet,
+  ShieldCheckIcon as ShieldCheck,
+  KeyIcon as Key,
+  ChatBubbleLeftRightIcon as MessageSquare,
+  ComputerDesktopIcon as Monitor,
+  LockClosedIcon as Lock,
+  QuestionMarkCircleIcon as HelpCircle,
+  DocumentTextIcon as FileText,
+  ArrowRightOnRectangleIcon as LogOut,
+  XMarkIcon as X,
+  SunIcon as Sun,
+  MoonIcon as Moon,
+  ArrowUpRightIcon as ArrowUpRight,
+  ChevronRightIcon as ChevronRight,
+  CheckIcon as Check,
+  AcademicCapIcon as Compass,
+  BookOpenIcon as BookOpen,
+  TrashIcon as Trash2,
+  PlusIcon as Plus,
+  EnvelopeIcon as Mail,
+  PhoneIcon as Phone,
+  ComputerDesktopIcon as Laptop,
+  DevicePhoneMobileIcon as Smartphone,
+  SparklesIcon as Sparkles,
+  CircleStackIcon as Database,
+  GlobeAltIcon as Globe,
+  ArrowTopRightOnSquareIcon as ExternalLink,
+  ShieldExclamationIcon as ShieldAlert,
+  CreditCardIcon as CreditCard,
+  BoltIcon as Zap,
+  UserIcon as User,
+  MagnifyingGlassIcon as Search,
+} from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { applyTheme } from '@/lib/theme';
 import { fetchOpenRouterKeyInfo, type OpenRouterKeyInfo } from '@/lib/openrouter';
@@ -61,6 +61,8 @@ import {
 import { isGuestModeEnabled, clearGuestModeEnabled } from '@/lib/guest-mode';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import AgentSkillsSettingsPanel from '@/components/AgentSkillsSettingsPanel';
 
 type SettingsTab =
   | 'general'
@@ -74,6 +76,7 @@ type SettingsTab =
   | 'help'
   | 'legal'
   | 'context'
+  | 'capabilities'
   | 'notebook';
 
 interface SettingsPageProps {
@@ -96,6 +99,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
   const [notebookNotes, setNotebookNotes] = useState<NotebookEntry[]>([]);
   const [newNoteText, setNewNoteText] = useState('');
   const [isGuest, setIsGuest] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   const [profileName, setProfileName] = useState('Account');
   const [profileSubtitle, setProfileSubtitle] = useState('Password, security, personal details');
   const [avatarUrl, setAvatarUrl] = useState('');
@@ -294,6 +298,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         data: { user },
       } = await supabase.auth.getUser();
       if (user) {
+        setUserId(user.id);
         const fullName =
           user.user_metadata?.full_name ||
           user.user_metadata?.name ||
@@ -313,6 +318,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         setProfileLoading(false);
         return;
       }
+      setUserId(null);
       setIsGuest(true);
       setProfileName('Guest');
       setProfileSubtitle('Guest mode · Search & Study');
@@ -350,6 +356,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
     { id: 'wallet', label: 'Wallet', icon: Wallet },
     { id: 'secure_store', label: 'Secure store', icon: ShieldCheck },
     { id: 'permissions', label: 'Permissions', icon: Key },
+    { id: 'capabilities', label: 'Capabilities', icon: Sparkles },
     { id: 'messaging', label: 'Messaging channels', icon: MessageSquare },
     { id: 'devices', label: 'Devices', icon: Monitor },
     { id: 'data_controls', label: 'Data controls', icon: Lock },
@@ -373,34 +380,34 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
     help: 'Get in touch with the e-Mate support team.',
     legal: 'View product, privacy, and service information.',
     context: 'Choose the subject e-Mate should use for study answers.',
+    capabilities: 'Choose which AI skills are available for your requests.',
     notebook: 'Review notes saved from your study sessions.',
   };
 
   return (
     <div
-      className="relative w-full max-w-[1180px] h-[760px] max-h-[92vh] bg-white dark:bg-zinc-950 rounded-[22px] shadow-2xl border border-zinc-200 dark:border-zinc-800 flex overflow-hidden text-zinc-900 dark:text-zinc-100 font-sans transition-colors duration-150 animate-in zoom-in-95"
+      className="relative w-[calc(100vw-24px)] sm:w-[min(62.5vw,1248px)] h-[calc(100dvh-24px)] sm:h-[min(89vh,856px)] max-h-[calc(100dvh-24px)] bg-white dark:bg-[#252525] rounded-[32px] sm:rounded-[52px] shadow-2xl border border-zinc-200 dark:border-[#303030] flex overflow-hidden text-zinc-900 dark:text-zinc-100 font-sans transition-colors duration-150 animate-in zoom-in-95"
       onClick={(e) => e.stopPropagation()}
     >
       {/* ── Left Sidebar Navigation Pane ─────────────────────────────────── */}
-      <nav aria-label="Settings sections" className="w-14 sm:w-[230px] shrink-0 border-r border-zinc-200 dark:border-zinc-800 p-1.5 sm:p-5 flex flex-col justify-between bg-zinc-50/70 dark:bg-zinc-950 select-none overflow-y-auto">
+      <nav aria-label="Settings sections" className="w-14 sm:w-[350px] shrink-0 border-r border-zinc-200 dark:border-[#3b3b3b] p-1.5 sm:p-6 flex flex-col justify-between bg-zinc-50/70 dark:bg-[#252525] select-none overflow-y-auto">
         <div className="space-y-5">
-          <h2 className="hidden sm:block text-xl font-semibold tracking-tight text-zinc-900 dark:text-white px-2 pt-1">
+          <h2 className="hidden sm:block text-[22px] font-semibold tracking-tight text-zinc-900 dark:text-white px-2 pt-1">
             Settings
           </h2>
 
           <label className="relative hidden sm:block">
-            <Search size={16} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+            <Search width={16} height={16} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
             <input
               value={settingsSearch}
               onChange={(event) => setSettingsSearch(event.target.value)}
-              placeholder="Search settings"
+              placeholder="Search"
               aria-label="Search settings"
-              className="h-10 w-full rounded-xl border border-zinc-200/80 bg-zinc-100/80 pl-9 pr-3 text-sm text-zinc-900 placeholder:text-zinc-400 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+              className="h-11 w-full rounded-full border border-zinc-200/80 bg-zinc-100/80 pl-11 pr-4 text-base text-zinc-900 placeholder:text-zinc-400 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 dark:border-[#414141] dark:bg-[#414141] dark:text-zinc-100"
             />
           </label>
 
           <div className="space-y-1">
-            <p className="hidden sm:block px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Preferences</p>
             {filteredNavItems.map(({ id, label, icon: Icon }) => {
               const isActive = activeTab === id;
               return (
@@ -409,15 +416,15 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                   onClick={() => setActiveTab(id)}
                   aria-current={isActive ? 'page' : undefined}
                   title={label}
-                  className={`w-full justify-center sm:justify-start text-left px-1 sm:px-3 py-2.5 rounded-xl flex items-center gap-0 sm:gap-3 text-sm font-medium transition-colors ${
+                  className={`w-full min-h-11 justify-center sm:justify-start text-left px-1 sm:px-3 py-2.5 rounded-xl flex items-center gap-0 sm:gap-3 text-base font-medium transition-colors ${
                     isActive
-                      ? 'bg-zinc-200/80 text-zinc-900 dark:bg-zinc-800 dark:text-white font-semibold'
-                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200/60 dark:hover:bg-zinc-900'
+                      ? 'bg-zinc-200/80 text-zinc-900 dark:bg-[#414141] dark:text-white font-semibold'
+                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200/60 dark:hover:bg-[#505050]'
                   }`}
                 >
                   <Icon
-                    size={17}
-                    className={isActive ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-500 dark:text-zinc-400'}
+                    width={17} height={17}
+                    className={isActive ? 'text-blue-600 dark:text-blue-300' : 'text-zinc-500 dark:text-zinc-400'}
                   />
                   <span className="hidden sm:block truncate">{label}</span>
                 </button>
@@ -428,38 +435,35 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         </div>
 
         {/* Bottom Log out button */}
-        <div className="pt-4 border-t border-zinc-200/60 dark:border-zinc-800/60 mt-4">
+        <div className="pt-4 border-t border-zinc-200/60 dark:border-[#4b4b4b]/60 mt-4">
           <button
             onClick={handleSignOut}
             aria-label="Log out"
             title="Log out"
             className="w-full justify-center sm:justify-start text-left px-1 sm:px-3 py-2.5 rounded-xl flex items-center gap-0 sm:gap-3 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
           >
-            <LogOut size={17} className="text-zinc-500 dark:text-zinc-400 hover:text-red-500" />
+            <LogOut width={17} height={17} className="text-zinc-500 dark:text-zinc-400 hover:text-red-500" />
             <span className="hidden sm:block">Log out</span>
           </button>
         </div>
       </nav>
 
       {/* ── Right Content Area ────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto p-5 sm:p-10 relative bg-white dark:bg-zinc-950">
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto p-5 sm:p-9 relative bg-white dark:bg-[#252525]">
         {/* Close Button on top right */}
         <button
           onClick={onBack}
-          className="absolute top-4 right-4 sm:top-6 sm:right-6 min-h-10 min-w-10 flex items-center justify-center rounded-full text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          className="absolute top-4 right-4 sm:top-6 sm:right-6 min-h-10 min-w-10 flex items-center justify-center rounded-full text-zinc-500 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white bg-zinc-100 dark:bg-[#414141] hover:bg-zinc-200 dark:hover:bg-[#505050] transition-colors z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           aria-label="Close Settings"
         >
-          <X size={16} />
+          <X width={16} height={16} />
         </button>
 
         {/* Tab Header Title */}
         <div className="mb-8 pr-12">
-          <h3 className="text-2xl sm:text-[28px] font-semibold tracking-tight text-zinc-900 dark:text-white">
+          <h3 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-white">
             {NAV_ITEMS.find((item) => item.id === activeTab)?.label || 'General'}
           </h3>
-          <p className="mt-1.5 text-sm leading-6 text-zinc-500 dark:text-zinc-400">
-            {TAB_DESCRIPTIONS[activeTab]}
-          </p>
         </div>
 
         {/* ── GENERAL TAB CONTENT ───────────────────────────────────────── */}
@@ -467,14 +471,14 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
           <div className="space-y-6">
             {/* User Account Card */}
             <div
-              className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center justify-between transition-all"
+              className="p-5 rounded-[22px] bg-white dark:bg-[#404040] border border-zinc-200 dark:border-[#4b4b4b] shadow-sm dark:shadow-none flex items-center justify-between transition-all"
             >
               <div className="flex items-center gap-3.5 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center shrink-0 overflow-hidden text-zinc-700 dark:text-zinc-200">
+                <div className="w-10 h-10 rounded-xl bg-zinc-200 dark:bg-[#414141] flex items-center justify-center shrink-0 overflow-hidden text-zinc-700 dark:text-zinc-200">
                   {avatarUrl ? (
                     <img src={avatarUrl} alt={`${profileName || 'User'} avatar`} className="w-full h-full object-cover" />
                   ) : (
-                    <User size={20} />
+                    <User width={20} height={20} />
                   )}
                 </div>
                 <div className="min-w-0">
@@ -487,20 +491,21 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                 </div>
               </div>
               {isGuest ? (
-                <button
+                <Button
+                  size="sm"
                   onClick={() => window.dispatchEvent(new Event('nk-open-signup-popup'))}
-                  className="px-4 py-1.5 rounded-full bg-[#0060df] hover:bg-[#0052cc] text-white text-xs font-semibold shadow-2xs cursor-pointer active:scale-95 shrink-0"
+                  className="shrink-0"
                 >
                   Sign In
-                </button>
+                </Button>
               ) : (
                 <button
                   type="button"
                   aria-label="Account help"
                   onClick={() => setActiveTab('help')}
-                  className="min-h-10 min-w-10 flex items-center justify-center rounded-full text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  className="min-h-10 min-w-10 flex items-center justify-center rounded-full text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-[#505050]"
                 >
-                  <ArrowUpRight size={18} />
+                  <ArrowUpRight width={18} height={18} />
                 </button>
               )}
             </div>
@@ -510,7 +515,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
               <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block">
                 Usage
               </span>
-              <div className="p-5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-4">
+              <div className="p-5 rounded-[22px] bg-white dark:bg-[#404040] border border-zinc-200 dark:border-[#4b4b4b] shadow-sm dark:shadow-none space-y-4">
                 {/* Row 1: Free plan */}
                 <div>
                   <div className="flex items-center justify-between gap-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">
@@ -520,7 +525,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                     </span>
                   </div>
                   <p className="text-xs leading-5 text-zinc-500 dark:text-zinc-400 mb-2">Your search allowance refreshes weekly.</p>
-                  <div className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                  <div className="w-full h-1.5 bg-zinc-200 dark:bg-[#414141] rounded-full overflow-hidden">
                     <div
                       className="h-full bg-blue-500 rounded-full transition-all duration-300"
                       style={{
@@ -530,7 +535,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                   </div>
                 </div>
 
-                <div className="h-[1px] bg-zinc-200/70 dark:bg-zinc-800/80 my-2" />
+                <div className="h-[1px] bg-zinc-200/70 dark:bg-[#414141]/80 my-2" />
 
                 {/* Row 2: OpenRouter API Tokens / Usage */}
                 <div>
@@ -559,7 +564,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                       ? 'Connect OpenRouter to unlock 200+ models'
                       : 'Never expires'}
                   </p>
-                  <div className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                  <div className="w-full h-1.5 bg-zinc-200 dark:bg-[#414141] rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-300 ${
                         openRouterKey ? 'bg-blue-500 w-[100%]' : 'bg-blue-500 w-[0%]'
@@ -569,16 +574,16 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                 </div>
 
                 {/* Upgrade Button */}
-                <div className="pt-1 border-t border-zinc-200/70 dark:border-zinc-800/80">
+                <div className="pt-1 border-t border-zinc-200/70 dark:border-[#4b4b4b]/80">
                   <button
                     onClick={() => router.push('/upgrade')}
-                    className="group mt-3 min-h-11 w-full inline-flex items-center justify-between gap-3 rounded-xl bg-blue-600 px-4 py-2.5 text-left text-sm font-semibold text-white shadow-sm shadow-blue-600/15 transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-900"
+                    className="group mt-3 min-h-11 w-full inline-flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-100 px-4 py-2.5 text-left text-sm font-semibold text-blue-700 transition-colors hover:bg-zinc-200 dark:border-[#555555] dark:bg-[#414141] dark:text-blue-300 dark:hover:bg-[#505050] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                   >
                     <span className="flex flex-col">
                       <span>Explore plans</span>
-                      <span className="text-xs font-normal text-blue-100">More models and higher limits</span>
+                      <span className="text-xs font-normal text-zinc-500 dark:text-zinc-300">More models and higher limits</span>
                     </span>
-                    <ArrowUpRight size={17} aria-hidden="true" className="shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                    <ArrowUpRight width={17} height={17} aria-hidden="true" className="shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                   </button>
                 </div>
               </div>
@@ -590,19 +595,19 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                 type="button"
                 aria-expanded={showLanguageMenu}
                 onClick={() => setShowLanguageMenu(!showLanguageMenu)}
-                className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center justify-between cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all"
+                className="p-5 rounded-[22px] bg-white dark:bg-[#404040] border border-zinc-200 dark:border-[#4b4b4b] shadow-sm dark:shadow-none flex items-center justify-between cursor-pointer hover:bg-zinc-100 dark:hover:bg-[#505050] transition-all"
               >
                 <div className="flex items-center gap-2 text-sm font-medium text-zinc-900 dark:text-white">
                   <span>Language</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-xs text-zinc-400">
                   <span>{selectedLanguage}</span>
-                  <ChevronRight size={16} />
+                  <ChevronRight width={16} height={16} />
                 </div>
               </button>
 
               {showLanguageMenu && (
-                <div className="absolute top-full left-0 right-0 mt-2 p-2 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xl z-20 grid grid-cols-2 gap-1 animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="absolute top-full left-0 right-0 mt-2 p-2 rounded-2xl bg-white dark:bg-[#404040] border border-zinc-200 dark:border-[#4b4b4b] shadow-xl z-20 grid grid-cols-2 gap-1 animate-in fade-in slide-in-from-top-2 duration-150">
                   {['English', 'Auto-detect', 'Hindi', 'Spanish', 'French', 'German'].map((lang) => (
                     <button
                       key={lang}
@@ -614,7 +619,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                       className={`px-3 py-2 rounded-xl text-left text-xs font-medium transition-all ${
                         selectedLanguage === lang
                           ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold'
-                          : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
+                          : 'hover:bg-zinc-100 dark:hover:bg-[#505050] text-zinc-700 dark:text-zinc-300'
                       }`}
                     >
                       {lang}
@@ -629,12 +634,12 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
               <span className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">
                 Appearance
               </span>
-              <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="p-5 rounded-[22px] bg-white dark:bg-[#404040] border border-zinc-200 dark:border-[#4b4b4b] shadow-sm dark:shadow-none flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0 sm:pr-3">
                   <span className="text-sm font-medium text-zinc-900 dark:text-white block">Color theme</span>
                   <span className="mt-0.5 text-xs leading-5 text-zinc-500 dark:text-zinc-400 block">Choose how e-Mate looks on this device.</span>
                 </div>
-                <div role="group" aria-label="Color theme" className="grid w-full grid-cols-3 gap-1 rounded-xl border border-zinc-200 bg-zinc-100 p-1 dark:border-zinc-700 dark:bg-zinc-800 sm:w-auto">
+                <div role="group" aria-label="Color theme" className="grid w-full grid-cols-3 gap-1 rounded-xl border border-zinc-200 bg-zinc-100 p-1 dark:border-[#555555] dark:bg-[#414141] sm:w-auto">
                   <button
                     type="button"
                     onClick={() => handleThemeChange('light')}
@@ -642,11 +647,11 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                     aria-pressed={mode === 'light'}
                     className={`min-h-10 flex items-center justify-center gap-1.5 rounded-lg px-2 sm:px-3 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                       mode === 'light'
-                        ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white'
+                        ? 'bg-white dark:bg-zinc-700 shadow-sm dark:shadow-none text-zinc-900 dark:text-white'
                         : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
                     }`}
                   >
-                    <Sun size={16} aria-hidden="true" /><span>Light</span>
+                    <Sun width={16} height={16} aria-hidden="true" /><span>Light</span>
                   </button>
                   <button
                     type="button"
@@ -655,11 +660,11 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                     aria-pressed={mode === 'dark'}
                     className={`min-h-10 flex items-center justify-center gap-1.5 rounded-lg px-2 sm:px-3 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                       mode === 'dark'
-                        ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white'
+                        ? 'bg-white dark:bg-zinc-700 shadow-sm dark:shadow-none text-zinc-900 dark:text-white'
                         : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
                     }`}
                   >
-                    <Moon size={16} aria-hidden="true" /><span>Dark</span>
+                    <Moon width={16} height={16} aria-hidden="true" /><span>Dark</span>
                   </button>
                   <button
                     type="button"
@@ -668,11 +673,11 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                     aria-pressed={mode === 'system'}
                     className={`min-h-10 flex items-center justify-center gap-1.5 rounded-lg px-2 sm:px-3 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                       mode === 'system'
-                        ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white'
+                        ? 'bg-white dark:bg-zinc-700 shadow-sm dark:shadow-none text-zinc-900 dark:text-white'
                         : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
                     }`}
                   >
-                    <Monitor size={16} aria-hidden="true" /><span>System</span>
+                    <Monitor width={16} height={16} aria-hidden="true" /><span>System</span>
                   </button>
                 </div>
               </div>
@@ -683,15 +688,15 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         {/* ── CONNECTORS TAB ────────────────────────────────────────────── */}
         {activeTab === 'connectors' && (
           <div className="space-y-4">
-            <p className="text-xs text-zinc-500">Connect third-party models, search grounding, &amp; data stores.</p>
+            <p className="text-xs text-zinc-500 dark:text-[#b3b3b3]">Connect third-party models, search grounding, &amp; data stores.</p>
             <div className="space-y-3">
               {connectors.map((c) => (
-                <div key={c.id} className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center justify-between">
+                <div key={c.id} className="p-5 rounded-[22px] bg-white dark:bg-[#404040] border border-zinc-200 dark:border-[#4b4b4b] shadow-sm dark:shadow-none flex items-center justify-between">
                   <div>
                     <h4 className="text-sm font-semibold text-zinc-900 dark:text-white">{c.name}</h4>
-                    <p className="text-xs text-zinc-500">{c.desc}</p>
+                    <p className="text-xs text-zinc-500 dark:text-[#b3b3b3]">{c.desc}</p>
                   </div>
-                  <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium ${c.status.includes('Not Connected') ? 'border-zinc-200 bg-zinc-50 text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300' : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/60 dark:text-blue-300'}`}>
+                  <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium ${c.status.includes('Not Connected') ? 'border-zinc-200 bg-zinc-50 text-zinc-600 dark:border-[#555555] dark:bg-[#414141] dark:text-zinc-300' : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/60 dark:text-blue-300'}`}>
                     {c.status}
                   </span>
                 </div>
@@ -703,7 +708,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         {/* ── WALLET TAB ────────────────────────────────────────────────── */}
         {activeTab === 'wallet' && (
           <div className="space-y-4">
-            <div className="p-5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-4 shadow-sm">
+            <div className="p-5 rounded-[22px] bg-white dark:bg-[#404040] border border-zinc-200 dark:border-[#4b4b4b] space-y-4 shadow-sm dark:shadow-none">
               <div className="flex justify-between items-start">
                 <div>
                   <span className="text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">
@@ -719,7 +724,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                       : `$${walletBalance.toFixed(2)} USD`}
                   </h3>
                 </div>
-                <CreditCard size={20} className="text-blue-600 dark:text-blue-400" />
+                <CreditCard width={20} height={20} className="text-blue-600 dark:text-blue-400" />
               </div>
               <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
                 <p className="text-sm leading-5 text-zinc-500 dark:text-zinc-400">
@@ -744,13 +749,13 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                       toast.success('Added $25.00 USD to your wallet!');
                     }
                   }}
-                  className="min-h-10 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-900"
+                  className="min-h-10 px-4 py-2 rounded-xl border border-zinc-200 bg-zinc-100 hover:bg-zinc-200 text-blue-700 dark:border-[#555555] dark:bg-[#414141] dark:hover:bg-[#505050] dark:text-blue-300 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                 >
                   {openRouterKey ? 'Manage Key' : isGuest ? 'Sign In' : '+ Add $25'}
                 </button>
               </div>
             </div>
-            <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex justify-between items-center gap-4">
+            <div className="p-5 rounded-[22px] bg-white dark:bg-[#404040] border border-zinc-200 dark:border-[#4b4b4b] shadow-sm dark:shadow-none flex justify-between items-center gap-4">
               <div className="min-w-0">
                 <span className="text-sm font-medium text-zinc-900 dark:text-white block">Auto-recharge low balance</span>
                 <span className="text-sm leading-5 text-zinc-500 dark:text-zinc-400">Automatically add $20 when your balance falls below $5.</span>
@@ -772,7 +777,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                     : 'bg-zinc-300 dark:bg-zinc-700'
                 }`}
               >
-                <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${autoRecharge ? 'translate-x-6' : 'translate-x-1'}`} />
+                <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm dark:shadow-none transition-transform ${autoRecharge ? 'translate-x-6' : 'translate-x-1'}`} />
               </button>
             </div>
           </div>
@@ -781,8 +786,8 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         {/* ── SECURE STORE TAB ───────────────────────────────────────────── */}
         {activeTab === 'secure_store' && (
           <div className="space-y-4">
-            <p className="text-xs text-zinc-500">Manage encrypted API keys and model credentials for unlimited access.</p>
-            <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-4">
+            <p className="text-xs text-zinc-500 dark:text-[#b3b3b3]">Manage encrypted API keys and model credentials for unlimited access.</p>
+            <div className="p-5 rounded-[22px] bg-white dark:bg-[#404040] border border-zinc-200 dark:border-[#4b4b4b] shadow-sm dark:shadow-none space-y-4">
               <div className="flex justify-between items-center text-xs">
                 <div>
                   <span className="font-semibold text-zinc-900 dark:text-white block">OpenRouter API Key</span>
@@ -798,7 +803,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                         rel="noreferrer"
                         className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5"
                       >
-                        Browse free models <ExternalLink size={10} />
+                        Browse free models <ExternalLink width={10} height={10} />
                       </a>
                     </div>
                   )}
@@ -813,7 +818,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                         setOpenRouterKeyInfo(null);
                         toast.success('OpenRouter API key disconnected');
                       }}
-                      className="px-3.5 py-1.5 rounded-full text-xs font-medium bg-red-600 hover:bg-red-700 text-white transition-all active:scale-95 cursor-pointer"
+                      className="min-h-10 px-3.5 py-2 rounded-full border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 dark:border-red-400/30 dark:bg-[#414141] dark:hover:bg-[#505050] dark:text-red-300 text-sm font-medium transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
                     >
                       Disconnect
                     </button>
@@ -821,9 +826,9 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                     <button
                       onClick={handleOAuthConnect}
                       disabled={isConnectingOpenRouter}
-                      className="px-3.5 py-1.5 rounded-full text-xs font-medium bg-[#0060df] hover:bg-[#0052cc] text-white transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
+                      className="min-h-10 px-3.5 py-2 rounded-full border border-zinc-200 bg-zinc-100 hover:bg-zinc-200 text-blue-700 dark:border-[#555555] dark:bg-[#414141] dark:hover:bg-[#505050] dark:text-blue-300 text-sm font-medium transition-colors cursor-pointer flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                     >
-                      <Sparkles size={13} />
+                      <Sparkles width={13} height={13} />
                       <span>{isConnectingOpenRouter ? 'Connecting...' : '1-Click Connect'}</span>
                     </button>
                   )}
@@ -831,8 +836,8 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
               </div>
 
               {/* Manual API Key Input */}
-              <div className="pt-2 border-t border-zinc-200/60 dark:border-zinc-800">
-                <label className="text-xs font-medium text-zinc-500 block mb-1.5">
+              <div className="pt-2 border-t border-zinc-200/60 dark:border-[#4b4b4b]">
+                <label className="text-xs font-medium text-zinc-500 dark:text-[#b3b3b3] block mb-1.5">
                   Or paste your OpenRouter API Key (sk-or-v1-...):
                 </label>
                 <div className="flex items-center gap-2">
@@ -841,18 +846,18 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                     placeholder="sk-or-v1-..."
                     value={manualKeyInput}
                     onChange={(e) => setManualKeyInput(e.target.value)}
-                    className="flex-1 px-3 py-1.5 text-xs rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="flex-1 px-3 py-1.5 text-xs rounded-xl bg-white dark:bg-[#414141] border border-zinc-200 dark:border-[#555555] text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                   <button
                     onClick={() => handleSaveManualKey()}
-                    className="px-3.5 py-1.5 rounded-xl text-xs font-medium bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:opacity-90 transition-all cursor-pointer"
+                    className="min-h-10 px-4 py-2 rounded-xl border border-zinc-200 bg-zinc-100 text-blue-700 text-sm font-medium hover:bg-zinc-200 dark:border-[#555555] dark:bg-[#414141] dark:text-blue-300 dark:hover:bg-[#505050] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                   >
                     Save Key
                   </button>
                 </div>
               </div>
 
-              <div className="h-[1px] bg-zinc-200/70 dark:bg-zinc-800" />
+              <div className="h-[1px] bg-zinc-200/70 dark:bg-[#414141]" />
               <div className="flex justify-between items-center text-xs">
                 <span className="font-semibold text-zinc-900 dark:text-white">Supabase Cloud Vector Key</span>
                 <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 dark:border-blue-900 dark:bg-blue-950/60 dark:text-blue-300">Active &amp; Secured</span>
@@ -862,12 +867,14 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         )}
 
         {/* ── PERMISSIONS TAB ───────────────────────────────────────────── */}
+        {activeTab === 'capabilities' && <AgentSkillsSettingsPanel userId={userId} />}
+
         {activeTab === 'permissions' && (
           <div className="space-y-3">
             {['Microphone & Voice Input', 'Local File Access', 'Web Browser Grounding', 'Code Execution Sandbox'].map((p) => (
-              <div key={p} className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex justify-between items-center text-xs">
+              <div key={p} className="p-5 rounded-[22px] bg-white dark:bg-[#404040] border border-zinc-200 dark:border-[#4b4b4b] shadow-sm dark:shadow-none flex justify-between items-center text-xs">
                 <span className="font-medium text-zinc-900 dark:text-white">{p}</span>
-                <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">Allowed</span>
+                <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-zinc-600 dark:border-[#555555] dark:bg-[#414141] dark:text-zinc-300">Allowed</span>
               </div>
             ))}
           </div>
@@ -877,7 +884,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         {activeTab === 'messaging' && (
           <div className="space-y-3">
             {['Web Chat Assistant', 'WhatsApp Integration', 'Telegram Bot Channel', 'Email Updates'].map((channel, idx) => (
-              <div key={channel} className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex justify-between items-center text-xs">
+              <div key={channel} className="p-5 rounded-[22px] bg-white dark:bg-[#404040] border border-zinc-200 dark:border-[#4b4b4b] shadow-sm dark:shadow-none flex justify-between items-center text-xs">
                 <span className="font-medium text-zinc-900 dark:text-white">{channel}</span>
                 <span className={idx === 0 ? 'text-blue-500 font-semibold' : 'text-zinc-400'}>{idx === 0 ? 'Active' : 'Configure'}</span>
               </div>
@@ -888,9 +895,9 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         {/* ── DEVICES TAB ───────────────────────────────────────────────── */}
         {activeTab === 'devices' && (
           <div className="space-y-3">
-            <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center justify-between text-xs">
+            <div className="p-5 rounded-[22px] bg-white dark:bg-[#404040] border border-zinc-200 dark:border-[#4b4b4b] shadow-sm dark:shadow-none flex items-center justify-between text-xs">
               <div className="flex items-center gap-3">
-                {React.createElement(deviceProfile.icon, { size: 18, className: 'text-blue-500' })}
+                {React.createElement(deviceProfile.icon, { width: 18, height: 18, className: 'text-blue-500' })}
                 <div>
                   <h5 className="font-semibold text-zinc-900 dark:text-white">{deviceProfile.label}</h5>
                   <p className="text-xs text-zinc-400">{deviceProfile.subtitle}</p>
@@ -904,17 +911,17 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         {/* ── DATA CONTROLS TAB ─────────────────────────────────────────── */}
         {activeTab === 'data_controls' && (
           <div className="space-y-3">
-            <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-3 text-xs">
+            <div className="p-5 rounded-[22px] bg-white dark:bg-[#404040] border border-zinc-200 dark:border-[#4b4b4b] shadow-sm dark:shadow-none space-y-3 text-xs">
               <div className="flex justify-between items-center">
                 <span className="font-medium text-zinc-900 dark:text-zinc-100">Export Personal Chat History</span>
                 <button
                   onClick={() => toast.success('Export started...')}
-                  className="text-xs font-medium px-3.5 py-1 rounded-full bg-[#0060df] hover:bg-[#0052cc] text-white transition-all shadow-xs cursor-pointer active:scale-95"
+                  className="min-h-10 text-sm font-medium px-4 py-2 rounded-full border border-zinc-200 bg-zinc-100 hover:bg-zinc-200 text-blue-700 dark:border-[#555555] dark:bg-[#414141] dark:hover:bg-[#505050] dark:text-blue-300 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                 >
                   Export JSON
                 </button>
               </div>
-              <div className="h-[1px] bg-zinc-200 dark:bg-zinc-800" />
+              <div className="h-[1px] bg-zinc-200 dark:bg-[#414141]" />
               <div className="flex justify-between items-center">
                 <span className="font-medium text-zinc-900 dark:text-zinc-100">Delete All Stored Sessions</span>
                 <button
@@ -922,7 +929,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                     clearChatHistory();
                     toast.success('All chat sessions and local caches cleared!');
                   }}
-                  className="text-xs font-medium px-3.5 py-1 rounded-full bg-[#db7a88] hover:bg-[#c96a78] text-white transition-all shadow-2xs cursor-pointer active:scale-95"
+                  className="min-h-10 text-sm font-medium px-4 py-2 rounded-full border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 dark:border-red-400/30 dark:bg-[#414141] dark:hover:bg-[#505050] dark:text-red-300 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
                 >
                   Clear Data
                 </button>
@@ -934,18 +941,18 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         {/* ── HELP & SUPPORT TAB ────────────────────────────────────────── */}
         {activeTab === 'help' && (
           <div className="space-y-4">
-            <div className="p-5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-3 text-xs">
+            <div className="p-5 rounded-[22px] bg-white dark:bg-[#404040] border border-zinc-200 dark:border-[#4b4b4b] shadow-sm dark:shadow-none space-y-3 text-xs">
               <h4 className="font-semibold text-sm text-zinc-900 dark:text-white">Direct Support Contact</h4>
-              <p className="text-zinc-500 leading-relaxed">Reach out to our engineering and student support team for instant assistance.</p>
+              <p className="text-zinc-500 dark:text-[#b3b3b3] leading-relaxed">Reach out to our engineering and student support team for instant assistance.</p>
               <div className="flex flex-col sm:flex-row gap-2 pt-1">
                 <a href="mailto:support@emate.live" className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold hover:bg-blue-500/20 transition-colors">
-                  <Mail size={14} /> support@emate.live
+                  <Mail width={14} height={14} /> support@emate.live
                 </a>
-                <a href="tel:+918860911070" className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-200/60 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-semibold hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">
-                  <Phone size={14} /> +91 8860911070
+                <a href="tel:+918860911070" className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-200/60 dark:bg-[#414141] text-zinc-800 dark:text-zinc-200 font-semibold hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">
+                  <Phone width={14} height={14} /> +91 8860911070
                 </a>
               </div>
-              <div className="pt-3 border-t border-zinc-200/60 dark:border-zinc-800/80 text-zinc-500 space-y-1">
+              <div className="pt-3 border-t border-zinc-200/60 dark:border-[#4b4b4b]/80 text-zinc-500 space-y-1">
                 <span className="font-semibold text-zinc-700 dark:text-zinc-300 block">Registered Corporate Office</span>
                 <p>e-Mate AI Technologies, Plot 42, Sector 18, Institutional Area, Gurugram, Delhi NCR 122015, India</p>
                 <p className="text-xs text-zinc-400">Hours: Mon – Sat, 9:00 AM – 7:00 PM IST</p>
@@ -956,18 +963,18 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
 
         {/* ── LEGAL INFO TAB ────────────────────────────────────────────── */}
         {activeTab === 'legal' && (
-          <div className="space-y-3 text-xs text-zinc-500">
-            <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-3">
+          <div className="space-y-3 text-xs text-zinc-500 dark:text-[#b3b3b3]">
+            <div className="p-5 rounded-[22px] bg-white dark:bg-[#404040] border border-zinc-200 dark:border-[#4b4b4b] shadow-sm dark:shadow-none space-y-3">
               <h4 className="font-semibold text-zinc-900 dark:text-white">e-Mate Artificial Intelligence System</h4>
               <p>Version 2.4.0 (Production Build 2026.09)</p>
               <p>© 2026 e-Mate AI Technologies. All rights reserved.</p>
-              <div className="pt-2 border-t border-zinc-200/60 dark:border-zinc-800 flex items-center gap-3">
+              <div className="pt-2 border-t border-zinc-200/60 dark:border-[#4b4b4b] flex items-center gap-3">
                 <a href="/privacy" target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
-                  Privacy Policy <ArrowUpRight size={12} />
+                  Privacy Policy <ArrowUpRight width={12} height={12} />
                 </a>
                 <span>•</span>
                 <a href="/terms" target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
-                  Terms of Service <ArrowUpRight size={12} />
+                  Terms of Service <ArrowUpRight width={12} height={12} />
                 </a>
               </div>
             </div>
@@ -977,8 +984,8 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         {/* ── STUDY CONTEXT TAB ─────────────────────────────────────────── */}
         {activeTab === 'context' && (
           <div className="space-y-4">
-            <p className="text-xs text-zinc-500">Select active syllabus subject and learning unit for contextual AI answers.</p>
-            <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-2">
+            <p className="text-xs text-zinc-500 dark:text-[#b3b3b3]">Select active syllabus subject and learning unit for contextual AI answers.</p>
+            <div className="p-5 rounded-[22px] bg-white dark:bg-[#404040] border border-zinc-200 dark:border-[#4b4b4b] shadow-sm dark:shadow-none space-y-2">
               <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block">Syllabus Subject</span>
               <div className="flex flex-col gap-1">
                 {subjects.map((s) => (
@@ -995,11 +1002,11 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs text-left transition-all ${
                       selectedSubject === s.name
                         ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold'
-                        : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50'
+                        : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-[#505050]/50'
                     }`}
                   >
                     <span>{s.name}</span>
-                    {selectedSubject === s.name && <Check size={14} />}
+                    {selectedSubject === s.name && <Check width={14} height={14} />}
                   </button>
                 ))}
               </div>
@@ -1011,16 +1018,16 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         {activeTab === 'notebook' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <p className="text-xs text-zinc-500">Notes captured for <strong>{selectedSubject || 'active subject'}</strong></p>
+              <p className="text-xs text-zinc-500 dark:text-[#b3b3b3]">Notes captured for <strong>{selectedSubject || 'active subject'}</strong></p>
               {notebookNotes.length > 0 && (
                 <button
                   onClick={() => {
                     clearNotebook(selectedSubject);
                     setNotebookNotes([]);
                   }}
-                  className="text-xs font-medium px-3.5 py-1.5 rounded-full bg-[#db7a88] hover:bg-[#c96a78] text-white transition-all shadow-2xs cursor-pointer active:scale-95 inline-flex items-center gap-1.5"
+                  className="min-h-10 text-sm font-medium px-4 py-2 rounded-full border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 dark:border-red-400/30 dark:bg-[#414141] dark:hover:bg-[#505050] dark:text-red-300 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 inline-flex items-center gap-1.5"
                 >
-                  <Trash2 size={13} />
+                  <Trash2 width={13} height={13} />
                   Clear All Notes
                 </button>
               )}
@@ -1030,7 +1037,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                 <p className="text-xs text-zinc-400 py-6 text-center">No saved notes yet.</p>
               ) : (
                 notebookNotes.map((n) => (
-                  <div key={n.id} className="p-3 rounded-xl bg-zinc-100/80 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800 flex justify-between items-start text-xs">
+                  <div key={n.id} className="p-3 rounded-xl bg-zinc-100/80 dark:bg-[#404040]/70 border border-zinc-200/60 dark:border-[#4b4b4b] flex justify-between items-start text-xs">
                     <div>
                       <p className="text-zinc-900 dark:text-zinc-100">{n.content}</p>
                       <span className="text-[10px] text-zinc-400 mt-1 block">{n.timestamp}</span>
@@ -1042,7 +1049,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                       }}
                       className="text-red-500 p-1 hover:bg-red-500/10 rounded"
                     >
-                      <Trash2 size={13} />
+                      <Trash2 width={13} height={13} />
                     </button>
                   </div>
                 ))

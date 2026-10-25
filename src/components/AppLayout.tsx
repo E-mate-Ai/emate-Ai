@@ -15,8 +15,6 @@ interface AppLayoutProps {
   children: React.ReactNode;
 }
 
-const SIGNUP_POPUP_SUPPRESSED_KEY = 'nk-signup-popup-suppressed';
-
 export default function AppLayout({ children }: AppLayoutProps) {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -34,16 +32,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   const pathname = usePathname();
 
-  const shouldAutoShowPopup = () => {
-    if (typeof window === 'undefined') return false;
-    if (window.localStorage.getItem(SIGNUP_POPUP_SUPPRESSED_KEY) === 'true') return false;
-
-    const consent = window.localStorage.getItem('nk-cookie-consent-v1');
-    if (!consent) return false;
-
-    return true;
-  };
-
   useEffect(() => {
     const syncPopupText = async () => {
       try {
@@ -59,45 +47,15 @@ export default function AppLayout({ children }: AppLayoutProps) {
       } catch {}
     };
 
-    async function checkAuthForPopup() {
-      if (!shouldAutoShowPopup()) return;
-
-      try {
-        const { createClient } = await import('@/lib/supabase/client');
-        const supabase = createClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) {
-          await syncPopupText();
-          setShowSignUpPopup(true);
-        }
-      } catch {
-        await syncPopupText();
-        setShowSignUpPopup(true);
-      }
-    }
-
-    checkAuthForPopup();
-
     const handleOpenPopup = async () => {
-      window.localStorage.removeItem(SIGNUP_POPUP_SUPPRESSED_KEY);
       await syncPopupText();
       setShowSignUpPopup(true);
     };
 
-    const handleCookieConsentChanged = () => {
-      if (shouldAutoShowPopup()) {
-        checkAuthForPopup();
-      }
-    };
-
     window.addEventListener('nk-open-signup-popup', handleOpenPopup);
-    window.addEventListener('nk-cookie-consent-changed', handleCookieConsentChanged);
 
     return () => {
       window.removeEventListener('nk-open-signup-popup', handleOpenPopup);
-      window.removeEventListener('nk-cookie-consent-changed', handleCookieConsentChanged);
     };
   }, []);
 
@@ -214,17 +172,15 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <div
-      className="flex min-h-screen w-full justify-center overflow-x-hidden bg-[#edf1f5] transition-colors duration-300 md:bg-transparent"
+      className="flex min-h-dvh w-full justify-center overflow-x-hidden bg-background text-foreground transition-colors duration-300"
       style={{
-        background: theme === 'dark' ? '#000000' : '#edf1f5',
-        color: theme === 'dark' ? '#ffffff' : '#000000',
         paddingTop: 'env(safe-area-inset-top)',
         paddingBottom: 'env(safe-area-inset-bottom)',
         paddingLeft: 'env(safe-area-inset-left)',
         paddingRight: 'env(safe-area-inset-right)',
       }}
     >
-      <div className="relative flex min-h-screen w-full max-w-[430px] overflow-hidden bg-[#f5f6f8] shadow-[0_0_0_1px_rgba(15,23,42,0.04),0_16px_40px_rgba(15,23,42,0.08)] md:max-w-none md:shadow-none">
+      <div className="relative flex min-h-dvh w-full max-w-[430px] overflow-hidden bg-background md:max-w-none">
         {/* ── Sidebar ─────────────────────────────────────────────────────────
              Desktop (md+): static inline panel — always in the flex row,
                             sized by sidebarWidth, never overlays content.
@@ -280,9 +236,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
         {/* ── Main content column ─────────────────────────────────────────── */}
         <main
-          className="relative flex w-full h-screen h-[100dvh] max-h-screen min-w-0 flex-1 flex-col overflow-y-auto bg-[#f5f6f8] md:bg-transparent transition-[padding] duration-300 ease-in-out"
+          className="relative flex h-[100dvh] max-h-[100dvh] w-full min-w-0 flex-1 flex-col overflow-y-auto bg-background transition-[padding] duration-300 ease-in-out"
           style={{
-            background: theme === 'dark' ? '#000000' : '#f5f6f8',
             // Push content right on desktop so it never sits under the fixed sidebar
             paddingLeft: !isMobile && sidebarOpen ? `${sidebarWidth + 1}px` : undefined,
           }}
@@ -304,7 +259,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         {/* ── Settings Modal Overlay ─────────────────────────────────── */}
         {activeModalView === 'settings' && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 backdrop-blur-sm duration-150 animate-in fade-in sm:p-6"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-3 backdrop-blur-sm duration-150 animate-in fade-in sm:p-6"
             onClick={(e) => {
               if (e.target === e.currentTarget) {
                 setActiveModalView('none');
@@ -336,14 +291,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
           isOpen={showSignUpPopup}
           onClose={() => {
             setShowSignUpPopup(false);
-            if (typeof window !== 'undefined') {
-              window.localStorage.setItem(SIGNUP_POPUP_SUPPRESSED_KEY, 'true');
-            }
           }}
           onOpenFullAuth={() => {
-            if (typeof window !== 'undefined') {
-              window.localStorage.removeItem(SIGNUP_POPUP_SUPPRESSED_KEY);
-            }
             router.push('/sign-up-login-screen');
           }}
           title={popupTitle}

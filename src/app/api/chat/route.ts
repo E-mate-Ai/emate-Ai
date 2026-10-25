@@ -11,7 +11,16 @@ import { toolRegistry, evaluateRetrievalConfidence } from '@/lib/tools';
 import { buildChatPrompt } from '@/lib/prompts';
 import { buildRecurringUserPatternContext, sanitizeUserPatternContext } from '@/lib/chatMemory';
 import { classifyTask } from '@/lib/multimodal/orchestrator';
-import { resolveModelForTask } from '@/lib/multimodal/registry';
+import { getModelMetadata, resolveModelForTask } from '@/lib/multimodal/registry';
+import { resolveSkillForRequest } from '@/lib/agent-skills/registry';
+import { executeSkillTool } from '@/lib/agent-skills/tools';
+import { resolveOpenRouterKey } from '@/lib/agent-skills/openrouter-key';
+import { isSkillPermitted, type SkillPermissionPreferences } from '@/lib/agent-skills/core';
+import {
+  couldBeInternalModelOutputPrefix,
+  isInternalModelOutputPrefix,
+  stripLeadingSafetyMetadata,
+} from '@/lib/chat/streamProtocol';
 
 const MAX_CHAT_RESPONSE_TOKENS = 2000;
 
@@ -19,14 +28,9 @@ const MAX_CHAT_RESPONSE_TOKENS = 2000;
 const PRIMARY_MODEL = 'openrouter/free';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 /** Parse a specific cookie value from a raw Cookie header string */
-function getCookie(cookieHeader: string | null, name: string): string | undefined {
-  if (!cookieHeader) return undefined;
-  const match = cookieHeader.split(';').find((c) => c.trim().startsWith(`${name}=`));
-  return match ? decodeURIComponent(match.trim().slice(name.length + 1)) : undefined;
-}
-
 async function getLiveFreeFallbackModels(apiKey: string, excludedModels: string[]): Promise<string[]> {
   try {
     const response = await fetch('https://openrouter.ai/api/v1/models', {
@@ -124,6 +128,7 @@ export async function POST(req: Request) {
       userApiKey,
       userPatterns,
       chatId,
+      skillPermissions,
     } = await req.json();
 
     // ── Extract authenticated user context from Supabase session ──────────
@@ -162,21 +167,13 @@ export async function POST(req: Request) {
       }
     }
 
-    const cookieHeader = req.headers.get('cookie');
-    const userKey =
-      (typeof userApiKey === 'string' && userApiKey.trim() ? userApiKey.trim() : undefined) ||
-      getCookie(cookieHeader, 'user_openrouter_key') ||
-      // Fallback: client can also pass the key via Authorization: Bearer header
-      (() => {
-        const auth = req.headers.get('authorization') || req.headers.get('x-openrouter-key');
-        if (!auth) return undefined;
-        let token = auth.trim();
-        if (token.toLowerCase().startsWith('bearer ')) {
-          token = token.slice(7).trim();
-        }
-        return token || undefined;
-      })();
     const serverKey = process.env.OPENROUTER_SERVER_FREE_KEY || process.env.OPENROUTER_API_KEY;
+    const userKey = resolveOpenRouterKey({
+      userApiKey,
+      cookieHeader: req.headers.get('cookie'),
+      authorizationHeader: req.headers.get('authorization'),
+      xOpenRouterKey: req.headers.get('x-openrouter-key'),
+    });
     const apiKey = userKey || serverKey;
 
     // No key at all — tell the user exactly what to do
@@ -245,6 +242,19 @@ export async function POST(req: Request) {
       selectedModel = model;
     }
 
+    // Capability compatibility: keep the selected model when it can process the
+    // supplied image; if metadata explicitly says it cannot, use the configured
+    // vision-capable OpenRouter route for this request.
+    const requestAttachments = Array.isArray(attachments) ? attachments : [];
+    const containsImage = requestAttachments.some((attachment: any) =>
+      attachment?.mimeType?.startsWith('image/') ||
+      /^data:image\//i.test(typeof attachment?.data === 'string' ? attachment.data : '')
+    );
+    const selectedMetadata = getModelMetadata(selectedModel);
+    if (containsImage && selectedMetadata && !selectedMetadata.capabilities.supportsVisionInput) {
+      selectedModel = resolveModelForTask(undefined, 'general_chat', true).model.id;
+    }
+
     // ── Semantic RAG Retrieval & Re-ranking via Tool-Calling Layer ──────────
     const lastUserMessageObj = messages.filter((m: any) => m.role === 'user').pop();
     const lastUserMessage = lastUserMessageObj?.content || '';
@@ -293,6 +303,75 @@ export async function POST(req: Request) {
       currentUserMessage: lastUserMessage,
     });
 
+    const requestText = typeof lastUserMessage === 'string' ? lastUserMessage : '';
+    const matchedSkill = resolveSkillForRequest(requestText, requestAttachments);
+    const permissionPreferences = skillPermissions && typeof skillPermissions === 'object'
+      ? skillPermissions as SkillPermissionPreferences
+      : undefined;
+    let skillToolStatus: { toolName: string; success: boolean; error?: string } | null = null;
+    let skillContext = '';
+    let activeSkillName: string | null = null;
+    let skillNotice: string | null = null;
+    if (matchedSkill) {
+      const modelMetadata = getModelMetadata(selectedModel);
+      const suppliedDocumentText = requestAttachments
+        .filter((attachment: any) => typeof attachment?.text === 'string')
+        .map((attachment: any) => attachment.text)
+        .join('\n\n');
+      const estimatedContextTokens = Math.ceil((
+        chatPromptPayload.messages.map((message: any) => typeof message.content === 'string' ? message.content : '').join('\n') +
+        suppliedDocumentText + matchedSkill.instructions
+      ).length / 4);
+      const contextFits = !modelMetadata?.contextLength ||
+        estimatedContextTokens + MAX_CHAT_RESPONSE_TOKENS + 512 < modelMetadata.contextLength;
+      const modelCanUseSkill =
+        isSkillPermitted(matchedSkill, permissionPreferences) &&
+        contextFits &&
+        (matchedSkill.id !== 'image-understanding' || modelMetadata?.capabilities.supportsVisionInput === true) &&
+        (!modelMetadata || modelMetadata.capabilities.supportsText);
+      if (modelCanUseSkill) {
+        activeSkillName = matchedSkill.name;
+        skillContext = `\n\n<active_skill name="${matchedSkill.name}" license="${matchedSkill.license}">\n${matchedSkill.instructions}\n</active_skill>`;
+        if (matchedSkill.id === 'document-analysis') {
+          const document = requestAttachments
+            .filter((attachment: any) => typeof attachment?.text === 'string')
+            .map((attachment: any) => ({ fileName: attachment.fileName, text: attachment.text }))
+            .slice(0, 5);
+          if (document.length > 0) {
+            const result = await executeSkillTool(
+              'document_outline',
+              {
+                fileName: document.map((item: any) => item.fileName || 'Attached document').join(', '),
+                text: document.map((item: any) => item.text).join('\n\n'),
+              },
+              {
+                identity: authenticatedUserId || `guest:${String(chatId || req.headers.get('x-session-id') || 'request').slice(0, 160)}`,
+                chatId: String(chatId || req.headers.get('x-session-id') || 'request').slice(0, 160),
+                skillId: 'document-analysis',
+                permissionGranted: isSkillPermitted(matchedSkill, permissionPreferences) && contextFits && requestText.length > 0,
+              }
+            );
+            skillToolStatus = { toolName: result.toolName, success: result.success, error: result.error };
+            if (result.success) {
+              const safeJson = JSON.stringify(result.data).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
+              skillContext += `\n\n<validated_tool_output name="document_outline">\n${safeJson}\n</validated_tool_output>`;
+            }
+          }
+        }
+      } else if (matchedSkill.status === 'planned') {
+        skillNotice = matchedSkill.id === 'web-research'
+          ? 'Web research is not connected yet. Do not claim to browse or invent current sources.'
+          : 'This capability is not available yet.';
+        skillContext = `\n\n<skill_availability>\n${skillNotice}\n</skill_availability>`;
+      } else if (!isSkillPermitted(matchedSkill, permissionPreferences)) {
+        skillNotice = `${matchedSkill.name} is turned off in your skill settings.`;
+      } else if (!contextFits) {
+        skillNotice = 'This document is too large for the selected model context. Try a smaller excerpt or a model with a larger context window.';
+      } else if (matchedSkill.id === 'image-understanding') {
+        skillNotice = 'The selected model does not have verified image-input support for this request.';
+      }
+    }
+
     const systemMessage = chatPromptPayload.messages[0];
     const cappedHistory = chatPromptPayload.messages.slice(1, -1);
 
@@ -309,7 +388,8 @@ export async function POST(req: Request) {
     });
 
     // Build system message with provider-native cache_control breakpoint
-    const cachedSystemMessage = promptCache.buildCachedSystemMessage(systemMessage.content, true);
+    const systemContent = `${systemMessage.content}${skillContext}`;
+    const cachedSystemMessage = promptCache.buildCachedSystemMessage(systemContent, true);
 
     const formattedMessages = [
       cachedSystemMessage,
@@ -470,10 +550,8 @@ export async function POST(req: Request) {
     const citations = citationResult.success && citationResult.data ? citationResult.data : [];
 
     // ── SSE pipe: forward upstream stream straight to the client ─────────────
-    // Transforms OpenRouter's raw NDJSON SSE lines into `data: "<delta>"\n\n`
-    // so the client receives plain text deltas with no heavy parsing.
+    // Transforms OpenRouter's raw NDJSON SSE lines into validated typed events.
     const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
     const privateReasoningPrefixes = [
       "here's a thinking process",
       'here is a thinking process',
@@ -481,16 +559,33 @@ export async function POST(req: Request) {
       'here is my thinking process',
       'let me think through this step by step',
       'analysis:',
+      'user safety:',
+      'response safety:',
+      'moderation classification:',
+      'safety classification:',
     ];
 
     const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
     const writer = writable.getWriter();
 
     (async () => {
+      if (activeSkillName) {
+        await writer.write(encoder.encode(`data: ${JSON.stringify({ type: 'skill', name: activeSkillName })}\n\n`));
+      }
+      if (skillNotice) {
+        await writer.write(encoder.encode(`data: ${JSON.stringify({ type: 'skill_notice', message: skillNotice })}\n\n`));
+      }
+      if (skillToolStatus) {
+        await writer.write(encoder.encode(`data: ${JSON.stringify({
+          type: 'skill_tool',
+          tool: skillToolStatus.toolName,
+          success: skillToolStatus.success,
+          message: skillToolStatus.success ? 'Document outline ready' : skillToolStatus.error,
+        })}\n\n`));
+      }
       let candidateIndex = selectedCandidateIndex;
       let candidateResponse: Response | null = upstreamRes;
       let hasReadableAnswer = false;
-      let streamError: unknown = null;
 
       const openNextCandidate = async (): Promise<Response | null> => {
         while (true) {
@@ -516,7 +611,6 @@ export async function POST(req: Request) {
             });
           } catch (err) {
             const error = err as OpenRouterError;
-            streamError = error;
             console.warn(`[e-Mate Auto-Mesh] Fallback candidate ${candidate} failed (status ${error.status}): ${error.message}.`);
             if (error.status === 401) return null;
           }
@@ -541,7 +635,7 @@ export async function POST(req: Request) {
             await writer.write(encoder.encode(`data: ${JSON.stringify({ type: 'model', model: modelId })}\n\n`));
           }
           if (text.trim()) hasReadableAnswer = true;
-          await writer.write(encoder.encode(`data: ${JSON.stringify(text)}\n\n`));
+          await writer.write(encoder.encode(`data: ${JSON.stringify({ type: 'content', text })}\n\n`));
         };
 
         const processLine = async (line: string) => {
@@ -565,8 +659,27 @@ export async function POST(req: Request) {
           if (!preambleResolved) {
             preamble += delta;
             const normalizedPreamble = preamble.trimStart().toLowerCase().replace(/\s+/g, ' ').trimEnd();
+            if (isInternalModelOutputPrefix(normalizedPreamble)) {
+              const filtered = stripLeadingSafetyMetadata(preamble);
+              if (filtered.removed) {
+                preamble = filtered.text;
+                if (preamble.trim()) {
+                  preambleResolved = true;
+                  await emitText(preamble);
+                  preamble = '';
+                }
+              } else {
+                // Unknown classifier/debug payload shape: discard this model
+                // candidate and let the existing model cascade continue.
+                suppressPrivateReasoning = true;
+                preamble = '';
+              }
+              return;
+            }
             const isKnownLeak = privateReasoningPrefixes.some((prefix) => normalizedPreamble.startsWith(prefix));
-            const couldStillBeLeak = privateReasoningPrefixes.some((prefix) => prefix.startsWith(normalizedPreamble));
+            const couldStillBeLeak =
+              privateReasoningPrefixes.some((prefix) => prefix.startsWith(normalizedPreamble)) ||
+              couldBeInternalModelOutputPrefix(normalizedPreamble);
 
             if (isKnownLeak) {
               suppressPrivateReasoning = true;
@@ -626,12 +739,11 @@ export async function POST(req: Request) {
           try {
             const result = await consumeCandidate(candidateResponse, attemptOrder[candidateIndex]);
             if (result.suppressed) {
-              streamError = new Error('The model returned internal analysis instead of an answer.');
+              console.warn('[e-Mate Auto-Mesh] Discarded a model response containing internal analysis or safety metadata.');
             }
           } catch (err) {
-            streamError = err;
             if (hasReadableAnswer) {
-              await writer.write(encoder.encode(`data: ${JSON.stringify({ error: String(err) })}\n\n`));
+              await writer.write(encoder.encode(`data: ${JSON.stringify({ type: 'error', message: 'The model response was interrupted. Please try again.' })}\n\n`));
               break;
             }
           }
@@ -640,17 +752,14 @@ export async function POST(req: Request) {
         }
 
         if (!hasReadableAnswer) {
-          const errorMessage = streamError instanceof Error && streamError.message
-            ? `No available model returned an answer. Last error: ${streamError.message}`
-            : 'No available model returned an answer. Please try again or choose another model.';
-          await writer.write(encoder.encode(`data: ${JSON.stringify({ error: errorMessage })}\n\n`));
+          await writer.write(encoder.encode(`data: ${JSON.stringify({ type: 'error', message: 'No available model returned an answer. Please try again or choose another model.' })}\n\n`));
         } else if (citations.length > 0) {
           await writer.write(encoder.encode(`data: ${JSON.stringify({ type: 'citations', citations })}\n\n`));
         }
 
         await writer.write(encoder.encode('data: [DONE]\n\n'));
       } catch (err) {
-        await writer.write(encoder.encode(`data: ${JSON.stringify({ error: String(err) })}\n\n`));
+        await writer.write(encoder.encode(`data: ${JSON.stringify({ type: 'error', message: 'The chat request failed. Please try again.' })}\n\n`));
       } finally {
         await writer.close();
       }

@@ -5,7 +5,6 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import {
   Mic,
-  Wand2,
   Paperclip,
   Folder,
   TerminalSquare,
@@ -15,11 +14,8 @@ import {
   HelpCircle,
   Layers,
   BookOpen,
-  Sparkles,
   Zap,
   UploadCloud,
-  FileText,
-  Presentation,
 } from 'lucide-react';
 
 // ----------------------------------------------------------------------
@@ -34,7 +30,6 @@ interface SlashCommand {
 }
 
 const SLASH_COMMANDS: SlashCommand[] = [
-  { label: 'Generate Visual', command: '/image', description: 'Create study diagrams, flowcharts, or visual notes', icon: Sparkles },
   { label: 'Practice Quiz', command: '/mcq', description: 'Generate interactive multiple-choice questions', icon: HelpCircle },
   { label: 'Concept Flashcards', command: '/flashcard', description: 'Create active recall revision flip cards', icon: Layers },
   { label: 'High-Yield Summary', command: '/summary', description: 'Summarize syllabus concepts and lecture notes', icon: BookOpen },
@@ -545,18 +540,8 @@ export interface PromptInputProps {
   /** Controlled model label so fallback and manual choices stay in sync. */
   selectedModel?: string;
   onModelChange?: (model: string) => void;
-  /** When true, the input is in "Image Gen Mode" — subtitle + placeholder swap. */
-  imageGenMode?: boolean;
-  /** Fired when the user clicks the image-generation toggle. */
-  onImageGenToggle?: () => void;
-  /** Placeholder shown when imageGenMode is active. */
-  imageGenPlaceholder?: string;
   /** When true, renders as a sleek, slim floating pill input bar */
   isSlim?: boolean;
-  /** Current document generation mode: false = off, 'docx' = Word doc, 'pptx' = Presentation */
-  docGenMode?: false | 'docx' | 'pptx';
-  /** Fired when the user clicks the document-generation toggle. Cycles off → docx → pptx → off */
-  onDocGenToggle?: () => void;
 }
 
 export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
@@ -575,12 +560,7 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
       modelSelectorEnabled = true,
       selectedModel: controlledModel,
       onModelChange,
-      imageGenMode = false,
-      onImageGenToggle,
-      imageGenPlaceholder = 'Describe the diagram, chart, or visual you want e-Mate to generate...',
       isSlim = false,
-      docGenMode = false,
-      onDocGenToggle,
     },
     ref
   ) => {
@@ -1345,31 +1325,11 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
                   handleSubmit();
                 }
               }}
-              placeholder={imageGenMode ? imageGenPlaceholder : placeholder}
+              placeholder={placeholder}
               disabled={isRecording}
               className="w-full bg-transparent border-0 outline-none focus:ring-0 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 placeholder:text-left text-left px-1 py-1 resize-none overflow-y-auto min-h-[56px] max-h-[160px] prompt-scrollbar"
             />
           </div>
-
-          {/* Active Image Gen Mode pill */}
-          {imageGenMode && (
-            <div className="flex items-center gap-1.5 pb-2 px-1 -mt-1">
-              <Wand2 size={12} className="text-[#1f51ff] dark:text-[#a8b8ff]" />
-              <span className="text-[11px] font-medium text-[#1f51ff] dark:text-[#a8b8ff] bg-[#eef1ff] dark:bg-[#232a55]/60 border border-[#dbe3ff] dark:border-[#232a55] px-2 py-0.5 rounded-md flex items-center gap-1">
-                Image Gen Mode Active
-              </span>
-            </div>
-          )}
-
-          {/* Active Document Gen Mode pill */}
-          {docGenMode && (
-            <div className="flex items-center gap-1.5 pb-2 px-1 -mt-1">
-              <FileText size={12} className="text-violet-500 dark:text-violet-400" />
-              <span className="text-[11px] font-medium text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/30 border border-violet-200 dark:border-violet-700/50 px-2 py-0.5 rounded-md flex items-center gap-1">
-                {docGenMode === 'pptx' ? 'Presentation Mode' : 'Document Mode'} Active
-              </span>
-            </div>
-          )}
 
           {/* Bottom Row: Toolbar Controls */}
           <div className="flex items-center justify-between pt-2.5 mt-2 border-t border-zinc-100 dark:border-zinc-800/60 w-full">
@@ -1604,48 +1564,6 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
                     />
                   ))}
                 </div>
-              )}
-
-              {/* Image Generation Mode toggle — only rendered when the parent
-                  provides a handler (ChatMainArea gates authenticated-only). */}
-              {onImageGenToggle && (
-                <button
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={onImageGenToggle}
-                  title="Generate image"
-                  aria-pressed={imageGenMode}
-                  aria-label="Toggle image generation mode"
-                  className={`h-8 w-8 rounded-full flex items-center justify-center transition-colors outline-none cursor-pointer ${
-                    imageGenMode
-                      ? 'text-[#1f51ff] dark:text-[#a8b8ff] bg-[#eef1ff] dark:bg-[#232a55]/60'
-                      : 'text-zinc-500 hover:text-[#1f51ff] dark:text-zinc-400 dark:hover:text-[#a8b8ff] hover:bg-zinc-100 dark:hover:bg-zinc-800'
-                  }`}
-                >
-                  <Wand2 className="w-4 h-4" />
-                </button>
-              )}
-
-              {/* Document Generation Mode toggle — cycles off → docx → pptx → off */}
-              {onDocGenToggle && (
-                <button
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={onDocGenToggle}
-                  title={docGenMode === 'pptx' ? 'Presentation mode (click to disable)' : docGenMode === 'docx' ? 'Switch to presentation mode' : 'Generate document'}
-                  aria-pressed={!!docGenMode}
-                  aria-label="Toggle document generation mode"
-                  className={`h-8 w-8 rounded-full flex items-center justify-center transition-colors outline-none cursor-pointer relative ${
-                    docGenMode
-                      ? 'text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/30'
-                      : 'text-zinc-500 hover:text-violet-600 dark:text-zinc-400 dark:hover:text-violet-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-                  }`}
-                >
-                  {docGenMode === 'pptx' ? <Presentation className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
-                  {docGenMode && (
-                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-violet-500" />
-                  )}
-                </button>
               )}
 
               {/* Voice Input button (when not recording) */}

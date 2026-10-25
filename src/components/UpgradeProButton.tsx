@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
 
 interface UpgradeProButtonProps {
   className?: string;
@@ -44,10 +45,10 @@ export default function UpgradeProButton({
   }[size];
 
   return (
-    <button
+    <Button
       type="button"
       onClick={handleClick}
-      className={`inline-flex items-center rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] font-medium text-white shadow-xs transition-all duration-150 hover:shadow-sm active:scale-95 cursor-pointer select-none shrink-0 ${sizeClasses} ${className}`}
+      className={`font-medium shadow-sm shrink-0 ${sizeClasses} ${className}`}
       title="Upgrade to Pro"
     >
       <span>Upgrade</span>
@@ -56,6 +57,6 @@ export default function UpgradeProButton({
       >
         Pro
       </span>
-    </button>
+    </Button>
   );
 }

@@ -4,6 +4,7 @@ import Script from 'next/script';
 import AppLayout from '@/components/AppLayout';
 import PublicFooter from '@/components/PublicFooter';
 import Breadcrumbs from '@/components/Breadcrumbs';
+import { Button } from '@/components/ui/button';
 import {
   Calendar,
   Sparkles,
@@ -146,8 +147,8 @@ export default function AIStudyPlannerPage() {
       <main className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         <Breadcrumbs items={[{ label: 'AI Study Planner', href: '/ai-study-planner' }]} className="mb-6" />
         {/* Hero Section */}
-        <section className="rounded-[32px] border border-zinc-200 bg-white p-6 shadow-sm sm:p-10 dark:border-zinc-800 dark:bg-zinc-900">
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-violet-50 px-3.5 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-violet-700 dark:bg-violet-950/60 dark:text-violet-300">
+        <section className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-10 dark:border-zinc-700 dark:bg-[#303030]">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3.5 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
             <Calendar size={13} />
             <span>AI Study Planner</span>
           </div>
@@ -162,25 +163,23 @@ export default function AIStudyPlannerPage() {
               </p>
 
               <div className="mt-8 flex flex-wrap items-center gap-3">
-                <Link
-                  href="/"
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-violet-600 px-7 py-3.5 text-sm font-semibold text-white shadow-md shadow-violet-500/20 transition hover:bg-violet-700 active:scale-95"
-                >
+                <Button asChild size="lg">
+                  <Link href="/">
                   <Sparkles size={15} />
                   <span>Build My Study Plan</span>
-                </Link>
-                <Link
-                  href="/ai-exam-prep"
-                  className="inline-flex items-center justify-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-5 py-3.5 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
-                >
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="lg">
+                  <Link href="/ai-exam-prep">
                   <GraduationCap size={14} />
                   <span>Exam Prep Hub</span>
-                </Link>
+                  </Link>
+                </Button>
               </div>
             </div>
 
-            <div className="rounded-[28px] border border-zinc-200 bg-zinc-50 p-6 dark:border-zinc-800 dark:bg-zinc-800/40">
-              <div className="rounded-2xl bg-gradient-to-br from-violet-600 via-indigo-600 to-blue-600 p-5 text-white shadow-lg">
+            <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-6 dark:border-zinc-700 dark:bg-[#353535]">
+              <div className="rounded-2xl bg-[#1477f2] p-5 text-white">
                 <p className="text-xs font-semibold uppercase tracking-wider text-violet-100">
                   Revision Strategy
                 </p>
@@ -334,13 +333,12 @@ export default function AIStudyPlannerPage() {
           <h2 className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-white">
             Take control of your exam timeline.
           </h2>
-          <Link
-            href="/"
-            className="mt-6 inline-flex items-center justify-center gap-2 rounded-full bg-violet-600 px-8 py-3.5 text-sm font-semibold text-white shadow-md shadow-violet-500/20 transition hover:bg-violet-700 active:scale-95"
-          >
+          <Button asChild size="lg" className="mt-6">
+            <Link href="/">
             <Sparkles size={16} />
             <span>Create Your Study Plan</span>
-          </Link>
+            </Link>
+          </Button>
         </section>
 
         <PublicFooter />

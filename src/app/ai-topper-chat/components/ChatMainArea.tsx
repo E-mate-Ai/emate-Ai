@@ -84,6 +84,8 @@ import UpgradeProButton from '@/components/UpgradeProButton';
 import { ALL_FREE_MODELS } from '@/lib/modelConfig';
 import { classifyTask, extractCodeBlocks } from '@/lib/multimodal/orchestrator';
 import ArtifactsSidebar from '@/components/multimodal/ArtifactsSidebar';
+import { skillPermissionStorageKey, type SkillPermissionPreferences } from '@/lib/agent-skills/core';
+import { parseChatStreamEvent } from '@/lib/chat/streamProtocol';
 
 import type { MCQQuiz, MCQSubmission } from '@/lib/agents/types';
 
@@ -98,6 +100,22 @@ interface SuggestionCategory {
   label: string;
   icon: React.ElementType;
   items: SuggestionItem[];
+}
+
+function buildDocumentContext(messages: ChatMessage[]): string {
+  return messages
+    .slice(-10)
+    .map((message) => {
+      const attachmentText = message.attachments
+        ?.map((attachment) => attachment.text?.trim())
+        .filter(Boolean)
+        .join('\n');
+      const content = [message.content?.trim(), attachmentText].filter(Boolean).join('\n');
+      return content ? `${message.role.toUpperCase()}: ${content}` : '';
+    })
+    .filter(Boolean)
+    .join('\n\n')
+    .slice(-10000);
 }
 
 const STUDY_CATEGORIES: SuggestionCategory[] = [
@@ -749,9 +767,13 @@ export default function ChatMainArea({
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [imageGenMode, setImageGenMode] = useState(false);
-  const [docGenMode, setDocGenMode] = useState<false | 'docx' | 'pptx'>(false);
   const [isArtifactsOpen, setIsArtifactsOpen] = useState(false);
+  const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
+
+  const openArtifact = (artifactId: string) => {
+    setSelectedArtifactId(artifactId);
+    setIsArtifactsOpen(true);
+  };
 
   // All completed generated documents in this conversation
   const conversationArtifacts = useMemo(() => {
@@ -761,6 +783,7 @@ export default function ChatMainArea({
   }, [messages]);
 
   const [quizLoading, setQuizLoading] = useState(false);
+  const [agentSkillStatus, setAgentSkillStatus] = useState('');
   // Preserved quiz data for the reinforce flow.
   const lastQuizRef = useRef<MCQQuiz | null>(null);
 
@@ -1052,12 +1075,26 @@ export default function ChatMainArea({
     );
   };
 
-  // ── Image Generation (authenticated-only) ──────────────────────────────────
+  // ── Image Generation ──────────────────────────────────────────────────────
+
+  const getImageRequestOptions = (rawPrompt: string) => {
+    const ratioDirective = /(?:--ar\s*|aspect\s*ratio\s*)(1:1|16:9|9:16|4:3|3:4|3:2|2:3|4:5|5:4)/i;
+    const match = rawPrompt.match(ratioDirective);
+    const prompt = rawPrompt.replace(ratioDirective, '').trim();
+    const aspectRatio = match?.[1]
+      ? match[1]
+      : /\b(portrait|vertical|phone wallpaper)\b/i.test(prompt)
+        ? '9:16'
+        : /\b(landscape|wide|banner|wallpaper)\b/i.test(prompt)
+          ? '16:9'
+          : '1:1';
+    return { prompt: prompt || rawPrompt.trim(), aspectRatio };
+  };
 
   /** Send an image generation request and stream the result into the chat. */
   const handleImageSend = async (prompt: string) => {
     if (!prompt.trim() || isStreaming) return;
-    setImageGenMode(false); // turn off mode after submitting
+    const imageRequest = getImageRequestOptions(prompt);
 
     const formatTimestamp = () => {
       try {
@@ -1088,7 +1125,7 @@ export default function ChatMainArea({
       timestamp: formatTimestamp(),
       subject: selectedContext.subject,
       isGeneralChat: !isStudyMode,
-      images: [{ id: imageId, url: '', prompt, status: 'generating' }],
+      images: [{ id: imageId, url: '', prompt: imageRequest.prompt, aspectRatio: imageRequest.aspectRatio, status: 'generating' }],
     };
 
     const newMessages = [...messages, userMsg, assistantMsg];
@@ -1122,7 +1159,7 @@ export default function ChatMainArea({
       const res = await fetch('/api/generate-image', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ ...imageRequest }),
       });
 
       if (!res.ok) {
@@ -1134,7 +1171,8 @@ export default function ChatMainArea({
         throw new Error(data.error || `Image generation failed (${res.status})`);
       }
 
-      const { imageUrl } = (await res.json()) as { imageUrl: string };
+      const imageResult = (await res.json()) as { imageUrl: string; model?: string; revisedPrompt?: string; style?: string };
+      const { imageUrl } = imageResult;
 
       addGeneratedAsset({
         title: prompt.length > 42 ? `${prompt.slice(0, 42)}…` : prompt,
@@ -1149,7 +1187,7 @@ export default function ChatMainArea({
           if (m.id !== assistantMsg.id || !m.images?.length) return m;
           return {
             ...m,
-            images: [{ ...m.images[0], url: imageUrl, status: 'done' }],
+            images: [{ ...m.images[0], url: imageUrl, model: imageResult.model, revisedPrompt: imageResult.revisedPrompt, style: imageResult.style, status: 'done' }],
           };
         })
       );
@@ -1162,7 +1200,7 @@ export default function ChatMainArea({
           if (m.id !== assistantMsg.id || !m.images?.length) return m;
           return {
             ...m,
-            images: [{ ...m.images[0], status: 'error' }],
+            images: [{ ...m.images[0], status: 'error', errorMessage: msg }],
             content: msg,
           };
         })
@@ -1189,6 +1227,7 @@ export default function ChatMainArea({
       })
     );
     setIsStreaming(true);
+    const imageRequest = getImageRequestOptions(prompt);
 
     const userApiKey = typeof window !== 'undefined'
       ? localStorage.getItem('user_openrouter_key') ||
@@ -1201,7 +1240,7 @@ export default function ChatMainArea({
       const res = await fetch('/api/generate-image', {
         method: 'POST',
         headers: regenHeaders,
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify(imageRequest),
       });
 
       if (!res.ok) {
@@ -1213,7 +1252,8 @@ export default function ChatMainArea({
         throw new Error(data.error || `Image generation failed (${res.status})`);
       }
 
-      const { imageUrl } = (await res.json()) as { imageUrl: string };
+      const imageResult = (await res.json()) as { imageUrl: string; model?: string; revisedPrompt?: string; style?: string };
+      const { imageUrl } = imageResult;
 
       setMessages((prev) =>
         prev.map((m) => {
@@ -1221,7 +1261,7 @@ export default function ChatMainArea({
           return {
             ...m,
             images: m.images.map((img) =>
-              img.id === imageId ? { ...img, url: imageUrl, status: 'done' as const } : img
+              img.id === imageId ? { ...img, url: imageUrl, aspectRatio: imageRequest.aspectRatio, model: imageResult.model, revisedPrompt: imageResult.revisedPrompt, style: imageResult.style, status: 'done' as const } : img
             ),
           };
         })
@@ -1234,7 +1274,7 @@ export default function ChatMainArea({
           return {
             ...m,
             images: m.images.map((img) =>
-              img.id === imageId ? { ...img, status: 'error' as const } : img
+              img.id === imageId ? { ...img, status: 'error' as const, errorMessage: err?.message || 'Image generation failed. Try again.' } : img
             ),
           };
         })
@@ -1247,16 +1287,18 @@ export default function ChatMainArea({
   // ── Document Generation ────────────────────────────────────────────────────
 
   /** Generate a document (DOCX / PPTX) and attach it to the chat as an artifact. */
-  const handleDocumentSend = async (prompt: string, format: 'docx' | 'pptx') => {
+  const handleDocumentSend = async (
+    prompt: string,
+    format: 'docx' | 'pptx',
+    continuation?: { assistantMessageId: string; originalPrompt: string; audience: string; baseMessages?: ChatMessage[] }
+  ) => {
     if (!prompt.trim() || isStreaming) return;
-    setDocGenMode(false);
-
     const formatTimestamp = () => {
       try { return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
       catch (_) { return ''; }
     };
 
-    const userMsg: ChatMessage = {
+    const userMsg: ChatMessage | null = continuation ? null : {
       id: createMessageId(),
       role: 'user',
       content: prompt,
@@ -1268,26 +1310,46 @@ export default function ChatMainArea({
 
     const docId = `doc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const assistantMsg: ChatMessage = {
-      id: createMessageId(),
+      id: continuation?.assistantMessageId ?? createMessageId(),
       role: 'assistant',
-      content: '',
+      content: continuation
+        ? `Building it now — a ${continuation.audience} presentation. I’ll share it here as soon as it’s ready.`
+        : '',
       mode,
       timestamp: formatTimestamp(),
       subject: selectedContext.subject,
       isGeneralChat: !isStudyMode,
       generatedDoc: {
         id: docId,
-        title: prompt.length > 60 ? prompt.slice(0, 57) + '…' : prompt,
+        title: (continuation?.originalPrompt ?? prompt).length > 60 ? (continuation?.originalPrompt ?? prompt).slice(0, 57) + '…' : (continuation?.originalPrompt ?? prompt),
         content: '',
         format,
         status: 'generating',
       },
     };
 
-    pendingQuestionScrollRef.current = userMsg.id;
-    setMessages((prev) => [...prev, userMsg, assistantMsg]);
+    const priorMessages = continuation?.baseMessages ?? messages;
+    if (userMsg) pendingQuestionScrollRef.current = userMsg.id;
+    const queuedMessages = continuation
+      ? priorMessages.some((message) => message.id === continuation.assistantMessageId)
+        ? priorMessages.map((message) => message.id === continuation.assistantMessageId ? assistantMsg : message)
+        : [...priorMessages, assistantMsg]
+      : [...priorMessages, userMsg!, assistantMsg];
+    setMessages(queuedMessages);
     setInputValue('');
     setIsStreaming(true);
+
+    if (!isGuest) {
+      void saveChatSession({
+        id: sessionIdRef.current,
+        title: (continuation?.originalPrompt ?? prompt).length > 60 ? `${(continuation?.originalPrompt ?? prompt).slice(0, 57)}…` : continuation?.originalPrompt ?? prompt,
+        subject: selectedContext.subject,
+        unit: selectedContext.unit,
+        mode,
+        timestamp: Date.now(),
+      });
+      void saveChatTranscript(sessionIdRef.current, queuedMessages);
+    }
 
     const userApiKey = typeof window !== 'undefined'
       ? localStorage.getItem('user_openrouter_key') ||
@@ -1301,7 +1363,15 @@ export default function ChatMainArea({
       const res = await fetch('/api/generate-document', {
         method: 'POST',
         headers: docHeaders,
-        body: JSON.stringify({ prompt, format }),
+        body: JSON.stringify({
+          prompt,
+          format,
+          model: selectedModel || 'emate',
+          recentContext: buildDocumentContext(continuation ? priorMessages.filter((message) => message.id !== continuation.assistantMessageId) : priorMessages),
+          notebookContext: isStudyMode ? buildNotebookContext(selectedContext.subject) : '',
+          subject: selectedContext.subject,
+          unit: selectedContext.unit,
+        }),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -1312,11 +1382,10 @@ export default function ChatMainArea({
       const { content, title, wordCount } = data as { content: string; title: string; wordCount: number };
 
       const assistantNarration = format === 'pptx'
-        ? `I have crafted a presentation outline for **${title}**. You can download the complete PowerPoint presentation (.pptx) or preview the slides below.`
+        ? `I have crafted **${title}**. Open it in the Files panel to preview the cover and slides, or download the PowerPoint (.pptx).`
         : `I have prepared a comprehensive document for **${title}**. You can download the complete Word document (.docx) or view the structured sections below.`;
 
-      setMessages((prev) =>
-        prev.map((m) => {
+      const completedMessages: ChatMessage[] = queuedMessages.map((m) => {
           if (m.id !== assistantMsg.id || !m.generatedDoc) return m;
           return {
             ...m,
@@ -1326,27 +1395,81 @@ export default function ChatMainArea({
               title,
               content,
               wordCount,
-              status: 'done',
+              status: 'done' as const,
             },
           };
-        })
-      );
+        });
+      setMessages(completedMessages);
+      void saveChatTranscript(sessionIdRef.current, completedMessages);
+      if (format === 'pptx') setSelectedArtifactId(docId);
       setIsArtifactsOpen(true);
     } catch (err: any) {
       const msg = err?.message || 'Document generation failed. Please try again.';
       toast.error(msg);
-      setMessages((prev) =>
-        prev.map((m) => {
+      const failedMessages: ChatMessage[] = queuedMessages.map((m) => {
           if (m.id !== assistantMsg.id || !m.generatedDoc) return m;
           return {
             ...m,
             content: msg,
-            generatedDoc: { ...m.generatedDoc, status: 'error', errorMessage: msg },
+            generatedDoc: { ...m.generatedDoc, status: 'error' as const, errorMessage: msg },
           };
-        })
-      );
+        });
+      setMessages(failedMessages);
+      if (!isGuest) void saveChatTranscript(sessionIdRef.current, failedMessages);
     } finally {
       setIsStreaming(false);
+    }
+  };
+
+  const handlePresentationChoice = async (
+    assistantMessageId: string,
+    originalPrompt: string,
+    choice: 'college' | 'overview' | 'technical'
+  ) => {
+    if (sendInFlightRef.current || isStreaming) return;
+    const requestMessage = messages.find((message) => message.id === assistantMessageId);
+    if (!requestMessage?.presentationRequest || requestMessage.presentationRequest.selected) return;
+    sendInFlightRef.current = true;
+    const audienceGuidance = {
+      college: 'Create this for a college class. Assume an undergraduate student audience, explain key concepts clearly, and include useful examples and classroom takeaways.',
+      overview: 'Create a general-audience overview. Keep it accessible, explain the essentials without assuming prior expertise, and focus on the big picture.',
+      technical: 'Create a technical deep dive for readers with relevant technical background. Include precise terminology, mechanisms, architectures or methods, tradeoffs, and limitations.',
+    }[choice];
+    const audienceLabel = {
+      college: 'college-level',
+      overview: 'general overview',
+      technical: 'technical deep dive',
+    }[choice];
+
+    const selectedMessages = messages.map((message) => message.id === assistantMessageId
+      ? { ...message, presentationRequest: { prompt: originalPrompt, selected: choice } }
+      : message);
+    const choiceLabel = {
+      college: 'For a college class',
+      overview: 'Just a general overview',
+      technical: 'A technical deep dive',
+    }[choice];
+    const choiceMessage: ChatMessage = {
+      id: createMessageId(),
+      role: 'user',
+      content: choiceLabel,
+      mode,
+      timestamp: new Date().toISOString(),
+      subject: selectedContext.subject,
+      isGeneralChat: !isStudyMode,
+    };
+    const presentationMessages = [...selectedMessages, choiceMessage];
+    setMessages(presentationMessages);
+    void saveChatTranscript(sessionIdRef.current, presentationMessages);
+    try {
+      await handleDocumentSend(`${originalPrompt}\n\nPresentation audience and depth: ${audienceGuidance}`, 'pptx', {
+        assistantMessageId: createMessageId(),
+        originalPrompt,
+        audience: audienceLabel,
+        baseMessages: presentationMessages,
+      });
+    } finally {
+      sendInFlightRef.current = false;
     }
   };
 
@@ -1643,6 +1766,7 @@ export default function ChatMainArea({
   };
 
   const handleSend = async (text?: string, attachmentOverride?: File[] | boolean, _systemAction?: boolean) => {
+    setAgentSkillStatus('');
     // Support legacy call-site: handleSend(prompt, true) where second arg is the flag
     const isSystemAction = _systemAction === true || attachmentOverride === true;
     const actualAttachments = Array.isArray(attachmentOverride) ? attachmentOverride : undefined;
@@ -1662,12 +1786,35 @@ export default function ChatMainArea({
     // Clear main input search bar immediately
     setInputValue('');
 
+    // Route image requests before flashcard, quiz, document, credit, or text-chat
+    // handling so the language model cannot answer with a fake image URL.
+    const slashImageMatch = content.match(/^\/(?:image|img|draw)\s+(.+)/i);
+    const naturalImageIntent =
+      /\b(?:gen(?:erate|rate|arte)|create|make|draw|paint|render|illustrate|design|produce|show me|i need|i want)\b.{0,100}\b(?:image|picture|photo|illustration|drawing|visual|graphic|artwork|logo|poster|wallpaper|diagram|infographic)s?\b/i.test(content) ||
+      /\b(?:image|picture|photo|illustration|drawing|visual|artwork|logo|poster|wallpaper|diagram|infographic)s?\s+(?:of|for|about)\b/i.test(content) ||
+      /^\s*(?:please\s+)?(?:draw|paint|illustrate)\s+(?:(?:me|a|an|the)\s+)?[a-z]/i.test(content);
+    const imageMetaQuestion =
+      /^(?:how|why|what is|when|where|explain|tell me about|can you (?:explain|tell me how)|could you (?:explain|tell me how))\b/i.test(content) ||
+      /\b(?:understand|learn about|teach me about)\b.{0,80}\b(?:image generation|image models?|visual generation)\b/i.test(content);
+    if (!isSystemAction && (slashImageMatch || (naturalImageIntent && !imageMetaQuestion))) {
+      const promptToUse = (slashImageMatch?.[1] || content)
+        .replace(/^(?:please\s+)?(?:can you|could you|i want|i need|make me|create me|generate me|show me)\s+/i, '')
+        .replace(/^(?:please\s+)?(?:gen(?:erate|rate|arte)|create|make|draw|paint|render|illustrate|design|produce|show me)\s+(?:an?\s+)?(?:(?:image|picture|photo|illustration|drawing|visual|graphic|artwork)\s+(?:of|about|for)?\s+)?/i, '')
+        .trim();
+      router.push(`/ai-topper-chat?chatId=${targetChatId}`, { scroll: false });
+      try {
+        await handleImageSend(promptToUse || content);
+      } finally {
+        sendInFlightRef.current = false;
+      }
+      return;
+    }
+
     // Flashcard intent detection — intercepts before text/credit path
     if (
       !isSystemAction &&
       FLASHCARD_REQUEST.test(content) &&
-      !FLASHCARD_META_QUESTION.test(content) &&
-      !imageGenMode
+      !FLASHCARD_META_QUESTION.test(content)
     ) {
       const userMsg: ChatMessage = {
         id: createMessageId(),
@@ -1712,8 +1859,7 @@ export default function ChatMainArea({
     if (
       !isSystemAction &&
       isQuizRequest(content) &&
-      !isQuizMetaQuestion(content) &&
-      !imageGenMode
+      !isQuizMetaQuestion(content)
     ) {
       // Add the user message then trigger quiz generation
       const userMsg: ChatMessage = {
@@ -1754,110 +1900,61 @@ export default function ChatMainArea({
       return;
     }
 
-    // /image slash command — extract prompt and route to image generation
-    const imageCmdMatch = content.match(/^\/(image|img)\s+(.+)/i);
-    if (imageCmdMatch && !isGuest) {
-      const imagePrompt = imageCmdMatch[2].trim();
-      if (imagePrompt) {
-        const userMsg: ChatMessage = {
-          id: createMessageId(),
-          role: 'user',
-          content,
-          mode,
-          timestamp: new Date().toISOString(),
-          subject: selectedContext.subject,
-        };
-        pendingQuestionScrollRef.current = userMsg.id;
-        setMessages((prev) => [...prev, userMsg]);
-        router.push(`/ai-topper-chat?chatId=${targetChatId}`, { scroll: false });
-        try {
-          await handleImageSend(imagePrompt);
-        } finally {
-          sendInFlightRef.current = false;
-        }
-        return;
-      }
-      sendInFlightRef.current = false;
-      return;
-    }
-
-    // Natural-language image intent detection (no slash command required)
-    // Covers: "generate an image of X", "draw a diagram of X", "illustrate X", etc.
-    if (!isSystemAction && !imageGenMode && !isGuest) {
-      const { taskType: nlTaskType } = classifyTask(content, undefined, undefined);
-      if (nlTaskType === 'image_generation' && !imageCmdMatch) {
-        const cleanImagePrompt = content
-          .replace(/^\/(image|img)\s+/i, '')
-          .replace(/^(generate (an? )?image of|draw (an? )?image of|illustrate|render a diagram of|create a visual of)\s+/i, '')
-          .trim();
-        const userMsg: ChatMessage = {
-          id: createMessageId(),
-          role: 'user',
-          content,
-          mode,
-          timestamp: new Date().toISOString(),
-          subject: selectedContext.subject,
-        };
-        pendingQuestionScrollRef.current = userMsg.id;
-        setMessages((prev) => [...prev, userMsg]);
-        router.push(`/ai-topper-chat?chatId=${targetChatId}`, { scroll: false });
-        try {
-          await handleImageSend(cleanImagePrompt || content);
-        } finally {
-          sendInFlightRef.current = false;
-        }
-        return;
-      }
-    }
-
     const lowerContent = content.trim().toLowerCase();
-
-    // 1. Image Gen Intent: explicit mode, /image command, or natural language
-    const isImageIntent =
-      imageGenMode ||
-      /^\/(image|img|draw)\b/i.test(lowerContent) ||
-      /\b(generate|create|draw|make|show me|paint|render)\b.*\b(images?|pictures?|photos?|illustrations?|drawings?|visuals?|artworks?)\b/i.test(lowerContent) ||
-      /\b(images?|pictures?|photos?)\s+(of|for|about)\b/i.test(lowerContent) ||
-      /^(draw|paint)\s+(a|an|the|me)?\s*\w+/i.test(lowerContent);
-
-    if (isImageIntent) {
-      router.push(`/ai-topper-chat?chatId=${targetChatId}`, { scroll: false });
-      const promptToUse = content
-        .replace(/^\/(image|img|draw)\s+/i, '')
-        .replace(/^(please\s+)?(generate|create|draw|make|show me|paint|render)\s+(an?\s+)?(image|picture|photo|illustration|drawing|visual|graphic|artwork)\s+(of|about|for)?\s*/i, '')
-        .trim();
-      try {
-        await handleImageSend(promptToUse || content);
-      } finally {
-        sendInFlightRef.current = false;
-      }
-      return;
-    }
+    const generationHowToQuestion = /^(?:how(?:\s+(?:do i|can i|would i|should i|to))?|what is|what are|why|when|where|explain|tell me how)\b/i.test(lowerContent);
 
     // 2. Presentation / PPT Intent: explicit mode or natural language
     const isPptxIntent =
-      docGenMode === 'pptx' ||
       /\b(create|make|generate|build|prepare|design|give me|write)\b.*\b(presentation|ppt|pptx|powerpoint|slide deck|slides?)\b/i.test(lowerContent) ||
       /\b(presentation|ppt|pptx|powerpoint|slide deck)\b.*\b(about|on|for|regarding)\b/i.test(lowerContent) ||
       /^(make|create|generate)\s+(a\s+)?(ppt|presentation|slide deck)\b/i.test(lowerContent);
 
-    if (isPptxIntent) {
+    if (isPptxIntent && !generationHowToQuestion) {
+      const timestamp = new Date().toISOString();
+      const userMsg: ChatMessage = {
+        id: createMessageId(),
+        role: 'user',
+        content,
+        mode,
+        timestamp,
+        subject: selectedContext.subject,
+        isGeneralChat: !isStudyMode,
+      };
+      const assistantPrompt: ChatMessage = {
+        id: createMessageId(),
+        role: 'assistant',
+        content: "Sure, I can build that. One quick question so it lands right — how deep should it go, and who's it for?",
+        mode,
+        timestamp,
+        subject: selectedContext.subject,
+        isGeneralChat: !isStudyMode,
+        presentationRequest: { prompt: content },
+      };
+      const presentationMessages = [...messages, userMsg, assistantPrompt];
+      pendingQuestionScrollRef.current = userMsg.id;
+      setMessages(presentationMessages);
       router.push(`/ai-topper-chat?chatId=${targetChatId}`, { scroll: false });
-      try {
-        await handleDocumentSend(content, 'pptx');
-      } finally {
-        sendInFlightRef.current = false;
+      if (!isGuest) {
+        void saveChatSession({
+          id: targetChatId,
+          title: content.length > 60 ? `${content.slice(0, 57)}…` : content,
+          subject: selectedContext.subject,
+          unit: selectedContext.unit,
+          mode,
+          timestamp: Date.now(),
+        });
       }
+      void saveChatTranscript(targetChatId, presentationMessages);
+      sendInFlightRef.current = false;
       return;
     }
 
     // 3. Document / DOCX Intent: explicit mode or natural language
     const isDocxIntent =
-      docGenMode === 'docx' ||
-      /\b(create|make|generate|build|write|prepare)\b.*\b(a document|a docx|word doc|a report|document file|notes doc)\b/i.test(lowerContent) ||
-      /\b(document|docx|word doc)\b.*\b(about|on|for|regarding)\b/i.test(lowerContent);
+      /\b(create|make|generate|build|write|prepare|export|download)\b.{0,60}\b(?:a\s+)?(?:document|docx|word document|word doc|report|pdf|resume|cover letter|essay|study guide|notes doc)(?:\s+file)?\b/i.test(lowerContent) ||
+      /\b(?:document|docx|word document|word doc|report|pdf|resume|cover letter|essay|study guide|notes doc)\b.{0,50}\b(about|on|for|regarding)\b/i.test(lowerContent);
 
-    if (isDocxIntent) {
+    if (isDocxIntent && !generationHowToQuestion) {
       router.push(`/ai-topper-chat?chatId=${targetChatId}`, { scroll: false });
       try {
         await handleDocumentSend(content, 'docx');
@@ -2015,6 +2112,13 @@ export default function ChatMainArea({
         Object.entries(localTranscripts).map(([id, transcript]) => ({ id, messages: transcript })),
         targetChatId
       );
+      let skillPermissions: SkillPermissionPreferences = {};
+      try {
+        const savedPermissions = localStorage.getItem(skillPermissionStorageKey(currentUserId));
+        if (savedPermissions) skillPermissions = JSON.parse(savedPermissions);
+      } catch {
+        skillPermissions = {};
+      }
 
       const res = await fetch('/api/chat', {
         method: 'POST',
@@ -2032,6 +2136,7 @@ export default function ChatMainArea({
           attachments: base64Attachments,
           credits: guestCreditsSent, // sent for the server-side guest guard
           userApiKey: byokKey || undefined,
+          skillPermissions,
         }),
       });
 
@@ -2090,40 +2195,38 @@ export default function ChatMainArea({
           if (line.startsWith('data: ')) {
             const dataStr = line.replace(/^data:\s*/, '');
             if (dataStr === '[DONE]') continue;
-            try {
-              // Server sends JSON-encoded string deltas or citation events
-              const parsed = JSON.parse(dataStr);
-              if (parsed && typeof parsed === 'object') {
-                if (parsed.type === 'model' && typeof parsed.model === 'string') {
-                  // Do not disrupt guest users or users who explicitly chose the 'emate' flagship mesh
-                  if (!isGuest && selectedModel !== 'emate') {
-                    const workingModel = MODELS.find((item) => item.id === parsed.model);
-                    if (workingModel) setSelectedModel(workingModel.id);
-                  }
-                } else if (parsed.type === 'citations' && Array.isArray(parsed.citations)) {
-                  activeCitations = parsed.citations;
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantMsgId ? { ...m, citations: activeCitations } : m
-                    )
-                  );
-                } else if (parsed.error) {
-                  throw new Error(parsed.error);
+            const parsed = parseChatStreamEvent(dataStr);
+            if (parsed) {
+              if (parsed.type === 'skill') {
+                setAgentSkillStatus(`Using ${parsed.name}`);
+              } else if (parsed.type === 'skill_notice') {
+                setAgentSkillStatus(parsed.message);
+              } else if (parsed.type === 'skill_tool') {
+                setAgentSkillStatus(`${parsed.success ? 'Used' : 'Could not use'} ${parsed.tool}`);
+              } else if (parsed.type === 'model') {
+                // Do not disrupt guest users or users who explicitly chose the 'emate' flagship mesh
+                if (!isGuest && selectedModel !== 'emate') {
+                  const workingModel = MODELS.find((item) => item.id === parsed.model);
+                  if (workingModel) setSelectedModel(workingModel.id);
                 }
-              } else if (typeof parsed === 'string' && parsed.length > 0) {
+              } else if (parsed.type === 'citations') {
+                activeCitations = parsed.citations as import('@/lib/prompts').Citation[];
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMsgId ? { ...m, citations: activeCitations } : m
+                  )
+                );
+              } else if (parsed.type === 'error') {
+                throw new Error(parsed.message);
+              } else if (parsed.type === 'content') {
                 // Response generation was successful, now deduct credit
                 deductCreditOnSuccess();
-                accumulatedText += parsed;
+                accumulatedText += parsed.text;
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantMsgId ? { ...m, content: accumulatedText } : m
                   )
                 );
-              }
-            } catch (err: any) {
-              // If it was an explicit server error JSON, rethrow to trigger catch block
-              if (err?.message && !err.message.includes('JSON')) {
-                throw err;
               }
             }
           }
@@ -2132,19 +2235,18 @@ export default function ChatMainArea({
 
       // Flush any remaining buffer content
       if (sseBuffer.trim() && sseBuffer.trim() !== 'data: [DONE]' && sseBuffer.startsWith('data: ')) {
-        try {
-          const dataStr = sseBuffer.replace(/^data:\s*/, '');
-          const parsed = JSON.parse(dataStr);
-          if (typeof parsed === 'string' && parsed.length > 0) {
-            accumulatedText += parsed;
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantMsgId ? { ...m, content: accumulatedText } : m
-              )
-            );
-          }
-        } catch {
-          /* ignore */
+        const dataStr = sseBuffer.replace(/^data:\s*/, '');
+        const event = parseChatStreamEvent(dataStr);
+        if (event?.type === 'content') {
+          deductCreditOnSuccess();
+          accumulatedText += event.text;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMsgId ? { ...m, content: accumulatedText } : m
+            )
+          );
+        } else if (event?.type === 'error') {
+          throw new Error(event.message);
         }
       }
 
@@ -2869,6 +2971,7 @@ export default function ChatMainArea({
             )}
 
             {/* Elevated Command Input — PromptInput composer */}
+            {agentSkillStatus && <div role="status" className="mx-auto mb-1 w-full max-w-2xl truncate px-2 text-xs text-muted-foreground">{agentSkillStatus}</div>}
             <PromptInput
               value={inputValue}
               onChange={setInputValue}
@@ -2892,22 +2995,11 @@ export default function ChatMainArea({
               efforts={['Quick', 'Balanced', 'Deep']}
               allowAttachments={!isGuest}
               placeholder={
-                docGenMode === 'pptx'
-                  ? 'Describe the presentation topic, audience, and key points to cover…'
-                  : docGenMode === 'docx'
-                    ? 'Describe what document you want — topic, format, and key sections…'
-                    : !isStudyMode
-                      ? "Ask anything, brainstorm ideas, debug code, or type / for commands..."
-                      : "Ask a study question, paste notes, or type / for commands..."
+                !isStudyMode
+                  ? "Ask anything, brainstorm ideas, debug code, or type / for commands..."
+                  : "Ask a study question, paste notes, or type / for commands..."
               }
               className="mx-auto w-full max-w-2xl mb-3.5"
-              imageGenMode={imageGenMode}
-              onImageGenToggle={() => setImageGenMode((v) => !v)}
-              docGenMode={docGenMode}
-              onDocGenToggle={() => {
-                setDocGenMode((v) => (v === false ? 'docx' : v === 'docx' ? 'pptx' : false));
-                if (!docGenMode) setImageGenMode(false);
-              }}
             />
 
             {/* Framer AI / v0 Inspired Pre-Suggestion Card with Category Tabs & Hover Arrows */}
@@ -3029,6 +3121,8 @@ export default function ChatMainArea({
                   onRegenerateImage={handleRegenerateImage}
                   onReinforce={(topics, submission) => handleReinforce(topics, submission, msg.quiz)}
                   onQuizSubmit={(submission) => msg.quiz && handleQuizSubmission(submission, msg.quiz, msg.id)}
+                  onPresentationChoice={handlePresentationChoice}
+                  onOpenArtifact={openArtifact}
                   isStreaming={isStreaming && idx === messages.length - 1 && msg.role === 'assistant'}
                 />
               </div>
@@ -3042,6 +3136,7 @@ export default function ChatMainArea({
       {hasMessages && (
         <div className="absolute bottom-0 left-0 right-0 z-30 pb-5 pt-8 px-4 flex flex-col items-center justify-center pointer-events-none bg-gradient-to-t from-[#f9f9fb] dark:from-[#080809] via-[#f9f9fb]/90 dark:via-[#080809]/90 to-transparent">
           <div className="w-full max-w-2xl pointer-events-auto">
+            {agentSkillStatus && <div role="status" className="mb-1 w-full truncate px-2 text-xs text-muted-foreground">{agentSkillStatus}</div>}
             <PromptInput
               isSlim={true}
               onSubmit={(text, meta) => {
@@ -3062,23 +3157,12 @@ export default function ChatMainArea({
               }}
               efforts={['Quick', 'Balanced', 'Deep']}
               allowAttachments={!isGuest}
-              imageGenMode={imageGenMode}
-              onImageGenToggle={() => setImageGenMode((v) => !v)}
-              docGenMode={docGenMode}
-              onDocGenToggle={() => {
-                setDocGenMode((v) => (v === false ? 'docx' : v === 'docx' ? 'pptx' : false));
-                if (!docGenMode) setImageGenMode(false);
-              }}
               placeholder={
-                docGenMode === 'pptx'
-                  ? 'Describe the presentation topic, audience, and key points to cover…'
-                  : docGenMode === 'docx'
-                    ? 'Describe what document you want — topic, format, and key sections…'
-                    : !isStudyMode
-                      ? 'Ask e-Mate a question, debug code, or request help...'
-                      : mode === 'sprint'
-                        ? 'Ask for a rapid summary, formula, or exam cram tip...'
-                        : 'Ask for a step-by-step explanation, proof, or derivation...'
+                !isStudyMode
+                  ? 'Ask e-Mate a question, debug code, or request help...'
+                  : mode === 'sprint'
+                    ? 'Ask for a rapid summary, formula, or exam cram tip...'
+                    : 'Ask for a step-by-step explanation, proof, or derivation...'
               }
             />
           </div>
@@ -3090,6 +3174,8 @@ export default function ChatMainArea({
         isOpen={isArtifactsOpen}
         onClose={() => setIsArtifactsOpen(false)}
         artifacts={conversationArtifacts}
+        selectedArtifactId={selectedArtifactId}
+        onSelectArtifact={setSelectedArtifactId}
         theme={theme}
       />
     </div>

@@ -66,6 +66,10 @@ interface ChatMessageBubbleProps {
   onReinforce?: (weakTopics: string[], submissionData?: MCQSubmission, quiz?: MCQQuiz) => void;
   /** Called when a student submits an inline quiz in the conversation. */
   onQuizSubmit?: (submission: MCQSubmission) => void;
+  /** Called when a user chooses a presentation's audience and depth. */
+  onPresentationChoice?: (messageId: string, prompt: string, choice: 'college' | 'overview' | 'technical') => void;
+  /** Opens a generated file in the Files sidebar. */
+  onOpenArtifact?: (artifactId: string) => void;
   /** True when this message is actively streaming tokens from the LLM */
   isStreaming?: boolean;
 }
@@ -666,6 +670,8 @@ export default function ChatMessageBubble({
   onRegenerateImage,
   onReinforce,
   onQuizSubmit,
+  onPresentationChoice,
+  onOpenArtifact,
   isStreaming = false,
 }: ChatMessageBubbleProps) {
   const [copied, setCopied] = useState(false);
@@ -735,6 +741,7 @@ export default function ChatMessageBubble({
         <div className="bg-[#cbe2ff] dark:bg-[#1e3a8a]/70 text-[#1a1a1a] dark:text-[#f0f0f0] px-4 py-2 rounded-full max-w-[80%] inline-block text-xs sm:text-sm font-normal shadow-2xs">
           {contentText}
         </div>
+
       </div>
     );
   }
@@ -775,6 +782,40 @@ export default function ChatMessageBubble({
             )
           )}
         </div>
+
+        {message.presentationRequest && onPresentationChoice && (
+          <div className="mt-4 w-full space-y-2.5" aria-label="Choose presentation audience and depth">
+            {([
+              ['college', 'For a college class'],
+              ['overview', 'Just a general overview'],
+              ['technical', 'A technical deep dive'],
+            ] as const).map(([choice, label]) => {
+              const selected = message.presentationRequest?.selected === choice;
+              const hasSelection = Boolean(message.presentationRequest?.selected);
+              return (
+                <button
+                  key={choice}
+                  type="button"
+                  aria-pressed={selected}
+                  disabled={hasSelection}
+                  onClick={() => onPresentationChoice(message.id, message.presentationRequest!.prompt, choice)}
+                  className={`flex min-h-[58px] w-full items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm sm:text-base transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-default ${
+                    selected
+                      ? 'border-white bg-white/5 text-zinc-100'
+                      : hasSelection
+                        ? 'border-dashed border-white/5 text-zinc-600 dark:text-zinc-600'
+                      : isDark
+                        ? 'border-dashed border-white/10 text-zinc-400 hover:border-white/30 hover:text-zinc-200'
+                        : 'border-dashed border-zinc-300 text-zinc-500 hover:border-zinc-400 hover:text-zinc-800'
+                  }`}
+                >
+                  <span>{label}</span>
+                  {selected && <Check size={17} className="shrink-0" />}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Transparent Fallback Notice */}
         {message.fallbackNotice && (
@@ -935,6 +976,7 @@ export default function ChatMessageBubble({
           <DocumentGenerationCard
             doc={message.generatedDoc}
             theme={theme}
+            onOpenArtifact={onOpenArtifact}
           />
         )}
 

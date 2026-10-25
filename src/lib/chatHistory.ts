@@ -20,7 +20,10 @@ export interface GeneratedImage {
   prompt: string; // original prompt used to generate
   aspectRatio?: string;
   style?: string;
+  model?: string;
+  revisedPrompt?: string;
   status?: 'generating' | 'done' | 'error';
+  errorMessage?: string;
 }
 
 /** A file attachment rendered inline in a chat message. */
@@ -73,6 +76,11 @@ export interface ChatMessage {
     wordCount?: number;
     status: 'generating' | 'done' | 'error';
     errorMessage?: string;
+  };
+  /** Pending audience/depth clarification for a presentation request. */
+  presentationRequest?: {
+    prompt: string;
+    selected?: 'college' | 'overview' | 'technical';
   };
 }
 
