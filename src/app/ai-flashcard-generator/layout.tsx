@@ -46,6 +46,7 @@ export default function FlashcardLayout({
 }: {
   children: React.ReactNode;
 }) {
+
   const flashcardSchema = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
