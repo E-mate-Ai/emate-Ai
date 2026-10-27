@@ -1,0 +1,44 @@
+# e-Mate AI
+
+> e-Mate AI is an AI-powered study workspace for turning notes, PDFs, and syllabi into interactive flashcards, quizzes, summaries, and structured learning workflows.
+
+## About
+
+e-Mate AI helps students and technical teams spend less time organizing study material and more time learning. Users can describe a study workflow in natural language, preview the generated workflow in a sandboxed builder, and run it to create revision resources from their own material.
+
+## Core capabilities
+
+- Convert notes, PDFs, and syllabi into flashcards, quizzes, and summaries.
+- Build RAG notebooks that let AI reference and reason over uploaded material.
+- Create agentic study workflows that chain actions such as summarizing, generating flashcards, and creating quizzes.
+- Select different AI models for different tasks, including Gemini, GPT-4o, and Claude through OpenRouter.
+- Support bring-your-own-key (BYOK) model access through OpenRouter.
+- Provide voice-based studying as an in-progress feature.
+
+## How it works
+
+1. Upload notes, PDFs, or a syllabus.
+2. Describe a desired study workflow or choose a template.
+3. Preview the generated workflow in the sandboxed builder.
+4. Run the workflow to create flashcards, quizzes, or summaries.
+5. Refine the workflow or notebook as the learning material changes.
+6. Free ai using BYOK 
+7. Free ai
+
+## Important links
+
+- [Official website](https://emate.live)
+- [Live application](https://emate-ai.vercel.app)
+- [Source repository](https://github.com/E-mate-Ai/emate-Ai)
+- [Project documentation](https://github.com/E-mate-Ai/emate-Ai/blob/main/README.md)
+- [Admin workspace guide](https://github.com/E-mate-Ai/emate-Ai/blob/main/docs/admin-workspace.md)
+- [Security contact](mailto:support@emate.live)
+
+## Project status
+
+e-Mate AI is actively in development. Product features, pricing, and the interface may change as the project evolves.
+
+## Technology
+
+The application is built with Next.js, React, TypeScript, Supabase, and Vercel. AI model access is integrated through OpenRouter, with support for multiple model providers.
+
