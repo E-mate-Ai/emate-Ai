@@ -581,6 +581,32 @@ function ProcessAccordion({ processStep, theme }: ProcessAccordionProps) {
   );
 }
 
+// ─── File-type styling helpers ────────────────────────────────────────────────
+
+function getFileTypeStyle(ext: string, mimeType?: string): { bg: string; iconColor: string; label: string } {
+  if (ext === 'pdf' || mimeType === 'application/pdf') return { bg: '#fee2e2', iconColor: '#dc2626', label: 'PDF' };
+  if (['doc', 'docx'].includes(ext)) return { bg: '#dbeafe', iconColor: '#2563eb', label: 'DOC' };
+  if (['xls', 'xlsx'].includes(ext)) return { bg: '#dcfce7', iconColor: '#16a34a', label: 'XLS' };
+  if (['ppt', 'pptx'].includes(ext)) return { bg: '#ffedd5', iconColor: '#ea580c', label: 'PPT' };
+  if (['txt', 'md'].includes(ext)) return { bg: '#f3f4f6', iconColor: '#6b7280', label: 'TXT' };
+  if (['csv'].includes(ext)) return { bg: '#dcfce7', iconColor: '#15803d', label: 'CSV' };
+  if (['json'].includes(ext)) return { bg: '#fef3c7', iconColor: '#d97706', label: 'JSON' };
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return { bg: '#ede9fe', iconColor: '#7c3aed', label: 'ZIP' };
+  if (['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(ext)) return { bg: '#fce7f3', iconColor: '#db2777', label: 'VID' };
+  if (['mp3', 'wav', 'ogg', 'flac'].includes(ext)) return { bg: '#ede9fe', iconColor: '#7c3aed', label: 'AUD' };
+  if (['py'].includes(ext)) return { bg: '#fef9c3', iconColor: '#ca8a04', label: 'PY' };
+  if (['js', 'ts', 'jsx', 'tsx'].includes(ext)) return { bg: '#fef9c3', iconColor: '#ca8a04', label: 'JS' };
+  if (['html', 'htm'].includes(ext)) return { bg: '#ffedd5', iconColor: '#ea580c', label: 'HTML' };
+  if (['css', 'scss'].includes(ext)) return { bg: '#dbeafe', iconColor: '#3b82f6', label: 'CSS' };
+  return { bg: '#f1f5f9', iconColor: '#64748b', label: ext.toUpperCase().slice(0, 4) || 'FILE' };
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 // ─── Grounded Citations List ─────────────────────────────────────────────────
@@ -707,33 +733,95 @@ export default function ChatMessageBubble({
     return (
       <div className="flex flex-col items-end w-full fade-in-up my-1">
         {hasUserAttachments && (
-          <div className="mb-2 flex max-w-[80%] flex-wrap justify-end gap-2">
+          <div className="mb-2 flex max-w-[85%] flex-wrap justify-end gap-2">
             {userAttachments.map((attachment, index) => {
               const isImage = attachment.kind === 'image' || attachment.mimeType?.startsWith('image/');
               const dataUrl = typeof attachment.data === 'string' ? attachment.data : '';
+              // Accept both blob: URLs (in-session) and data: URLs (base64, persistent)
               const imageSrc = isImage && dataUrl.trim() ? dataUrl : undefined;
 
-              return isImage && imageSrc ? (
-                <img
-                  key={`${attachment.fileName ?? 'attachment'}-${index}`}
-                  src={imageSrc}
-                  alt={attachment.fileName || 'Attached preview'}
-                  className="h-24 w-24 rounded-xl border border-zinc-200/80 object-cover shadow-sm"
-                />
-              ) : (
-                <div
-                  key={`${attachment.fileName ?? 'attachment'}-${index}`}
-                  className="flex max-w-[180px] items-center gap-2 rounded-xl border border-zinc-200/80 bg-white/70 px-2.5 py-2 text-left text-[11px] text-zinc-700 shadow-sm"
-                >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-100 text-zinc-500">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M8 13h8M8 17h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                    </svg>
+              if (isImage) {
+                return imageSrc ? (
+                  // Image with actual data — show thumbnail with lightbox on click
+                  <button
+                    key={`${attachment.fileName ?? 'attachment'}-${index}`}
+                    type="button"
+                    onClick={() => {
+                      const win = window.open('', '_blank');
+                      if (win) { win.document.write(`<html><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${imageSrc}" style="max-width:100%;max-height:100vh;object-fit:contain" /></body></html>`); }
+                    }}
+                    className="relative group overflow-hidden rounded-xl border border-zinc-200/80 shadow-sm cursor-zoom-in"
+                    title={attachment.fileName || 'View image'}
+                  >
+                    <img
+                      src={imageSrc}
+                      alt={attachment.fileName || 'Attached image'}
+                      className="h-24 w-24 object-cover"
+                    />
+                    <span className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors duration-200 flex items-end justify-start p-1">
+                      {attachment.fileName && (
+                        <span className="opacity-0 group-hover:opacity-100 transition-opacity text-[9px] text-white font-medium bg-black/50 rounded px-1 py-0.5 truncate max-w-full">
+                          {attachment.fileName}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                ) : (
+                  // Image attachment but data stripped (after reload) — show placeholder pill
+                  <div
+                    key={`${attachment.fileName ?? 'attachment'}-${index}`}
+                    className="flex items-center gap-2 rounded-xl border border-zinc-200/80 bg-zinc-50 px-2.5 py-2 text-[11px] text-zinc-500 shadow-sm"
+                    title={attachment.fileName || 'Image attachment'}
+                  >
+                    <span className="text-base leading-none">🖼</span>
+                    <span className="truncate max-w-[120px]">{attachment.fileName || 'Image'}</span>
                   </div>
-                  <span className="truncate">{attachment.fileName || 'Attached file'}</span>
-                </div>
+                );
+              }
+
+              // Non-image file — show a styled chip with type-coloured icon
+              const ext = (attachment.fileName?.split('.').pop() || attachment.mimeType?.split('/').pop() || 'file').toLowerCase();
+              const { bg, iconColor, label } = getFileTypeStyle(ext, attachment.mimeType);
+              const sizeLabel = attachment.size ? formatFileSize(attachment.size) : '';
+
+              return (
+                <button
+                  key={`${attachment.fileName ?? 'attachment'}-${index}`}
+                  type="button"
+                  onClick={() => {
+                    if (attachment.data && attachment.data.trim()) {
+                      const downloadLink = document.createElement('a');
+                      downloadLink.href = attachment.data;
+                      downloadLink.download = attachment.fileName || 'download';
+                      document.body.appendChild(downloadLink);
+                      downloadLink.click();
+                      document.body.removeChild(downloadLink);
+                    } else if (attachment.text) {
+                      const win = window.open('', '_blank');
+                      if (win) {
+                        win.document.write(`<html><head><title>${attachment.fileName || 'File Preview'}</title></head><body style="margin:0;padding:24px;background:#0f172a;color:#f8fafc;font-family:monospace;font-size:13px;line-height:1.6;white-space:pre-wrap">${attachment.text.replace(/</g, '&lt;')}</body></html>`);
+                      }
+                    } else {
+                      toast.info(`Attached file: ${attachment.fileName || 'File'}`);
+                    }
+                  }}
+                  className="flex max-w-[210px] items-center gap-2 rounded-xl border border-zinc-200/80 bg-white/90 dark:bg-zinc-800/90 dark:border-zinc-700/60 px-2.5 py-2 text-left text-[11px] text-zinc-700 dark:text-zinc-200 shadow-sm hover:scale-[1.02] active:scale-[0.98] transition-transform cursor-pointer"
+                  title={attachment.text ? 'Click to preview text content' : attachment.data ? 'Click to download file' : attachment.fileName || 'Attached file'}
+                >
+                  <div
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold tracking-tight uppercase"
+                    style={{ background: bg, color: iconColor }}
+                  >
+                    {label}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-medium">{attachment.fileName || 'Attached file'}</div>
+                    <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 dark:text-zinc-500">
+                      {sizeLabel && <span>{sizeLabel}</span>}
+                      {attachment.text && <span>· View</span>}
+                    </div>
+                  </div>
+                </button>
               );
             })}
           </div>

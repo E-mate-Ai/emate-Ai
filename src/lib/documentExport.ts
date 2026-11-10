@@ -1,7 +1,20 @@
+import { exportToXlsBlob, parseTextToSpreadsheet, type SpreadsheetData } from './spreadsheetExport';
+
 export interface DocumentExportOptions {
   title: string;
   content: string;
-  format: 'pptx' | 'docx' | 'markdown';
+  format: 'pptx' | 'docx' | 'markdown' | 'xls';
+}
+
+/**
+ * Exports tabular / markdown content into a true Microsoft Excel (.xls) file.
+ */
+export function exportToXls(title: string, markdownOrData: string | SpreadsheetData): Blob {
+  const data: SpreadsheetData =
+    typeof markdownOrData === 'string'
+      ? parseTextToSpreadsheet(markdownOrData, title)
+      : markdownOrData;
+  return exportToXlsBlob(data);
 }
 
 /**

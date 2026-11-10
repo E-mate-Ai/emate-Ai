@@ -782,6 +782,19 @@ export default function ChatMainArea({
       .map((m) => m.generatedDoc!);
   }, [messages]);
 
+  // True if any document (presentation, docx, markdown) has been generated or is generating
+  const hasGeneratedDocs = useMemo(() => {
+    return messages.some(
+      (m) => m.generatedDoc && (m.generatedDoc.status === 'done' || m.generatedDoc.status === 'generating')
+    );
+  }, [messages]);
+
+  useEffect(() => {
+    if (!hasGeneratedDocs && isArtifactsOpen) {
+      setIsArtifactsOpen(false);
+    }
+  }, [hasGeneratedDocs, isArtifactsOpen]);
+
   const [quizLoading, setQuizLoading] = useState(false);
   const [agentSkillStatus, setAgentSkillStatus] = useState('');
   // Preserved quiz data for the reinforce flow.
@@ -963,7 +976,8 @@ export default function ChatMainArea({
 
       const containerTop = container.getBoundingClientRect().top;
       const questionTop = questionElement.getBoundingClientRect().top;
-      const targetScrollTop = container.scrollTop + questionTop - containerTop - 12;
+      // Clearance so questions stop comfortably below floating header buttons
+      const targetScrollTop = container.scrollTop + questionTop - containerTop - 60;
       pendingQuestionScrollRef.current = null;
       container.scrollTo({ top: Math.max(0, targetScrollTop), behavior: 'smooth' });
     });
@@ -1030,6 +1044,13 @@ export default function ChatMainArea({
       if (ext === 'gif') return 'image/gif';
       if (ext === 'svg') return 'image/svg+xml';
       if (ext === 'pdf') return 'application/pdf';
+      if (ext === 'docx') return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      if (ext === 'doc') return 'application/msword';
+      if (ext === 'pptx') return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+      if (ext === 'ppt') return 'application/vnd.ms-powerpoint';
+      if (ext === 'xlsx') return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      if (ext === 'xls') return 'application/vnd.ms-excel';
+      if (ext === 'csv') return 'text/csv';
       if (ext === 'txt') return 'text/plain';
       if (ext === 'md') return 'text/markdown';
       if (ext === 'json') return 'application/json';
@@ -1367,6 +1388,7 @@ export default function ChatMainArea({
           prompt,
           format,
           model: selectedModel || 'emate',
+          userApiKey,
           recentContext: buildDocumentContext(continuation ? priorMessages.filter((message) => message.id !== continuation.assistantMessageId) : priorMessages),
           notebookContext: isStudyMode ? buildNotebookContext(selectedContext.subject) : '',
           subject: selectedContext.subject,
@@ -1951,8 +1973,8 @@ export default function ChatMainArea({
 
     // 3. Document / DOCX Intent: explicit mode or natural language
     const isDocxIntent =
-      /\b(create|make|generate|build|write|prepare|export|download)\b.{0,60}\b(?:a\s+)?(?:document|docx|word document|word doc|report|pdf|resume|cover letter|essay|study guide|notes doc)(?:\s+file)?\b/i.test(lowerContent) ||
-      /\b(?:document|docx|word document|word doc|report|pdf|resume|cover letter|essay|study guide|notes doc)\b.{0,50}\b(about|on|for|regarding)\b/i.test(lowerContent);
+      /\b(create|make|generate|build|write|prepare|export|download|draft)\b.{0,60}\b(?:a\s+)?(?:document|docx|word document|word doc|doc|report|pdf|resume|cover letter|essay|study guide|notes doc|proposal|whitepaper|case study|brief|sop)(?:\s+file)?\b/i.test(lowerContent) ||
+      /\b(?:document|docx|word document|word doc|doc|report|pdf|resume|cover letter|essay|study guide|notes doc|proposal|whitepaper|case study|brief|sop)\b.{0,50}\b(about|on|for|regarding)\b/i.test(lowerContent);
 
     if (isDocxIntent && !generationHowToQuestion) {
       router.push(`/ai-topper-chat?chatId=${targetChatId}`, { scroll: false });
@@ -2007,7 +2029,7 @@ export default function ChatMainArea({
     const sendAttachments = actualAttachments ?? attachedFiles;
     const attachmentPreviewData: NonNullable<ChatMessage['attachments']> = sendAttachments.length > 0
       ? sendAttachments.map((file): NonNullable<ChatMessage['attachments']>[number] => {
-          const isImage = file.type.startsWith('image/');
+          const isImage = file.type.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(file.name);
           const id = `${file.name}-${file.lastModified}-${Math.random().toString(36).slice(2, 8)}`;
           return {
             id,
@@ -2015,7 +2037,7 @@ export default function ChatMainArea({
             mimeType: file.type || 'application/octet-stream',
             kind: isImage ? 'image' : 'doc',
             size: file.size,
-            data: isImage ? URL.createObjectURL(file) : '',
+            data: URL.createObjectURL(file),
           };
         })
       : [];
@@ -2079,12 +2101,24 @@ export default function ChatMainArea({
         sendAttachments.length > 0 ? await convertFilesToBase64(sendAttachments) : [];
       if (base64Attachments.length > 0) {
         const lastMsg = finalPayloadMessages[finalPayloadMessages.length - 1];
-        const preview = attachmentPreviewData.map((file) => ({
-          ...file,
-          data: file.kind === 'image' ? (base64Attachments.find((att) => att.fileName === file.fileName)?.data || file.data) : '',
-          text: base64Attachments.find((att) => att.fileName === file.fileName)?.text,
-        }));
+        const preview = attachmentPreviewData.map((file) => {
+          const matched = base64Attachments.find((att) => att.fileName === file.fileName);
+          const b64 = matched?.data || '';
+          return {
+            ...file,
+            data: b64
+              ? `data:${file.mimeType || 'application/octet-stream'};base64,${b64}`
+              : file.data,
+            text: matched?.text,
+          };
+        });
         (lastMsg as any).attachments = preview;
+        // Update React state so the bubble immediately shows the base64 image
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === userMsg.id ? { ...m, attachments: preview } : m
+          )
+        );
       }
 
       // If we have attachments, modify the last user message to include them
@@ -2512,33 +2546,34 @@ export default function ChatMainArea({
       )}
 
       {/* ── Floating Top Overlay Components (no static section dividing the screen) ── */}
-      <div className="absolute left-3 right-3 top-3 z-30 flex items-center justify-between gap-2 md:left-6 md:right-6 md:top-4">
-        {/* Floating Left: Study / General Switcher Pill */}
-        <div
-          className={`flex items-center rounded-full border border-zinc-200/80 bg-white/80 p-1 shadow-md backdrop-blur-md transition-all dark:border-zinc-800 dark:bg-zinc-900/80 ${
-            !isSidebarOpen ? 'md:ml-10' : ''
-          }`}
-        >
-          {isStudyModeEnabled && <button
-            onClick={() => {
-              if (!isStudyMode) {
-                setIsStudyMode(true);
-                window.dispatchEvent(new Event('nk-new-chat'));
-              }
-            }}
-            aria-pressed={isStudyMode}
-            className={`flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[10px] transition-all sm:px-3.5 sm:text-xs ${
-              isStudyMode
-                ? 'bg-white font-semibold text-gray-900 shadow-xs ring-1 ring-black/5 dark:bg-zinc-700 dark:text-zinc-100 dark:ring-white/10'
-                : 'text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200'
-            }`}
-          >
-            <GraduationCap
-              size={12}
-              className={isStudyMode ? 'text-gray-900 dark:text-zinc-100' : 'text-zinc-400 dark:text-zinc-500'}
-            />
-            <span>Study</span>
-          </button>}
+      <div className="pointer-events-none absolute left-3 right-3 top-3 z-30 flex h-9 items-center justify-between gap-2 md:left-6 md:right-6 md:top-4">
+        {/* Left spacer */}
+        <div className="flex items-center" />
+
+        {/* Floating Center: Study / General Switcher Pill */}
+        <div className="pointer-events-auto absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center rounded-full border border-zinc-200/80 bg-white/80 p-1 shadow-md backdrop-blur-md transition-all dark:border-zinc-800 dark:bg-zinc-900/80">
+          {isStudyModeEnabled && (
+            <button
+              onClick={() => {
+                if (!isStudyMode) {
+                  setIsStudyMode(true);
+                  window.dispatchEvent(new Event('nk-new-chat'));
+                }
+              }}
+              aria-pressed={isStudyMode}
+              className={`flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[10px] transition-all sm:px-3.5 sm:text-xs ${
+                isStudyMode
+                  ? 'bg-white font-semibold text-gray-900 shadow-xs ring-1 ring-black/5 dark:bg-zinc-700 dark:text-zinc-100 dark:ring-white/10'
+                  : 'text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200'
+              }`}
+            >
+              <GraduationCap
+                size={12}
+                className={isStudyMode ? 'text-gray-900 dark:text-zinc-100' : 'text-zinc-400 dark:text-zinc-500'}
+              />
+              <span>Study</span>
+            </button>
+          )}
           <button
             onClick={() => {
               if (isStudyMode) {
@@ -2562,7 +2597,7 @@ export default function ChatMainArea({
         </div>
 
         {/* Floating Right: Sources Pill + Invite Button */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="pointer-events-auto ml-auto flex items-center gap-1.5 sm:gap-2">
           {selectedContext.subject && (
             <button
               type="button"
@@ -2582,25 +2617,27 @@ export default function ChatMainArea({
             </button>
           )}
 
-          {/* Claude-style Artifacts / Files Drawer Toggle */}
-          <button
-            type="button"
-            onClick={() => setIsArtifactsOpen((v) => !v)}
-            className={`flex h-8 items-center gap-1.5 px-3 rounded-full text-xs font-semibold shadow-xs transition-all cursor-pointer border ${
-              isArtifactsOpen
-                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                : 'bg-white/80 dark:bg-zinc-900/80 border-zinc-200/80 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-            }`}
-            title="View artifacts & generated documents"
-          >
-            <Layers size={13} className={isArtifactsOpen ? 'text-amber-400' : 'text-zinc-400'} />
-            <span>Files</span>
-            {conversationArtifacts.length > 0 && (
-              <span className="flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-black">
-                {conversationArtifacts.length}
-              </span>
-            )}
-          </button>
+          {/* Claude-style Artifacts / Files Drawer Toggle — only shown when documents/files are generated in chat */}
+          {hasGeneratedDocs && (
+            <button
+              type="button"
+              onClick={() => setIsArtifactsOpen((v) => !v)}
+              className={`flex h-8 items-center gap-1.5 px-3 rounded-full text-xs font-semibold shadow-xs transition-all cursor-pointer border ${
+                isArtifactsOpen
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                  : 'bg-white/80 dark:bg-zinc-900/80 border-zinc-200/80 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+              }`}
+              title="View artifacts & generated documents"
+            >
+              <Layers size={13} className={isArtifactsOpen ? 'text-amber-400' : 'text-zinc-400'} />
+              <span>Files</span>
+              {conversationArtifacts.length > 0 && (
+                <span className="flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-black">
+                  {conversationArtifacts.length}
+                </span>
+              )}
+            </button>
+          )}
 
           {/* Upgrade to Pro Button */}
           <UpgradeProButton />
@@ -2914,7 +2951,7 @@ export default function ChatMainArea({
         </div>
       )}
 
-      {/* Messages area — no pt-20 needed since header is no longer absolute */}
+      {/* Messages area with scrollable viewport */}
       <div ref={chatScrollContainerRef} className="flex-1 overflow-y-auto min-h-0 flex flex-col">
         {!hasMessages ? (
           <div className="flex-1 flex flex-col items-start justify-start px-6 py-8 max-w-4xl mx-auto w-full h-full pt-16 sm:pt-20">
@@ -3112,7 +3149,7 @@ export default function ChatMainArea({
             )}
           </div>
         ) : (
-          <div className="max-w-3xl mx-auto w-full px-4 py-6 pb-36 space-y-6">
+          <div className="max-w-3xl mx-auto w-full px-4 pt-14 sm:pt-16 pb-36 space-y-6">
             {messages.map((msg, idx) => (
               <div key={msg.id} data-chat-message-id={msg.id}>
                 <ChatMessageBubble

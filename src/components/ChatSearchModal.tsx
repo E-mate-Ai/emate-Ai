@@ -25,7 +25,11 @@ interface SearchResult {
   transcript: ChatMessage[];
   /** Where the query matched — used to build the snippet/highlight. */
   snippet: string;
-  snippetSource: 'title' | 'subject' | 'unit' | 'message';
+  snippetSource: 'title' | 'subject' | 'unit' | 'message' | 'file';
+  /** Number of attached files in this chat */
+  attachmentCount?: number;
+  /** Primary attachment file name if matched on file */
+  matchedFileName?: string;
 }
 
 const MAX_RESULTS = 12;
@@ -139,6 +143,12 @@ export default function ChatSearchModal({ open, onClose, onSelect }: ChatSearchM
     const out: SearchResult[] = [];
     for (const chat of allChats) {
       const transcript = getChatTranscript(chat.id);
+      
+      // Count total attachments across all messages in this chat
+      const totalAttachments = transcript.reduce(
+        (sum, m) => sum + (m.attachments?.length || 0),
+        0
+      );
 
       // Title / subject / unit metadata matches.
       const titleMatch = indexOfCase(chat.title, q) >= 0;
@@ -154,8 +164,36 @@ export default function ChatSearchModal({ open, onClose, onSelect }: ChatSearchM
           transcript: transcript.slice(-100),
           snippet: buildSnippet(base, q),
           snippetSource: source,
+          attachmentCount: totalAttachments,
         });
         if (out.length >= MAX_RESULTS) return out;
+        continue;
+      }
+
+      // Attachment file name matches
+      let matchedFile = false;
+      for (const m of transcript) {
+        if (m.attachments && m.attachments.length > 0) {
+          for (const att of m.attachments) {
+            if (att.fileName && indexOfCase(att.fileName, q) >= 0) {
+              out.push({
+                chat,
+                transcript: transcript.slice(-100),
+                snippet: `File: ${att.fileName}`,
+                snippetSource: 'file',
+                attachmentCount: totalAttachments,
+                matchedFileName: att.fileName,
+              });
+              matchedFile = true;
+              break;
+            }
+          }
+        }
+        if (matchedFile) break;
+      }
+      if (matchedFile) {
+        if (out.length >= MAX_RESULTS) return out;
+        continue;
       }
 
       // Message-content matches (search the persisted local transcript).
@@ -166,6 +204,7 @@ export default function ChatSearchModal({ open, onClose, onSelect }: ChatSearchM
             transcript: transcript.slice(-100),
             snippet: buildSnippet(m.content, q),
             snippetSource: 'message',
+            attachmentCount: totalAttachments,
           });
           break; // one card per chat
         }
@@ -286,6 +325,7 @@ export default function ChatSearchModal({ open, onClose, onSelect }: ChatSearchM
             {results.map((res, i) => {
               const active = i === activeIndex;
               const isMessage = res.snippetSource === 'message';
+              const isFile = res.snippetSource === 'file';
               return (
                 <li key={res.chat.id} role="option" aria-selected={active}>
                   <button
@@ -305,10 +345,20 @@ export default function ChatSearchModal({ open, onClose, onSelect }: ChatSearchM
                       className="shrink-0 h-9 w-9 rounded-xl flex items-center justify-center"
                       style={{
                         background: dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
-                        color: dark ? '#8aa2ff' : '#1f51ff',
+                        color: isFile
+                          ? '#10b981'
+                          : dark
+                            ? '#8aa2ff'
+                            : '#1f51ff',
                       }}
                     >
-                      {isMessage ? <MessageSquare size={16} /> : <FileText size={16} />}
+                      {isFile ? (
+                        <span className="text-sm">📎</span>
+                      ) : isMessage ? (
+                        <MessageSquare size={16} />
+                      ) : (
+                        <FileText size={16} />
+                      )}
                     </div>
 
                     <div className="min-w-0 flex-1">
@@ -328,6 +378,18 @@ export default function ChatSearchModal({ open, onClose, onSelect }: ChatSearchM
                         >
                           {res.chat.subject}
                         </span>
+                        {res.attachmentCount && res.attachmentCount > 0 ? (
+                          <span
+                            className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium flex items-center gap-0.5"
+                            style={{
+                              color: dark ? '#a1a1aa' : '#71717a',
+                              background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                            }}
+                            title={`${res.attachmentCount} attached file(s)`}
+                          >
+                            📎 {res.attachmentCount}
+                          </span>
+                        ) : null}
                         <span
                           className="shrink-0 ml-auto text-[10px] font-medium"
                           style={{ color: dark ? '#71717a' : '#a1a1aa' }}

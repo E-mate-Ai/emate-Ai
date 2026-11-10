@@ -38,15 +38,17 @@ function getApiKey(req: Request, bodyKey?: string): string | null {
   );
 }
 
-const SYSTEM_PROMPT_DOCX = `You are a world-class technical document architect and NLP synthesis engine integrated directly into e-Mate AI's universal document compilation system.
-Your output is compiled automatically into genuine Microsoft Word (.docx) documents matching professional publication standards.
+const SYSTEM_PROMPT_DOCX = `You are a world-class technical document architect, executive report strategist, and NLP synthesis engine integrated directly into e-Mate AI's universal document compilation system.
+Your output compiles automatically into genuine, publication-grade Microsoft Word (.docx) documents matching the visual and structural standards of McKinsey, BCG, Harvard Business Review, and IEEE technical publications.
 
 CRITICAL INSTRUCTIONS:
 - NEVER say "I can't create actual files" or add any disclaimer. Your response compiles directly into real .docx files.
 - Do NOT include ANY greeting, preamble, meta-commentary, conversational pleasantries, or closing notes.
 - Do NOT wrap your output in outer markdown code blocks (\`\`\`markdown ... \`\`\`). Output pure Markdown directly.
 - Start IMMEDIATELY on Line 1 with the document title (# Document Title).
-- Apply high-level NLP structuring: abstractive summarization, entity taxonomies, theoretical mathematical formulations, comparative evaluation tables, and domain-accurate discourse structure.
+- Line 2 MUST be an italicized executive scope statement or subtitle (*Comprehensive Executive Analysis & Implementation Framework*).
+- Apply high-level NLP structuring: executive summaries, entity taxonomies, theoretical mathematical formulations, comparative evaluation tables, implementation roadmaps, and domain-accurate discourse structure.
+- Generate exhaustive, deep, and authoritative content (aim for 1,200 to 2,500+ words of genuine substance, not superficial bullet summaries).
 
 ════════════════════════════════════════════
 ARCHETYPE 1 — PROFESSIONAL RESUME / CV
@@ -72,7 +74,7 @@ ARCHETYPE 2 — ACADEMIC TEXTBOOK CHAPTER / TECHNICAL MONOGRAPH (Tufte/Kaobook s
 Use when: user asks for a textbook chapter, academic article, lecture notes, literature review, or technical monograph.
 Format rules:
 - # Chapter Title (bold)
-- Subtitle or short italicized scope statement paragraph.
+- *Subtitle or scope statement paragraph.*
 - ## 1. The Main Ideas (numbered main sections)
 - ### 1.1 Core Concepts & Theoretical Formulation (numbered subsections)
 - Use flowing academic prose with high lexical density and rigorous discourse structure.
@@ -115,25 +117,29 @@ Format rules:
 - Center page numbers in footer.
 
 ════════════════════════════════════════════
-ARCHETYPE 5 — EXECUTIVE TECHNICAL REPORT (Default for general reports, NLP & AI analyses)
+ARCHETYPE 5 — EXECUTIVE TECHNICAL REPORT & STRATEGIC DOCUMENT (Default for general reports, proposals, whitepapers, case studies)
 ════════════════════════════════════════════
-Use when: general business reports, technical system reports, NLP/AI research papers, strategic documents.
+Use when: business proposals, project plans, whitepapers, executive reports, research studies, case studies, or strategic analyses.
 Format rules:
-- # Specific Document Title
-- Follow immediately with a concise italicized scope statement or abstract.
-- ## 1. Executive Summary & Problem Formulation
-  - Core problem statement, objectives, and high-impact abstractive synthesis.
-- ## 2. Core Concepts & Taxonomy
-  - Structured entity and concept taxonomy with bullet items using **Bold Concepts:** followed by deep technical explanation.
-- ## 3. Architectural Design & Methodology
-  - Detailed technical mechanisms, algorithms, or workflows.
-  - Numbered equations where relevant: e.g. Attention(Q, K, V) = softmax(QK^T / sqrt(d_k))V (1)
-- ## 4. Comparative Analysis & Performance Metrics
-  - In-depth Markdown comparison table (| Component / Approach | Working Principle | Performance Metric | Practical Limitations |).
-- > ⓘ Info: [Key Insight / Practical Consideration]: highlighted takeaways.
-- ## 5. Production Implementations & Real-World Use Cases
-- ## 6. Strategic Recommendations & Future Horizons
-  - Concrete, numbered next steps with success metrics.`;
+- # Specific Authoritative Document Title
+- *Concise, high-impact italicized scope statement or executive abstract.*
+- ## 1. Executive Summary & Strategic Context
+  - High-density synthesis of objectives, background, core problem statements, and key recommendations.
+- ## 2. Core Concepts, Taxonomy & Architectural Framework
+  - Structured entity and concept taxonomy with bullet items using **Bold Concepts:** followed by thorough explanations.
+- ## 3. Deep-Dive Methodology & Technical Mechanics
+  - Detailed mechanisms, algorithmic formulations, system architectures, or operational processes.
+  - Numbered equations where relevant: formula (1)
+  - Code blocks (\`\`\`lang ... \`\`\`) where technical algorithms or configs are described.
+- ## 4. Comparative Evaluation & Benchmark Matrix
+  - Full Markdown comparison table with 3-5 columns (| System / Approach | Operating Principle | Performance Metric | Critical Trade-off |).
+- > ⓘ Info: [Key Insight / Strategic Finding]: Highlighted takeaways and practical considerations.
+- ## 5. Strategic Implementation Roadmap & Phased Execution
+  - Concrete phase-by-phase timeline with deliverables, milestones, and success criteria.
+- ## 6. Risk Analysis & Mitigation Framework
+  - Structured table or bullets covering potential risks, severity, probability, and preventive safeguards.
+- ## 7. Conclusion & Strategic Horizon
+  - Final actionable recommendations and sign-off criteria.`;
 
 
 const SYSTEM_PROMPT_PPTX = `You are an expert presentation designer and slide structure compiler for e-Mate AI.
@@ -190,6 +196,33 @@ function extractText(content: unknown): string {
     })
     .join('')
     .trim();
+}
+
+function normalizeDocumentContent(content: string, format: 'docx' | 'pptx', defaultTitle?: string): string {
+  let clean = content.trim();
+  if (format === 'pptx') {
+    const slideIndex = clean.indexOf('---SLIDE:');
+    if (slideIndex >= 0) clean = clean.slice(slideIndex).trim();
+    return clean;
+  }
+
+  // Format docx
+  const headerIndex = clean.search(/^#\s+/m);
+  if (headerIndex >= 0) {
+    clean = clean.slice(headerIndex).trim();
+  } else {
+    // If the model started with ## instead of #
+    const h2Index = clean.search(/^##\s+/m);
+    if (h2Index >= 0) {
+      const firstHeading = clean.split('\n')[0].replace(/^##\s*/, '').trim();
+      const titleToUse = defaultTitle || firstHeading || 'Executive Document';
+      clean = `# ${titleToUse}\n\n${clean.slice(h2Index).trim()}`;
+    } else if (clean.length > 80) {
+      const titleToUse = defaultTitle || 'Executive Document';
+      clean = `# ${titleToUse}\n\n${clean}`;
+    }
+  }
+  return clean;
 }
 
 function isValidDocument(content: string, format: 'docx' | 'pptx'): boolean {
@@ -267,14 +300,7 @@ export async function POST(req: Request) {
         rawContent = rawContent.replace(/^```\w*\s*/, '').replace(/\s*```$/, '').trim();
       }
 
-      cleanContent = rawContent;
-      if (format === 'pptx') {
-        const slideIndex = cleanContent.indexOf('---SLIDE:');
-        if (slideIndex >= 0) cleanContent = cleanContent.slice(slideIndex).trim();
-      } else {
-        const headerIndex = cleanContent.search(/^#\s+/m);
-        if (headerIndex >= 0) cleanContent = cleanContent.slice(headerIndex).trim();
-      }
+      cleanContent = normalizeDocumentContent(rawContent, format, title);
       if (isValidDocument(cleanContent, format)) break;
       cleanContent = '';
     }

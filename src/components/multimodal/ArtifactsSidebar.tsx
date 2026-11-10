@@ -37,8 +37,12 @@ export default function ArtifactsSidebar({
   const isDark = theme === 'dark';
 
   useEffect(() => {
-    if (selectedArtifactId) setActiveArtifactId(selectedArtifactId);
-  }, [selectedArtifactId]);
+    if (selectedArtifactId) {
+      setActiveArtifactId(selectedArtifactId);
+      const match = artifacts.find((d) => d.id === selectedArtifactId);
+      if (match) setPreviewDoc(match);
+    }
+  }, [selectedArtifactId, artifacts]);
 
   const activeDoc = artifacts.find((doc) => doc.id === activeArtifactId) ?? artifacts[0] ?? null;
   const isPreviewOpen = Boolean(previewDoc);
@@ -125,6 +129,7 @@ export default function ArtifactsSidebar({
                   onClick={() => {
                     setActiveArtifactId(doc.id);
                     onSelectArtifact?.(doc.id);
+                    setPreviewDoc(doc);
                   }}
                   className={`group relative flex cursor-pointer items-center justify-between rounded-xl border p-3 transition-all ${
                     isSelected

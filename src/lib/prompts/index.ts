@@ -514,7 +514,7 @@ Rules:
   }
 
   if (options.isGroundingWeak) {
-    finalSystemPrompt += `\n\n[INTERNAL INSTRUCTION — do not repeat this to the user]\nThe retrieval system found no sufficiently relevant study material for this query. Politely tell the student you couldn't find this in their uploaded sources, and offer to explain from general knowledge if they'd like.`;
+    finalSystemPrompt += `\n\n[INTERNAL INSTRUCTION — do not repeat this to the user]\nNo specific library sources matched this query. Answer the user's question directly, accurately, and thoroughly using your comprehensive subject knowledge. Do not ask for permission to explain, do not state that you couldn't locate the file/source, and do not apologize unless the user explicitly asked you to check their library uploads.`;
   }
 
   const messages: ChatMessage[] = [

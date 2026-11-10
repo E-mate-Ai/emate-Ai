@@ -246,6 +246,35 @@ export async function POST(req: Request) {
     // supplied image; if metadata explicitly says it cannot, use the configured
     // vision-capable OpenRouter route for this request.
     const requestAttachments = Array.isArray(attachments) ? attachments : [];
+
+    // Extract text from any document attachments (PDF, DOCX, etc.) if not already present
+    for (const att of requestAttachments) {
+      if (!att.text && att.data && typeof att.data === 'string') {
+        const isImage =
+          Boolean(att.mimeType?.startsWith('image/')) ||
+          /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(att.fileName || '');
+        if (!isImage) {
+          try {
+            const { parseDocument } = await import('@/lib/ingestion/documentParser');
+            const cleanBase64 = att.data.includes(',') ? att.data.split(',')[1] : att.data;
+            const buffer = Buffer.from(cleanBase64, 'base64');
+            if (buffer.length > 0) {
+              const parsed = await parseDocument({
+                buffer,
+                fileName: att.fileName || 'document.pdf',
+                mimeType: att.mimeType,
+              });
+              if (parsed?.extractedText) {
+                att.text = parsed.extractedText;
+              }
+            }
+          } catch (err) {
+            console.warn('[Chat] Could not extract text from document attachment:', att.fileName, err);
+          }
+        }
+      }
+    }
+
     const containsImage = requestAttachments.some((attachment: any) =>
       attachment?.mimeType?.startsWith('image/') ||
       /^data:image\//i.test(typeof attachment?.data === 'string' ? attachment.data : '')
@@ -278,7 +307,8 @@ export async function POST(req: Request) {
           } else {
             // Guardrail triggered: discard weakly relevant chunks and instruct ungrounded fallback
             retrievedChunks = [];
-            isGroundingWeak = true;
+            // If the user provided attachments directly, grounding is not weak
+            isGroundingWeak = requestAttachments.length === 0;
           }
         }
       } catch (err) {
@@ -430,6 +460,13 @@ export async function POST(req: Request) {
               contentArray.push({
                 type: 'text',
                 text: `[Attached document "${fileName}" content]:\n${att.text}`,
+              });
+            } else if (att.data) {
+              const fileName = att.fileName || 'attached document';
+              const detectedMime = att.mimeType || 'application/pdf';
+              contentArray.push({
+                type: 'image_url',
+                image_url: { url: att.data.startsWith('data:') ? att.data : `data:${detectedMime};base64,${att.data}` },
               });
             }
           });

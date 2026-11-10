@@ -138,6 +138,8 @@ function estimateBlockHeight(block: MarkdownBlock): number {
       return (block.items?.length || 1) * 28 + 12;
     case 'ordered-list':
       return (block.items?.length || 1) * 28 + 12;
+    case 'code-block':
+      return 36 + (block.code?.split('\n').length || 1) * 18;
     case 'divider':
       return 26;
     case 'paragraph':
@@ -925,6 +927,18 @@ export default function DocumentLivePreviewModal({
                                         ))}
                                       </tbody>
                                     </table>
+                                  </div>
+                                );
+                              }
+
+                              // ── Code block ───────────────────────────────────
+                              if (block.type === 'code-block') {
+                                return (
+                                  <div key={blockIdx} style={{ margin: '8px 0', padding: '10px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderLeft: '4px solid #0f2744', borderRadius: '4px', overflowX: 'auto' }}>
+                                    {block.language && <div style={{ fontSize: '10px', textTransform: 'uppercase', color: '#64748b', fontWeight: 700, marginBottom: '4px' }}>{block.language}</div>}
+                                    <pre style={{ margin: 0, fontSize: '11.5px', fontFamily: 'Consolas, Courier New, monospace', color: '#0f172a', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                                      {block.code}
+                                    </pre>
                                   </div>
                                 );
                               }

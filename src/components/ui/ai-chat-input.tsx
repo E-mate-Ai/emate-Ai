@@ -306,8 +306,35 @@ function DynamicBarsIcon({ level }: { level: string }) {
 }
 
 // ----------------------------------------------------------------------
-// Attachment Thumbnail
+// Attachment Thumbnail & Preview
 // ----------------------------------------------------------------------
+
+function getAttachmentFileStyle(fileName: string, mimeType?: string): { bg: string; color: string; label: string } {
+  const ext = (fileName.split('.').pop() || mimeType?.split('/').pop() || 'file').toLowerCase();
+  if (ext === 'pdf' || mimeType === 'application/pdf') return { bg: '#fee2e2', color: '#dc2626', label: 'PDF' };
+  if (['doc', 'docx'].includes(ext)) return { bg: '#dbeafe', color: '#2563eb', label: 'DOC' };
+  if (['xls', 'xlsx'].includes(ext)) return { bg: '#dcfce7', color: '#16a34a', label: 'XLS' };
+  if (['ppt', 'pptx'].includes(ext)) return { bg: '#ffedd5', color: '#ea580c', label: 'PPT' };
+  if (['txt', 'md'].includes(ext)) return { bg: '#f3f4f6', color: '#4b5563', label: 'TXT' };
+  if (['csv'].includes(ext)) return { bg: '#dcfce7', color: '#15803d', label: 'CSV' };
+  if (['json'].includes(ext)) return { bg: '#fef3c7', color: '#d97706', label: 'JSON' };
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return { bg: '#ede9fe', color: '#7c3aed', label: 'ZIP' };
+  if (['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(ext)) return { bg: '#fce7f3', color: '#db2777', label: 'VID' };
+  if (['mp3', 'wav', 'ogg', 'flac'].includes(ext)) return { bg: '#ede9fe', color: '#7c3aed', label: 'AUD' };
+  if (['py'].includes(ext)) return { bg: '#fef9c3', color: '#ca8a04', label: 'PY' };
+  if (['js', 'ts', 'jsx', 'tsx'].includes(ext)) return { bg: '#fef9c3', color: '#ca8a04', label: 'JS' };
+  if (['html', 'htm'].includes(ext)) return { bg: '#ffedd5', color: '#ea580c', label: 'HTML' };
+  if (['css', 'scss'].includes(ext)) return { bg: '#dbeafe', color: '#3b82f6', label: 'CSS' };
+  return { bg: '#f1f5f9', color: '#64748b', label: ext.toUpperCase().slice(0, 4) || 'FILE' };
+}
+
+function formatAttachmentSize(bytes?: number): string {
+  if (!bytes) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function AttachmentThumb({
   attachment,
   index,
@@ -323,6 +350,8 @@ function AttachmentThumb({
 }) {
   const [isHovered, setIsHovered] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
+  const isDoc = attachment.kind === 'doc';
+  const fileStyle = isDoc ? getAttachmentFileStyle(attachment.name, attachment.file?.type) : null;
 
   return (
     <button
@@ -342,17 +371,31 @@ function AttachmentThumb({
       }}
       style={{ animationDelay: `${index * 35}ms`, animationFillMode: 'backwards' }}
       className={cn(
-        'group relative size-12 shrink-0 overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800 outline-none',
-        'transition-transform duration-200 hover:scale-[1.04] active:scale-[0.96]',
-        'animate-in fade-in zoom-in-90 duration-300'
+        'group relative shrink-0 overflow-hidden rounded-xl border border-zinc-200/90 dark:border-zinc-800/90 bg-zinc-100 dark:bg-zinc-800 outline-none cursor-pointer',
+        'transition-transform duration-200 hover:scale-[1.03] active:scale-[0.97]',
+        'animate-in fade-in zoom-in-90 duration-300',
+        isDoc ? 'h-12 min-w-[96px] max-w-[170px] px-2 flex items-center gap-2 bg-white/95 dark:bg-zinc-900 shadow-xs' : 'size-12'
       )}
       aria-label={`Open preview of ${attachment.name}`}
+      title={`Preview ${attachment.name}`}
     >
-      {attachment.kind === 'doc' ? (
-        <span className="flex size-full flex-col items-center justify-center gap-1 p-1 text-zinc-500 dark:text-zinc-400">
-          <DocIcon />
-          <span className="w-full truncate text-center text-[9px] font-medium leading-tight text-zinc-500 dark:text-zinc-400">
-            {attachment.name}
+      {isDoc && fileStyle ? (
+        <span className="flex items-center gap-2 w-full min-w-0 pr-3">
+          <span
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[9px] font-black uppercase tracking-tight shadow-2xs"
+            style={{ background: fileStyle.bg, color: fileStyle.color }}
+          >
+            {fileStyle.label}
+          </span>
+          <span className="flex flex-col min-w-0 text-left">
+            <span className="truncate text-[10.5px] font-semibold text-zinc-800 dark:text-zinc-200 leading-tight">
+              {attachment.name}
+            </span>
+            {formatAttachmentSize(attachment.file?.size) && (
+              <span className="text-[9px] text-zinc-400 dark:text-zinc-500 font-mono mt-0.5">
+                {formatAttachmentSize(attachment.file?.size)}
+              </span>
+            )}
           </span>
         </span>
       ) : (
@@ -366,7 +409,7 @@ function AttachmentThumb({
       <span
         className={cn(
           'absolute inset-0 flex items-start justify-end bg-black/0 transition-colors duration-200',
-          isHovered && 'bg-black/25'
+          isHovered && 'bg-black/20'
         )}
       >
         <span
@@ -381,7 +424,7 @@ function AttachmentThumb({
             onRemove(attachment.id);
           }}
           className={cn(
-            'm-1 flex size-4 items-center justify-center rounded-full bg-white/90 dark:bg-zinc-900/90 text-zinc-700 dark:text-zinc-300 shadow-sm transition-all duration-200 hover:scale-110',
+            'm-1 flex size-4 items-center justify-center rounded-full bg-white/95 dark:bg-zinc-900/95 text-zinc-700 dark:text-zinc-300 shadow-sm transition-all duration-200 hover:scale-110',
             isHovered ? 'opacity-100 scale-100' : 'opacity-0 scale-50 pointer-events-none'
           )}
           aria-label={`Remove ${attachment.name}`}
@@ -394,7 +437,7 @@ function AttachmentThumb({
 }
 
 // ----------------------------------------------------------------------
-// Shared-Element Gallery Modal
+// Shared-Element Gallery Modal (Images + Documents)
 // ----------------------------------------------------------------------
 function AttachmentGalleryModal({
   attachment,
@@ -406,6 +449,7 @@ function AttachmentGalleryModal({
   onClose: () => void;
 }) {
   const [phase, setPhase] = useState<'opening' | 'open' | 'closing'>('opening');
+  const [textContent, setTextContent] = useState<string | null>(null);
   const [targetRect, setTargetRect] = useState<{
     top: number;
     left: number;
@@ -415,28 +459,44 @@ function AttachmentGalleryModal({
   } | null>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 
+  const ext = (attachment.name.split('.').pop() || '').toLowerCase();
+  const isImage = attachment.kind === 'image' || ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(ext);
+  const isPdf = attachment.file?.type === 'application/pdf' || ext === 'pdf';
+  const isTextLike = ['txt', 'md', 'json', 'csv', 'js', 'ts', 'jsx', 'tsx', 'py', 'html', 'css', 'xml', 'yaml', 'yml'].includes(ext);
+
+  // Load text file content if applicable
   useEffect(() => {
-    const maxW = Math.min(window.innerWidth * 0.86, 560);
-    const maxH = Math.min(window.innerHeight * 0.78, 720);
+    if (isTextLike && attachment.file) {
+      attachment.file
+        .text()
+        .then((txt) => setTextContent(txt.slice(0, 40000)))
+        .catch(() => setTextContent(null));
+    }
+  }, [attachment.file, isTextLike]);
 
-    const naturalW = attachment.width || 800;
-    const naturalH = attachment.height || 600;
-    const scale = Math.min(maxW / naturalW, maxH / naturalH, 1.6);
+  useEffect(() => {
+    const isDoc = !isImage;
+    const maxW = isDoc ? Math.min(window.innerWidth * 0.92, isPdf ? 920 : 680) : Math.min(window.innerWidth * 0.88, 760);
+    const maxH = isDoc ? Math.min(window.innerHeight * 0.88, isPdf ? 840 : 560) : Math.min(window.innerHeight * 0.82, 740);
 
-    const width = naturalW * scale;
-    const height = naturalH * scale;
+    const naturalW = attachment.width || (isDoc ? 800 : 800);
+    const naturalH = attachment.height || (isDoc ? 600 : 600);
+    const scale = isDoc ? 1 : Math.min(maxW / naturalW, maxH / naturalH, 1.6);
+
+    const width = isDoc ? maxW : Math.max(320, naturalW * scale);
+    const height = isDoc ? maxH : Math.max(240, naturalH * scale);
 
     setTargetRect({
       top: (window.innerHeight - height) / 2,
       left: (window.innerWidth - width) / 2,
       width,
       height,
-      radius: 20,
+      radius: 18,
     });
 
     const raf = requestAnimationFrame(() => setPhase('open'));
     return () => cancelAnimationFrame(raf);
-  }, [attachment]);
+  }, [attachment, isImage, isPdf]);
 
   const handleClose = useCallback(() => setPhase('closing'), []);
 
@@ -465,11 +525,13 @@ function AttachmentGalleryModal({
   const animEasing = isClosing ? 'ease-out' : 'cubic-bezier(0.175, 0.885, 0.32, 1.275)';
   const animDur = isClosing ? '0.3s' : '0.45s';
   const flipTransition = `top ${animDur} ${animEasing}, left ${animDur} ${animEasing}, width ${animDur} ${animEasing}, height ${animDur} ${animEasing}, border-radius ${animDur} ${animEasing}`;
+  const fileStyle = getAttachmentFileStyle(attachment.name, attachment.file?.type);
+  const sizeLabel = formatAttachmentSize(attachment.file?.size);
 
   return (
     <div className="fixed inset-0 z-[100]" onClick={handleClose} role="dialog" aria-modal="true">
       <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-md transition-opacity duration-400"
+        className="absolute inset-0 bg-black/75 backdrop-blur-md transition-opacity duration-400"
         style={{ opacity: isOpen ? 1 : 0 }}
       />
       <div
@@ -483,22 +545,83 @@ function AttachmentGalleryModal({
           transition: flipTransition,
           overflow: 'hidden',
           boxShadow: isOpen
-            ? '0 24px 60px -12px rgb(0 0 0 / 0.35)'
+            ? '0 24px 60px -12px rgb(0 0 0 / 0.5)'
             : '0 0px 0px 0px rgb(0 0 0 / 0)',
         }}
-        className="bg-zinc-900"
+        className="bg-zinc-900 border border-zinc-800 flex flex-col"
         onTransitionEnd={() => {
           if (phase === 'closing') onClose();
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <img
-          ref={imgRef}
-          src={attachment.url}
-          alt={attachment.name}
-          className="size-full object-cover"
-          draggable={false}
-        />
+        {/* Header bar */}
+        <div className="flex items-center justify-between px-4 py-2.5 bg-zinc-950/90 border-b border-zinc-800/80 text-xs text-zinc-300 shrink-0">
+          <div className="flex items-center gap-2 min-w-0 pr-10">
+            <span
+              className="text-[10px] font-extrabold px-1.5 py-0.5 rounded uppercase leading-none tracking-tight shrink-0"
+              style={{ background: fileStyle.bg, color: fileStyle.color }}
+            >
+              {fileStyle.label}
+            </span>
+            <span className="truncate font-medium text-zinc-200">{attachment.name}</span>
+            {sizeLabel && <span className="text-[10px] text-zinc-400 shrink-0">({sizeLabel})</span>}
+          </div>
+          <div className="flex items-center gap-2 mr-8">
+            <a
+              href={attachment.url}
+              download={attachment.name}
+              target="_blank"
+              rel="noreferrer"
+              className="px-2 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] font-medium transition-colors"
+            >
+              Download
+            </a>
+          </div>
+        </div>
+
+        {/* Content viewer */}
+        <div className="relative flex-1 min-h-0 bg-zinc-950/60 overflow-hidden flex items-center justify-center">
+          {isImage ? (
+            <img
+              ref={imgRef}
+              src={attachment.url}
+              alt={attachment.name}
+              className="size-full object-contain p-2"
+              draggable={false}
+            />
+          ) : isPdf ? (
+            <iframe
+              src={attachment.url}
+              title={attachment.name}
+              className="size-full border-0 bg-white"
+            />
+          ) : isTextLike && textContent !== null ? (
+            <div className="size-full overflow-auto p-4 font-mono text-xs text-zinc-300 leading-relaxed whitespace-pre-wrap select-text">
+              {textContent || '<Empty file>'}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center p-8 text-center">
+              <div
+                className="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-bold uppercase mb-3 shadow-md"
+                style={{ background: fileStyle.bg, color: fileStyle.color }}
+              >
+                {fileStyle.label}
+              </div>
+              <h3 className="text-base font-semibold text-zinc-200 truncate max-w-sm">{attachment.name}</h3>
+              {sizeLabel && <p className="text-xs text-zinc-400 mt-1">{sizeLabel}</p>}
+              <p className="text-xs text-zinc-400 mt-3 max-w-xs">
+                This document is ready to be analyzed with your prompt in the chat.
+              </p>
+              <a
+                href={attachment.url}
+                download={attachment.name}
+                className="mt-4 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-sm transition-colors"
+              >
+                Download / Open file
+              </a>
+            </div>
+          )}
+        </div>
       </div>
 
       <button
@@ -506,8 +629,8 @@ function AttachmentGalleryModal({
         onClick={handleClose}
         style={{ opacity: isOpen ? 1 : 0, transform: isOpen ? 'scale(1)' : 'scale(0.7)' }}
         className={cn(
-          'fixed right-4 top-4 flex size-9 items-center justify-center rounded-full bg-zinc-800/90 text-zinc-100 shadow-md backdrop-blur-sm',
-          'transition-all duration-300 hover:bg-zinc-700',
+          'fixed right-4 top-4 flex size-9 items-center justify-center rounded-full bg-zinc-800/90 text-zinc-100 shadow-md backdrop-blur-sm z-[110]',
+          'transition-all duration-300 hover:bg-zinc-700 cursor-pointer',
           !isOpen && 'pointer-events-none'
         )}
       >
@@ -595,8 +718,6 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
     const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
     const [showPluginsFlyout, setShowPluginsFlyout] = useState(false);
     // What the file input should accept (swapped before opening the chooser).
-    const uploadKindRef = useRef<'image' | 'doc'>('image');
-
     // Audio/Voice recording states
     const [isRecording, setIsRecording] = useState(false);
     const [audioData, setAudioData] = useState<number[]>(new Array(5).fill(0));
@@ -870,61 +991,31 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
       setEffortIndex((prev) => (prev + 1) % efforts.length);
     };
 
-    const handleFilesChosen = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const kind = uploadKindRef.current;
-      const files = Array.from(e.target.files ?? []).filter((f) =>
-        kind === 'image' ? f.type.startsWith('image/') : f.type !== ''
-      );
-      e.target.value = '';
-
-      // For docs, don't try to read image dimensions — show a doc icon instead.
-      if (kind === 'doc') {
-        const room = Math.max(0, maxAttachments - attachments.length);
-        const accepted = files.slice(0, room);
-        for (const file of accepted) {
-          const url = URL.createObjectURL(file);
-          addAttachment(file, url, 0, 0, 'doc');
-        }
-        return;
-      }
-
-      if (files.length === 0) return;
-      const room = Math.max(0, maxAttachments - attachments.length);
-      const accepted = files.slice(0, room);
-
-      for (const file of accepted) {
-        const url = URL.createObjectURL(file);
-        const img = new Image();
-        img.onload = () => addAttachment(file, url, img.naturalWidth, img.naturalHeight, 'image');
-        img.onerror = () => addAttachment(file, url, 800, 600, 'image');
-        img.src = url;
-      }
-    };
-
-    const addAttachment = (
-      file: File,
-      url: string,
-      width: number,
-      height: number,
-      kind: 'image' | 'doc'
-    ) => {
-      const id = `${file.name}-${file.lastModified}-${Math.random().toString(36).slice(2, 8)}`;
-      setAttachments((prev) => [...prev, { id, file, url, name: file.name, width, height, kind }]);
-    };
+    const addAttachment = useCallback(
+      (
+        file: File,
+        url: string,
+        width: number,
+        height: number,
+        kind: 'image' | 'doc'
+      ) => {
+        const id = `${file.name}-${file.lastModified}-${Math.random().toString(36).slice(2, 8)}`;
+        setAttachments((prev) => [...prev, { id, file, url, name: file.name, width, height, kind }]);
+      },
+      []
+    );
 
     const processFiles = useCallback(
       (incomingFiles: File[]) => {
-        if (!allowAttachments) return;
-        const validFiles = incomingFiles.filter(
-          (f) => f.type.startsWith('image/') || f.type !== ''
-        );
-        if (validFiles.length === 0) return;
+        if (!allowAttachments || incomingFiles.length === 0) return;
 
         const room = Math.max(0, maxAttachments - attachments.length);
-        const accepted = validFiles.slice(0, room);
+        const accepted = incomingFiles.slice(0, room);
 
         for (const file of accepted) {
-          const isImg = file.type.startsWith('image/');
+          const isImg =
+            file.type.startsWith('image/') ||
+            /\.(png|jpe?g|webp|gif|svg|bmp|ico)$/i.test(file.name);
           const url = URL.createObjectURL(file);
           if (isImg) {
             const img = new Image();
@@ -932,12 +1023,21 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
             img.onerror = () => addAttachment(file, url, 800, 600, 'image');
             img.src = url;
           } else {
+            // PDF, DOCX, PPT, PPTX, TXT, CSV, etc. — added immediately as document
             addAttachment(file, url, 0, 0, 'doc');
           }
         }
       },
-      [allowAttachments, attachments.length, maxAttachments]
+      [allowAttachments, attachments.length, maxAttachments, addAttachment]
     );
+
+    const handleFilesChosen = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(e.target.files ?? []);
+      e.target.value = '';
+      if (files.length > 0) {
+        processFiles(files);
+      }
+    };
 
     const handlePaste = useCallback(
       (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -1147,11 +1247,10 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
                 <button
                   type="button"
                   onClick={() => {
-                    uploadKindRef.current = 'image';
                     fileInputRef.current?.click();
                   }}
-                  className="p-1.5 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center justify-center"
-                  title="Attach image"
+                  className="p-1.5 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center justify-center cursor-pointer"
+                  title="Attach files or photos"
                 >
                   <Paperclip className="w-3.5 h-3.5 -rotate-45" />
                 </button>
@@ -1198,7 +1297,7 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
           name="chatFileAttachment"
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/*,.pdf,.doc,.docx,.txt,.md,.csv,.json,.xlsx,.ppt,.pptx"
           multiple
           onChange={handleFilesChosen}
           className="hidden"
@@ -1364,11 +1463,6 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => {
                           setIsAttachMenuOpen(false);
-                          uploadKindRef.current = 'image';
-                          if (fileInputRef.current) {
-                            fileInputRef.current.accept =
-                              'image/*,.pdf,.doc,.docx,.txt,.md,.csv,.json,.xlsx,.ppt,.pptx';
-                          }
                           fileInputRef.current?.click();
                         }}
                         role="menuitem"

@@ -34,6 +34,7 @@ export type MarkdownBlock =
   | { type: 'equation'; formula: string; number?: string }
   | { type: 'contact-bar'; items: string[] }
   | { type: 'two-column-row'; left: string; right: string; isBold?: boolean; isItalic?: boolean }
+  | { type: 'code-block'; code: string; language?: string }
   | { type: 'divider' };
 
 export interface ParsedDocument {
@@ -132,6 +133,22 @@ export function parseMarkdownDocument(markdown: string, fallbackTitle = 'Executi
     if (/^(\*\*\*|---|___)$/.test(line)) {
       blocks.push({ type: 'divider' });
       i++;
+      continue;
+    }
+
+    // Fenced Code Block (``` ... ```)
+    if (line.startsWith('```')) {
+      const language = line.replace(/^```/, '').trim();
+      const codeLines: string[] = [];
+      i++;
+      while (i < rawLines.length && !rawLines[i].trim().startsWith('```')) {
+        codeLines.push(rawLines[i]);
+        i++;
+      }
+      if (i < rawLines.length && rawLines[i].trim().startsWith('```')) {
+        i++;
+      }
+      blocks.push({ type: 'code-block', code: codeLines.join('\n'), language });
       continue;
     }
 
@@ -273,6 +290,7 @@ export function parseMarkdownDocument(markdown: string, fallbackTitle = 'Executi
       !rawLines[i].trim().startsWith('|') &&
       !rawLines[i].trim().startsWith('>') &&
       !rawLines[i].trim().startsWith('$$') &&
+      !rawLines[i].trim().startsWith('```') &&
       !/^[-*\u2022]\s+/.test(rawLines[i].trim()) &&
       !/^\d+\.\s+/.test(rawLines[i].trim())
     ) {
@@ -281,14 +299,35 @@ export function parseMarkdownDocument(markdown: string, fallbackTitle = 'Executi
     }
 
     const fullP = pLines.join(' ');
-    if (!subtitle && blocks.length <= 1 && fullP.length < 160 && !fullP.includes('.')) subtitle = fullP;
-    if (template === 'assignment' && blocks.length <= 2 && fullP.includes('@') && !authorInfo.email) {
-      authorInfo.email = fullP;
-    } else if (template === 'assignment' && blocks.length <= 3 && (fullP.includes('University') || fullP.includes('College') || fullP.includes('\u2014'))) {
-      authorInfo.institution = fullP;
+    let isHeaderMetadata = false;
+
+    // Detect subtitle right under title:
+    if (!subtitle && blocks.length <= 1) {
+      if (
+        (fullP.startsWith('*') && fullP.endsWith('*')) ||
+        (fullP.startsWith('_') && fullP.endsWith('_')) ||
+        (fullP.length < 200 && !fullP.includes('.'))
+      ) {
+        subtitle = fullP.replace(/^[*_]+|[*_]+$/g, '').trim();
+        isHeaderMetadata = true;
+      }
     }
 
-    blocks.push({ type: 'paragraph', text: fullP });
+    if (template === 'assignment' && blocks.length <= 2 && fullP.includes('@') && !authorInfo.email) {
+      authorInfo.email = fullP;
+      isHeaderMetadata = true;
+    } else if (
+      template === 'assignment' &&
+      blocks.length <= 3 &&
+      (fullP.includes('University') || fullP.includes('College') || fullP.includes('\u2014') || fullP.includes('—'))
+    ) {
+      authorInfo.institution = fullP;
+      isHeaderMetadata = true;
+    }
+
+    if (!isHeaderMetadata) {
+      blocks.push({ type: 'paragraph', text: fullP });
+    }
   }
 
   const docTypeMap: Record<DocumentTemplateType, string> = {
@@ -320,15 +359,17 @@ export function parseInlineRuns(
   options: { font?: string; size?: number; color?: string } = {}
 ): TextRun[] {
   const { font = 'Calibri', size = 22, color = '1E293B' } = options;
-  const regex = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g;
+  const regex = /(\*\*\*[^*]+\*\*\*|\*\*[^*]+\*\*|__[^_]+__|\*[^*]+\*|_[^_]+_|`[^`]+`)/g;
   const parts = text.split(regex);
   const runs: TextRun[] = [];
 
   for (const part of parts) {
     if (!part) continue;
-    if (part.startsWith('**') && part.endsWith('**')) {
+    if (part.startsWith('***') && part.endsWith('***')) {
+      runs.push(new TextRun({ text: part.slice(3, -3), bold: true, italics: true, font, size, color: '0F172A' }));
+    } else if ((part.startsWith('**') && part.endsWith('**')) || (part.startsWith('__') && part.endsWith('__'))) {
       runs.push(new TextRun({ text: part.slice(2, -2), bold: true, font, size, color: '0F172A' }));
-    } else if (part.startsWith('*') && part.endsWith('*')) {
+    } else if ((part.startsWith('*') && part.endsWith('*')) || (part.startsWith('_') && part.endsWith('_'))) {
       runs.push(new TextRun({ text: part.slice(1, -1), italics: true, font, size, color: '334155' }));
     } else if (part.startsWith('`') && part.endsWith('`')) {
       runs.push(new TextRun({ text: part.slice(1, -1), font: 'Consolas', size: Math.max(18, size - 2), color: '2563EB' }));
@@ -490,33 +531,66 @@ export function buildUniversalDocx(title: string, markdown: string, forcedTempla
       );
     }
   } else {
-    // Executive / Universal Report template
+    // Executive / Universal High-End Report template
     docElements.push(
       new Paragraph({
         heading: HeadingLevel.TITLE,
-        spacing: { before: 0, after: 80 },
-        children: [new TextRun({ text: docData.title, bold: true, size: 44, color: '0F172A', font: mainFont })],
+        spacing: { before: 0, after: 100 },
+        children: [new TextRun({ text: docData.title, bold: true, size: 44, color: '0F2744', font: mainFont })],
       })
     );
     if (docData.subtitle) {
       docElements.push(
         new Paragraph({
-          spacing: { before: 0, after: 100 },
+          spacing: { before: 0, after: 160 },
           children: [new TextRun({ text: docData.subtitle, italics: true, size: 24, color: '475569', font: mainFont })],
         })
       );
     }
     docElements.push(
-      new Paragraph({
-        border: { bottom: { style: BorderStyle.SINGLE, size: 10, color: '0F172A' } },
-        spacing: { before: 40, after: 240 },
-        children: [
-          new TextRun({ text: 'e-Mate AI Studio', bold: true, size: 19, color: '475569', font: mainFont }),
-          new TextRun({ text: '   \u2022   ', size: 19, color: '94A3B8', font: mainFont }),
-          new TextRun({ text: docData.metadata.date, size: 19, color: '64748B', font: mainFont }),
+      new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        borders: {
+          top: { style: BorderStyle.SINGLE, size: 6, color: 'CBD5E1' },
+          bottom: { style: BorderStyle.SINGLE, size: 12, color: '0F2744' },
+          left: { style: BorderStyle.NONE },
+          right: { style: BorderStyle.NONE },
+        },
+        rows: [
+          new TableRow({
+            cantSplit: true,
+            children: [
+              new TableCell({
+                width: { size: 50, type: WidthType.PERCENTAGE },
+                margins: { top: 80, bottom: 80, left: 0, right: 100 },
+                children: [
+                  new Paragraph({
+                    children: [
+                      new TextRun({ text: 'ORGANIZATION: ', bold: true, size: 17, color: '64748B', font: mainFont }),
+                      new TextRun({ text: 'e-Mate AI Studio', bold: true, size: 17, color: '0F2744', font: mainFont }),
+                    ],
+                  }),
+                ],
+              }),
+              new TableCell({
+                width: { size: 50, type: WidthType.PERCENTAGE },
+                margins: { top: 80, bottom: 80, left: 100, right: 0 },
+                children: [
+                  new Paragraph({
+                    alignment: AlignmentType.RIGHT,
+                    children: [
+                      new TextRun({ text: `DATE: ${docData.metadata.date}   |   STATUS: `, size: 17, color: '64748B', font: mainFont }),
+                      new TextRun({ text: 'VERIFIED REPORT', bold: true, size: 17, color: '2563EB', font: mainFont }),
+                    ],
+                  }),
+                ],
+              }),
+            ],
+          }),
         ],
       })
     );
+    docElements.push(new Paragraph({ text: '', spacing: { after: 180 } }));
   }
 
   // ── 2. Render Blocks ─────────────────────────────────────────────────────
@@ -528,14 +602,17 @@ export function buildUniversalDocx(title: string, markdown: string, forcedTempla
       docElements.push(
         new Paragraph({
           heading: HeadingLevel.HEADING_1,
-          spacing: { before: 320, after: 120 },
-          children: [new TextRun({ text: block.text, bold: true, size: 32, color: '0F172A', font: mainFont })],
+          keepNext: true,
+          border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: 'CBD5E1' } },
+          spacing: { before: 360, after: 120 },
+          children: [new TextRun({ text: block.text, bold: true, size: 32, color: '0F2744', font: mainFont })],
         })
       );
     } else if (block.type === 'h2') {
       if (activeTemplate === 'resume') {
         docElements.push(
           new Paragraph({
+            keepNext: true,
             border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: '000000' } },
             spacing: { before: 240, after: 80 },
             children: [new TextRun({ text: block.text.toUpperCase(), bold: true, size: 24, color: '000000', font: 'Georgia' })],
@@ -545,8 +622,9 @@ export function buildUniversalDocx(title: string, markdown: string, forcedTempla
         docElements.push(
           new Paragraph({
             heading: HeadingLevel.HEADING_2,
+            keepNext: true,
             spacing: { before: 260, after: 100 },
-            children: [new TextRun({ text: block.text, bold: true, size: 26, color: activeTemplate === 'invoice' ? '003366' : '1E293B', font: mainFont })],
+            children: [new TextRun({ text: block.text, bold: true, size: 26, color: activeTemplate === 'invoice' ? '003366' : '1E3A8A', font: mainFont })],
           })
         );
       }
@@ -554,8 +632,9 @@ export function buildUniversalDocx(title: string, markdown: string, forcedTempla
       docElements.push(
         new Paragraph({
           heading: HeadingLevel.HEADING_3,
+          keepNext: true,
           spacing: { before: 180, after: 80 },
-          children: [new TextRun({ text: block.text, bold: true, size: 24, color: '334155', font: mainFont })],
+          children: [new TextRun({ text: block.text, bold: true, size: 23, color: '334155', font: mainFont })],
         })
       );
     } else if (block.type === 'two-column-row') {
@@ -565,6 +644,7 @@ export function buildUniversalDocx(title: string, markdown: string, forcedTempla
           borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } },
           rows: [
             new TableRow({
+              cantSplit: true,
               children: [
                 new TableCell({
                   width: { size: 65, type: WidthType.PERCENTAGE },
@@ -612,6 +692,7 @@ export function buildUniversalDocx(title: string, markdown: string, forcedTempla
           borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } },
           rows: [
             new TableRow({
+              cantSplit: true,
               children: [
                 new TableCell({
                   width: { size: 90, type: WidthType.PERCENTAGE },
@@ -642,14 +723,49 @@ export function buildUniversalDocx(title: string, markdown: string, forcedTempla
       docElements.push(
         new Paragraph({
           spacing: { before: 140, after: 160 },
-          indent: { left: 300, right: 200 },
-          border: { left: { style: BorderStyle.SINGLE, size: 20, color: '0F172A', space: 10 } },
+          indent: { left: 240, right: 160 },
+          shading: { fill: 'F8FAFC' },
+          border: { left: { style: BorderStyle.SINGLE, size: 20, color: '1E40AF', space: 12 } },
           children: [
-            new TextRun({ text: '\u24d8 Info: ', bold: true, size: 21, color: '0F172A', font: mainFont }),
+            new TextRun({ text: '\u24d8 Info: ', bold: true, size: 21, color: '1E40AF', font: mainFont }),
             ...parseInlineRuns(block.text, { size: 21, color: '334155', font: mainFont }),
           ],
         })
       );
+    } else if (block.type === 'code-block') {
+      const codeLines = block.code.split('\n');
+      const tableCells = [
+        new TableRow({
+          cantSplit: true,
+          children: [
+            new TableCell({
+              shading: { fill: 'F8FAFC' },
+              borders: {
+                top: { style: BorderStyle.SINGLE, size: 4, color: 'E2E8F0' },
+                bottom: { style: BorderStyle.SINGLE, size: 4, color: 'E2E8F0' },
+                left: { style: BorderStyle.SINGLE, size: 18, color: '0F2744' },
+                right: { style: BorderStyle.SINGLE, size: 4, color: 'E2E8F0' },
+              },
+              margins: { top: 100, bottom: 100, left: 140, right: 140 },
+              children: codeLines.map((cLine) =>
+                new Paragraph({
+                  spacing: { before: 15, after: 15, line: 240 },
+                  children: [
+                    new TextRun({
+                      text: cLine || ' ',
+                      font: 'Consolas',
+                      size: 19,
+                      color: '0F172A',
+                    }),
+                  ],
+                })
+              ),
+            }),
+          ],
+        }),
+      ];
+      docElements.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: tableCells }));
+      docElements.push(new Paragraph({ text: '', spacing: { after: 120 } }));
     } else if (block.type === 'blockquote') {
       docElements.push(
         new Paragraph({
@@ -694,14 +810,18 @@ export function buildUniversalDocx(title: string, markdown: string, forcedTempla
     } else if (block.type === 'table') {
       const { headers, rows } = block.data;
       if (headers.length > 0) {
-        const isNavyHeader = activeTemplate === 'invoice';
-        const headerBg = isNavyHeader ? '003366' : 'F1F5F9';
+        const isNavyHeader = activeTemplate === 'invoice' || activeTemplate === 'executive';
+        const headerBg = isNavyHeader ? '0F2744' : 'F1F5F9';
         const headerTextColor = isNavyHeader ? 'FFFFFF' : '0F172A';
+        const colWidth = Math.max(10, Math.floor(100 / headers.length));
+
         const tableRows: TableRow[] = [
           new TableRow({
             tableHeader: true,
+            cantSplit: true,
             children: headers.map(
               (h) => new TableCell({
+                width: { size: colWidth, type: WidthType.PERCENTAGE },
                 shading: { fill: headerBg },
                 margins: { top: 120, bottom: 120, left: 140, right: 140 },
                 children: [new Paragraph({ children: [new TextRun({ text: h, bold: true, size: 20, color: headerTextColor, font: mainFont })] })],
@@ -710,8 +830,10 @@ export function buildUniversalDocx(title: string, markdown: string, forcedTempla
           }),
           ...rows.map((row, rIdx) =>
             new TableRow({
+              cantSplit: true,
               children: row.map((cell) =>
                 new TableCell({
+                  width: { size: colWidth, type: WidthType.PERCENTAGE },
                   shading: { fill: rIdx % 2 === 1 ? 'F8FAFC' : 'FFFFFF' },
                   margins: { top: 90, bottom: 90, left: 140, right: 140 },
                   children: [new Paragraph({ children: parseInlineRuns(cell, { size: 20, color: '1E293B', font: mainFont }) })],
@@ -731,7 +853,7 @@ export function buildUniversalDocx(title: string, markdown: string, forcedTempla
       // Normal paragraph
       docElements.push(
         new Paragraph({
-          spacing: { after: 120, line: 260 },
+          spacing: { after: 140, line: 276 },
           children: parseInlineRuns(block.text, { size: 22, color: '1E293B', font: mainFont }),
         })
       );
@@ -747,12 +869,16 @@ export function buildUniversalDocx(title: string, markdown: string, forcedTempla
       {
         properties: {
           page: { margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } },
+          titlePage: true,
         },
         headers: {
+          first: new Header({ children: [] }),
           default: new Header({
             children: activeTemplate === 'resume' ? [] : [
               new Paragraph({
                 alignment: AlignmentType.RIGHT,
+                border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: 'E2E8F0' } },
+                spacing: { after: 100 },
                 children: [new TextRun({ text: docData.title, size: 16, color: '94A3B8', font: mainFont })],
               }),
             ],
@@ -763,6 +889,8 @@ export function buildUniversalDocx(title: string, markdown: string, forcedTempla
             children: [
               new Paragraph({
                 alignment: footerAlignment,
+                border: { top: { style: BorderStyle.SINGLE, size: 4, color: 'E2E8F0' } },
+                spacing: { before: 100 },
                 children: activeTemplate === 'assignment' ? [
                   new TextRun({ children: [PageNumber.CURRENT], size: 18, color: '475569', font: 'Georgia' }),
                 ] : [
