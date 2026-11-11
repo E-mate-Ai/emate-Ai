@@ -418,23 +418,23 @@ function InputForm({
       {/* ════ CRAFT TWO-PANEL INVESTMENT CALCULATOR LAYOUT ════ */}
       <div className="overflow-hidden rounded-[32px] border border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xl shadow-blue-500/5 flex flex-col lg:flex-row min-h-[620px]">
 
-        {/* ── LEFT PANEL: Authentic CRAFT Blue Sky + Clouds + Aircraft ── */}
-        <div className="relative flex-shrink-0 lg:w-[45%] bg-gradient-to-b from-[#87bfee] via-[#a8d3f6] to-[#cce8fc] dark:from-[#0a192f] dark:via-[#0e2746] dark:to-[#091524] p-8 sm:p-10 flex flex-col justify-between overflow-hidden min-h-[320px] lg:min-h-0">
+        {/* ── LEFT PANEL: Academic Study Theme ── */}
+        <div className="relative flex-shrink-0 lg:w-[45%] bg-gradient-to-b from-[#1e3a5f] via-[#1a2f4e] to-[#162540] dark:from-[#0a0f1e] dark:via-[#0d1527] dark:to-[#080c18] p-8 sm:p-10 flex flex-col justify-between overflow-hidden min-h-[320px] lg:min-h-0">
 
-          {/* Ambient fluffy cloud shapes */}
-          <div className="pointer-events-none absolute -top-12 -left-12 h-64 w-64 rounded-full bg-white/60 dark:bg-white/5 blur-3xl" />
-          <div className="pointer-events-none absolute top-1/3 -right-16 h-72 w-72 rounded-full bg-white/50 dark:bg-blue-600/10 blur-[80px]" />
-          <div className="pointer-events-none absolute -bottom-10 left-10 h-56 w-80 rounded-full bg-white/70 dark:bg-white/5 blur-2xl" />
+          {/* Soft ambient glows */}
+          <div className="pointer-events-none absolute -top-12 -left-12 h-64 w-64 rounded-full bg-blue-400/10 blur-3xl" />
+          <div className="pointer-events-none absolute top-1/3 -right-16 h-72 w-72 rounded-full bg-indigo-500/10 blur-[80px]" />
+          <div className="pointer-events-none absolute -bottom-10 left-10 h-56 w-80 rounded-full bg-blue-300/5 blur-2xl" />
 
-          {/* Top Brand Logo matching "≡ CRAFT" */}
+          {/* Top Brand Logo */}
           <div className="relative z-10 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="flex flex-col gap-1 w-4">
-                <span className="h-0.5 w-4 bg-zinc-900 dark:bg-white rounded-full" />
-                <span className="h-0.5 w-3 bg-zinc-900 dark:bg-white rounded-full" />
-                <span className="h-0.5 w-4 bg-zinc-900 dark:bg-white rounded-full" />
+                <span className="h-0.5 w-4 bg-white rounded-full" />
+                <span className="h-0.5 w-3 bg-white rounded-full" />
+                <span className="h-0.5 w-4 bg-white rounded-full" />
               </div>
-              <span className="text-base font-black tracking-widest text-zinc-900 dark:text-white uppercase font-sans">
+              <span className="text-base font-black tracking-widest text-white uppercase font-sans">
                 eMate
               </span>
             </div>
@@ -450,68 +450,72 @@ function InputForm({
             )}
           </div>
 
-          {/* Center: CRAFT Aircraft in clouds + Floating Frosted Capsule */}
+          {/* Center: Study illustration + info pill */}
           <div className="relative z-10 flex flex-col items-center justify-center my-auto py-6">
-            
-            {/* Aerodynamic Aircraft soaring across cloudscape */}
-            <div className="relative w-full max-w-[320px] h-32 flex items-center justify-center">
-              <svg viewBox="0 0 420 180" className="w-full h-full drop-shadow-lg overflow-visible">
-                {/* Airplane fuselage & wings */}
-                <path
-                  d="M50 88 Q140 68 250 72 L360 42 L360 62 L290 85 L380 94 L380 102 L280 95 L190 134 L170 134 L190 98 Q110 102 50 88 Z"
-                  fill="white"
-                  className="filter drop-shadow-md"
-                />
-                <path d="M190 98 L280 95 L240 85 Z" fill="#e2e8f0" />
-                {/* Cockpit canopy */}
-                <ellipse cx="80" cy="85" rx="14" ry="4.5" fill="#0f172a" />
-                {/* Red livery stripe (matching CRAFT jet) */}
-                <path d="M70 91 Q190 84 370 97" stroke="#ef4444" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-                {/* Turbofan engine */}
-                <rect x="200" y="96" width="48" height="12" rx="6" fill="#cbd5e1" stroke="#94a3b8" strokeWidth="0.5" />
-              </svg>
 
-              {/* Cumulus puffs hugging the airplane */}
-              <div className="pointer-events-none absolute bottom-0 -left-4 h-14 w-32 rounded-full bg-white/80 blur-md" />
-              <div className="pointer-events-none absolute -bottom-2 right-4 h-16 w-44 rounded-full bg-white/85 blur-lg" />
-              <div className="pointer-events-none absolute top-2 right-0 h-10 w-28 rounded-full bg-white/60 blur-md" />
+            {/* Open book SVG illustration */}
+            <div className="relative w-full max-w-[280px] h-32 flex items-center justify-center">
+              <svg viewBox="0 0 320 160" className="w-full h-full drop-shadow-lg overflow-visible">
+                {/* Book spine */}
+                <rect x="155" y="30" width="10" height="110" rx="2" fill="#c7d2fe" opacity="0.9" />
+                {/* Left page */}
+                <path d="M155 35 Q100 32 50 42 L50 128 Q100 120 155 125 Z" fill="white" opacity="0.92" />
+                {/* Right page */}
+                <path d="M165 35 Q220 32 270 42 L270 128 Q220 120 165 125 Z" fill="white" opacity="0.88" />
+                {/* Left page lines */}
+                <line x1="70" y1="62" x2="145" y2="60" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" opacity="0.6" />
+                <line x1="70" y1="76" x2="145" y2="74" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" opacity="0.6" />
+                <line x1="70" y1="90" x2="145" y2="88" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" opacity="0.6" />
+                <line x1="70" y1="104" x2="130" y2="102" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
+                {/* Right page lines */}
+                <line x1="175" y1="62" x2="250" y2="60" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" opacity="0.6" />
+                <line x1="175" y1="76" x2="250" y2="74" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" opacity="0.6" />
+                <line x1="175" y1="90" x2="250" y2="88" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" opacity="0.6" />
+                <line x1="175" y1="104" x2="235" y2="102" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
+                {/* Bookmark ribbon */}
+                <path d="M230 30 L230 70 L223 62 L216 70 L216 30 Z" fill="#6366f1" opacity="0.85" />
+                {/* Stars/sparkle accents */}
+                <circle cx="90" cy="45" r="3" fill="#6366f1" opacity="0.7" />
+                <circle cx="250" cy="48" r="2.5" fill="#818cf8" opacity="0.6" />
+                <circle cx="270" cy="38" r="2" fill="#a5b4fc" opacity="0.5" />
+              </svg>
             </div>
 
-            {/* Floating Frosted Pill Capsule (like [ TSLA ] <-> [ ✈️ Charter ] in CRAFT reference) */}
-            <div className="mt-4 w-full max-w-[310px] rounded-full bg-white/85 dark:bg-zinc-900/80 backdrop-blur-xl border border-white/90 dark:border-zinc-700/80 p-2 shadow-xl shadow-blue-900/10 flex items-center justify-between gap-1.5">
-              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-800 rounded-full shadow-2xs min-w-0 max-w-[125px]">
+            {/* Info pill: exam name ↔ daily hours */}
+            <div className="mt-4 w-full max-w-[310px] rounded-full bg-white/15 backdrop-blur-xl border border-white/20 p-2 shadow-xl flex items-center justify-between gap-1.5">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 rounded-full min-w-0 max-w-[125px]">
                 <span className="text-sm">🎯</span>
-                <span className="text-[11px] font-black text-zinc-900 dark:text-zinc-100 truncate">
-                  {form.examName || 'IPU BCA'}
+                <span className="text-[11px] font-black text-white truncate">
+                  {form.examName || 'Your Exam'}
                 </span>
               </div>
 
-              <div className="h-7 w-7 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200/90 dark:border-zinc-700 flex items-center justify-center shrink-0 shadow-2xs">
-                <span className="text-xs text-zinc-600 dark:text-zinc-300 font-bold">⇄</span>
+              <div className="h-7 w-7 rounded-full bg-white/20 border border-white/30 flex items-center justify-center shrink-0">
+                <span className="text-xs text-white font-bold">⇄</span>
               </div>
 
-              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-800 rounded-full shadow-2xs min-w-0 max-w-[125px]">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 rounded-full min-w-0 max-w-[125px]">
                 <span className="text-sm">⚡</span>
-                <span className="text-[11px] font-black text-zinc-900 dark:text-zinc-100 truncate">
-                  {form.dailyHours}h Runway
+                <span className="text-[11px] font-black text-white truncate">
+                  {form.dailyHours}h / day
                 </span>
               </div>
             </div>
 
           </div>
 
-          {/* Bottom Trust Badges (matching KPMG / Custodied with BofA / SEC in CRAFT) */}
-          <div className="relative z-10 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] font-medium text-zinc-700/90 dark:text-zinc-300">
+          {/* Bottom Trust Badges */}
+          <div className="relative z-10 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] font-medium text-white/80">
             <span className="inline-flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-blue-600" />
+              <span className="h-2 w-2 rounded-full bg-blue-400" />
               Syllabus-grounded
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-emerald-600" />
+              <span className="h-2 w-2 rounded-full bg-emerald-400" />
               Active recall paced
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-amber-600" />
+              <span className="h-2 w-2 rounded-full bg-amber-400" />
               Synced with Study Mode ⓘ
             </span>
           </div>
@@ -524,13 +528,13 @@ function InputForm({
           {/* Top category tracking label & Step Title */}
           <div>
             <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-400 mb-2">
-              AI STUDY ARCHITECT & RUNWAY CALCULATOR
+              AI STUDY PLANNER
             </p>
 
             <h2 className="text-3xl sm:text-4xl font-normal tracking-tight text-zinc-900 dark:text-zinc-100">
               Step {step}:{' '}
               <strong className="font-black text-zinc-950 dark:text-white">
-                {step === 1 && 'Daily study runway'}
+                {step === 1 && 'Daily study hours'}
                 {step === 2 && 'Target exam & timeline'}
                 {step === 3 && 'Subject portfolio'}
                 {step === 4 && 'Preparation stage'}
@@ -553,10 +557,10 @@ function InputForm({
               <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                   {[
-                    { h: 2, tag: '0-2 HOURS', title: 'Light usage', desc: 'Occasional trips & light review' },
-                    { h: 4, tag: '3-4 HOURS', title: 'Moderate usage', desc: 'Regular study sessions & problem sets' },
-                    { h: 6, tag: '5-6 HOURS', title: 'Heavy usage', desc: 'Frequent flyer & intensive exam immersion' },
-                    { h: 8, tag: '7+ HOURS', title: 'Share your routes', desc: 'Tell us your specific study plan', isCustom: true },
+                    { h: 2, tag: '0-2 HOURS', title: 'Light', desc: 'Short focused sessions & quick review' },
+                    { h: 4, tag: '3-4 HOURS', title: 'Moderate', desc: 'Regular study sessions & problem sets' },
+                    { h: 6, tag: '5-6 HOURS', title: 'Intensive', desc: 'Deep focus & intensive exam immersion' },
+                    { h: 8, tag: '7+ HOURS', title: 'Custom hours', desc: 'Set your own daily study goal', isCustom: true },
                   ].map((opt) => {
                     const isSelected = opt.isCustom
                       ? form.dailyHours >= 7
@@ -614,7 +618,7 @@ function InputForm({
                 {/* Fine tune slider when custom or wanted */}
                 <div className="rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-800/40 p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-zinc-500">Fine-tune daily runway:</span>
+                    <span className="text-xs font-semibold text-zinc-500">Adjust daily hours:</span>
                     <span className="text-sm font-black text-zinc-900 dark:text-white">
                       {form.dailyHours} hours/day · {form.dailyHours * 7}h/week
                     </span>
@@ -690,7 +694,7 @@ function InputForm({
                       </label>
                       {form.examDate && (
                         <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2.5 py-0.5 text-[11px] font-black text-zinc-900 dark:text-white">
-                          {days <= 0 ? 'Today' : `${days} days runway`}
+                          {days <= 0 ? 'Today' : `${days} days left`}
                         </span>
                       )}
                     </div>
@@ -1018,7 +1022,7 @@ function PlanDisplay({
         <div className="p-6 sm:p-8 bg-zinc-50/50 dark:bg-zinc-900/40">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
 
-            {/* Metric 1: Countdown Runway */}
+            {/* Metric 1: Days Left */}
             <div className="relative rounded-[24px] border border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 sm:p-6 flex flex-col justify-between shadow-xs hover:border-zinc-300 dark:hover:border-zinc-700 transition min-h-[150px]">
               <div className="flex items-center justify-between">
                 <span className="flex h-3 w-3 items-center justify-center rounded-full border border-zinc-300 dark:border-zinc-700">
@@ -1030,7 +1034,7 @@ function PlanDisplay({
               </div>
               <div className="mt-4">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
-                  COUNTDOWN RUNWAY
+                  DAYS LEFT
                 </span>
                 <div className="flex items-baseline gap-1 mt-1">
                   <span className={cn(
@@ -1110,7 +1114,7 @@ function PlanDisplay({
               </div>
               <div className="mt-4">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
-                  TOTAL RUNWAY
+                  TOTAL STUDY HOURS
                 </span>
                 <div className="flex items-baseline gap-1 mt-1">
                   <span className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-900 dark:text-zinc-100">
@@ -1119,7 +1123,7 @@ function PlanDisplay({
                   <span className="text-xs font-bold text-zinc-400">HOURS</span>
                 </div>
                 <p className="text-xs text-zinc-500 font-normal mt-0.5">
-                  dedicated study runway
+                  of dedicated study time
                 </p>
               </div>
             </div>
