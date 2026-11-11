@@ -10,57 +10,72 @@ import type {
 } from '@/lib/flashcards/types';
 import { saveLocalDeck } from '@/lib/flashcards/storage';
 import ImageBrowserModal from './ImageBrowserModal';
+
+// Premium Heroicons
 import {
-  Sparkles,
-  Layers,
-  Brain,
-  SlidersHorizontal,
-  FileText,
-  Calendar,
-  Loader2,
-  AlertCircle,
-  BookOpen,
-  Compass,
-  CheckCircle2,
-  Play,
-  RotateCcw,
-  Image as ImageIcon,
-  ArrowRight,
-} from 'lucide-react';
+  SparklesIcon,
+  BookOpenIcon,
+  AcademicCapIcon,
+  DocumentTextIcon,
+  CalendarIcon,
+  ArrowRightIcon,
+  MagnifyingGlassIcon,
+  PlayIcon,
+  CheckCircleIcon,
+  ArrowPathIcon,
+  ExclamationTriangleIcon,
+  PhotoIcon,
+  AdjustmentsHorizontalIcon,
+  ArrowLeftIcon,
+} from '@heroicons/react/24/outline';
+import {
+  PlayIcon as PlayIconSolid,
+  CheckBadgeIcon,
+} from '@heroicons/react/24/solid';
 
 interface FlashcardGeneratorPanelProps {
   onDeckGenerated: (deck: FlashcardDeck) => void;
   isDark?: boolean;
   initialTopic?: string;
+  onBack?: () => void;
+  onUploadPdf?: () => void;
 }
 
 const QUICK_TOPICS = [
-  'Artificial Intelligence: NLP',
-  'Human Nervous System',
-  'Data Structures: Linked Lists',
-  'Operating System: Deadlocks',
-  'Database Normalization',
-  'Medicinal Plants & Botany',
+  { name: 'Human Nervous System', category: 'Biology' },
+  { name: 'Cellular Mitosis & Stages', category: 'Biology' },
+  { name: 'Data Structures: Trees & Graphs', category: 'CS' },
+  { name: 'Operating System: Deadlocks', category: 'CS' },
+  { name: 'Organic Reaction Mechanisms', category: 'Chemistry' },
+  { name: 'Medicinal Plants & Botany', category: 'Medicine' },
+];
+
+const CARD_COUNT_OPTIONS = [
+  { count: 5, label: '5 Cards', time: '~4m', desc: 'Quick review sprint' },
+  { count: 8, label: '8 Cards', time: '~7m', desc: 'Standard chapter recall' },
+  { count: 12, label: '12 Cards', time: '~10m', desc: 'Comprehensive mastery' },
+  { count: 16, label: '16 Cards', time: '~15m', desc: 'Full exam cram' },
 ];
 
 const DIFFICULTY_OPTIONS: { id: FlashcardDifficulty; label: string; desc: string }[] = [
-  { id: 'beginner', label: 'Beginner', desc: 'Core fundamentals' },
-  { id: 'intermediate', label: 'Intermediate', desc: 'Curriculum standard' },
-  { id: 'advanced', label: 'Advanced', desc: 'Deep synthesis & tricky exam cases' },
+  { id: 'beginner', label: 'Beginner', desc: 'Foundations & core definitions' },
+  { id: 'intermediate', label: 'Intermediate', desc: 'Standard syllabus problem sets' },
+  { id: 'advanced', label: 'Advanced', desc: 'High-yield edge cases & synthesis' },
 ];
 
-const MODE_OPTIONS: { id: FlashcardLearningMode; label: string; desc: string }[] = [
-  { id: 'visual_learning', label: 'Visual Learning', desc: 'Diagrams & scientific figures' },
-  { id: 'conceptual', label: 'Conceptual', desc: 'Mechanisms & principles' },
-  { id: 'definitions', label: 'Definitions', desc: 'Terminology & precision' },
-  { id: 'exam_revision', label: 'Exam Cram', desc: 'High-yield test prompts' },
-  { id: 'mnemonics', label: 'Mnemonics', desc: 'Memory hooks & acronyms' },
+const MODE_OPTIONS: { id: FlashcardLearningMode; label: string; desc: string; icon: string }[] = [
+  { id: 'visual_learning', label: 'Visual Diagrams', desc: 'Verified scientific & anatomical figures', icon: '🎨' },
+  { id: 'conceptual', label: 'Conceptual', desc: 'Mechanisms, causes & derivations', icon: '💡' },
+  { id: 'definitions', label: 'Definitions', desc: 'Formulas, laws & scientific terminology', icon: '📖' },
+  { id: 'exam_revision', label: 'Exam Cram', desc: 'High-probability test questions', icon: '⚡' },
 ];
 
 export default function FlashcardGeneratorPanel({
   onDeckGenerated,
   isDark = false,
   initialTopic = '',
+  onBack,
+  onUploadPdf,
 }: FlashcardGeneratorPanelProps) {
   const [topic, setTopic] = useState(initialTopic);
 
@@ -69,6 +84,7 @@ export default function FlashcardGeneratorPanel({
       setTopic(initialTopic);
     }
   }, [initialTopic]);
+
   const [subject, setSubject] = useState('');
   const [count, setCount] = useState<number>(8);
   const [difficulty, setDifficulty] = useState<FlashcardDifficulty>('intermediate');
@@ -86,10 +102,10 @@ export default function FlashcardGeneratorPanel({
   const [activeCardIndexForBrowser, setActiveCardIndexForBrowser] = useState<number | null>(null);
 
   const LOADING_STEPS = [
-    'Synthesizing curriculum concepts & high-yield prompts...',
-    'Querying Wikimedia Commons for verified diagrams & figures...',
-    'Browsing medical, botanical & technical archives for each card...',
-    'Attaching open educational licenses and metadata...',
+    'Synthesizing curriculum concepts & high-yield prompts…',
+    'Querying verified educational archives for accurate figures…',
+    'Aligning diagrams with spaced repetition intervals…',
+    'Finalizing deck with interactive self-test solutions…',
   ];
 
   const handleGenerate = async (e: React.FormEvent) => {
@@ -174,73 +190,47 @@ export default function FlashcardGeneratorPanel({
   // ─── If deck was just generated, show the Interactive Image & Card Review View ───
   if (generatedDeck) {
     return (
-      <div
-        className={`mx-auto w-full max-w-4xl rounded-3xl p-6 sm:p-8 md:p-10 border shadow-xs transition-all ${
-          isDark
-            ? 'bg-[#151b28] border-zinc-800 text-zinc-100'
-            : 'bg-white border-zinc-200 text-zinc-900'
-        }`}
-      >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-zinc-100 dark:border-zinc-800/80 gap-4">
+      <div className="mx-auto w-full max-w-4xl rounded-3xl p-6 sm:p-8 md:p-10 border border-zinc-200/90 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/90 shadow-xl shadow-blue-500/5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-zinc-100 dark:border-zinc-800 gap-4">
           <div>
             <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60">
-              <CheckCircle2 size={13} />
-              <span>Deck Generated · Visuals Ready</span>
+              <CheckBadgeIcon className="h-4 w-4 text-emerald-600" />
+              <span>Study Deck Ready</span>
             </div>
-            <h2 className="mt-2 text-2xl sm:text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+            <h2 className="mt-2 text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
               {generatedDeck.title}
             </h2>
-            <p className="mt-1 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
-              {generatedDeck.cards.length} cards generated. Review or customize illustrations from Wikimedia Commons before studying.
+            <p className="mt-1 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 font-normal">
+              {generatedDeck.cards.length} cards generated. Review figures or swap illustrations before practicing.
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={() => {
-                setGeneratedDeck(null);
-                setTopic('');
-              }}
-              className="inline-flex items-center gap-1.5 rounded-full px-4 py-2.5 text-xs font-semibold border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 transition active:scale-95"
-            >
-              <RotateCcw size={13} />
-              <span>Create Another</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => onDeckGenerated(generatedDeck)}
-              className="inline-flex items-center gap-1.5 rounded-full px-5 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-blue-700 active:scale-95 bg-blue-600"
-            >
-              <Play size={13} fill="currentColor" />
-              <span>Start Studying</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => onDeckGenerated(generatedDeck)}
+            className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition active:scale-95 cursor-pointer shrink-0"
+          >
+            <PlayIconSolid className="h-4 w-4" />
+            <span>Start Practice</span>
+            <ArrowRightIcon className="h-3.5 w-3.5 stroke-[2]" />
+          </button>
         </div>
 
-        {/* Card Grid with Image Previews & Browse Image Action */}
-        <div className="my-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        {/* Cards Review Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 my-6 max-h-[520px] overflow-y-auto p-1">
           {generatedDeck.cards.map((card, idx) => (
             <div
               key={card.id || idx}
-              className={`flex flex-col justify-between rounded-2xl border p-4 transition hover:shadow-sm ${
-                isDark
-                  ? 'border-zinc-800 bg-zinc-900/60'
-                  : 'border-zinc-200/80 bg-zinc-50/60'
-              }`}
+              className="rounded-2xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/60 p-4 flex flex-col justify-between"
             >
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-50 dark:bg-blue-950/60 text-[10px] font-bold text-blue-600 dark:text-blue-400">
-                    {idx + 1}
-                  </span>
-                  <span className="text-[10px] uppercase font-semibold text-zinc-400 tracking-wider">
-                    {card.categoryPill || 'Card'}
-                  </span>
+                <div className="flex items-center justify-between text-xs text-zinc-400 mb-2 font-medium">
+                  <span>Card {idx + 1}</span>
+                  <span className="capitalize">{card.categoryPill || 'Concept'}</span>
                 </div>
 
-                {/* Image Frame with Browse Overlay */}
-                <div className="relative h-32 w-full rounded-xl overflow-hidden bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center group mb-2.5">
+                {/* Image Frame */}
+                <div className="relative h-32 w-full rounded-xl overflow-hidden bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800 flex items-center justify-center group mb-2.5">
                   {card.image?.url ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img
@@ -248,76 +238,44 @@ export default function FlashcardGeneratorPanel({
                       alt={card.image.alt || card.front}
                       referrerPolicy="no-referrer"
                       loading="lazy"
-                      onError={(e) => {
-                        const target = e.currentTarget;
-                        if (!target.dataset.failed) {
-                          target.dataset.failed = 'true';
-                          target.src = `data:image/svg+xml;utf8,${encodeURIComponent(
-                            `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" width="300" height="200"><rect width="300" height="200" fill="#0f172a"/><circle cx="150" cy="90" r="35" fill="#1e293b" stroke="#3b82f6" stroke-width="2"/><text x="150" y="95" font-family="sans-serif" font-size="11" fill="#60a5fa" text-anchor="middle" font-weight="bold">${(card.scientificName || 'e-Mate').slice(0, 14)}</text><text x="150" y="150" font-family="sans-serif" font-size="10" fill="#94a3b8" text-anchor="middle">Educational Concept</text></svg>`
-                          )}`;
-                        }
-                      }}
-                      className="h-full w-full object-contain p-1.5 transition-transform duration-300 group-hover:scale-105"
+                      className="h-full w-full object-contain p-2 transition-transform duration-300 group-hover:scale-105"
                     />
                   ) : (
                     <div className="flex flex-col items-center justify-center text-zinc-400 p-2 text-center">
-                      <ImageIcon size={22} className="opacity-50 mb-1" />
-                      <span className="text-[10px]">No image</span>
+                      <PhotoIcon className="h-6 w-6 opacity-40 mb-1" />
+                      <span className="text-[10px]">Educational figure</span>
                     </div>
                   )}
 
-                  {/* Browse Image Button on Card */}
                   <button
                     type="button"
                     onClick={() => setActiveCardIndexForBrowser(idx)}
                     className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-1.5 text-white text-xs font-semibold transition-opacity backdrop-blur-2xs cursor-pointer"
                   >
-                    <Compass size={14} />
-                    <span>Browse Image</span>
+                    <span>Browse Figure</span>
                   </button>
                 </div>
 
-                {/* Card Question / Scientific Name */}
                 <p className="text-xs sm:text-sm font-semibold line-clamp-2 text-zinc-900 dark:text-zinc-100">
                   {card.scientificName || card.front}
                 </p>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2 mt-1">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2 mt-1 font-normal">
                   {card.back}
                 </p>
               </div>
 
-              {/* Individual Browse Trigger Button below */}
-              <div className="mt-3 pt-2.5 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between">
-                <span className="text-[10px] text-zinc-400 line-clamp-1">
-                  {card.image?.sourceName || 'e-Mate System'}
-                </span>
+              <div className="mt-3 pt-2.5 border-t border-zinc-200/60 dark:border-zinc-800 flex items-center justify-between">
+                <span className="text-[11px] text-zinc-400">Verified Visual</span>
                 <button
                   type="button"
                   onClick={() => setActiveCardIndexForBrowser(idx)}
-                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                  className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
                 >
-                  <Compass size={11} />
-                  <span>Change Image</span>
+                  Change Figure
                 </button>
               </div>
             </div>
           ))}
-        </div>
-
-        {/* Bottom CTA */}
-        <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800/80 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-xs text-zinc-400 text-center sm:text-left">
-            Tip: You can also swap images at any time during interactive study using card controls.
-          </p>
-          <button
-            type="button"
-            onClick={() => onDeckGenerated(generatedDeck)}
-            className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white shadow-xs transition hover:bg-blue-700 active:scale-95 bg-blue-600"
-          >
-            <Play size={15} fill="currentColor" />
-            <span>Practice Deck Now</span>
-            <ArrowRight size={14} />
-          </button>
         </div>
 
         {/* Modal for browsing/swapping images */}
@@ -341,216 +299,372 @@ export default function FlashcardGeneratorPanel({
     );
   }
 
+  // ─── Main Deck Creation Experience (Faithfully Matching Target Screenshot Reference) ───
   return (
-    <div
-      className="mx-auto w-full max-w-3xl rounded-3xl p-6 sm:p-8 md:p-10 border border-zinc-200/80 dark:border-zinc-800/80 bg-white/90 dark:bg-zinc-900/60 shadow-xs backdrop-blur-sm transition-all"
-    >
-      <div className="mb-6">
-        <div className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-xs font-semibold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">
-          <Sparkles size={13} />
-          <span>AI Deck Creator</span>
-        </div>
-        <h2 className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100">
-          Generate a Personalized Visual Deck
-        </h2>
-        <p className="mt-1 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
-          Enter any academic subject or topic. e-Mate AI will query Wikimedia Commons and attach verified educational diagrams &amp; figures.
-        </p>
-      </div>
+    <div className="mx-auto w-full max-w-4xl space-y-7">
 
-      <form onSubmit={handleGenerate} className="space-y-6">
-        {/* Topic Input */}
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider mb-2 text-zinc-500 dark:text-zinc-400">
-            Study Topic or Subject <span className="text-rose-500">*</span>
-          </label>
-          <input
-            type="text"
-            value={topic}
-            onChange={(e) => setTopic(e.target.value)}
-            placeholder="e.g., Natural Language Processing, Linked Lists, Human Nervous System..."
-            required
-            disabled={loading}
-            className="w-full rounded-2xl border px-4 py-3 text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 shadow-2xs"
+      {/* ════ TOP HERO CARD: Obsidian Dark with 3D Luminous Blue Ribbon (Faithfully matching Reference) ════ */}
+      <div className="relative overflow-hidden rounded-[32px] sm:rounded-[36px] bg-[#07090E] p-8 sm:p-12 text-white shadow-2xl border border-zinc-800/80">
+
+        {/* Deep ambient radial glow backdrops */}
+        <div className="pointer-events-none absolute -bottom-20 -right-20 h-96 w-96 rounded-full bg-blue-600/35 blur-[100px]" />
+        <div className="pointer-events-none absolute top-4 right-1/4 h-64 w-64 rounded-full bg-sky-500/25 blur-[85px]" />
+        <div className="pointer-events-none absolute bottom-0 right-1/3 h-48 w-48 rounded-full bg-indigo-600/25 blur-[90px]" />
+
+        {/* Fluid 3D glowing electric blue neon ribbon wave (multi-pass Bézier curve) */}
+        <svg
+          className="pointer-events-none absolute right-0 bottom-0 top-0 w-full sm:w-[500px] lg:w-[540px] h-full opacity-85 mix-blend-screen"
+          viewBox="0 0 540 400"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <linearGradient id="neonBlueGlowGrad" x1="40" y1="400" x2="500" y2="60" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#1e3a8a" stopOpacity="0.8" />
+              <stop offset="30%" stopColor="#2563eb" stopOpacity="0.95" />
+              <stop offset="65%" stopColor="#38bdf8" stopOpacity="1" />
+              <stop offset="100%" stopColor="#0284c7" stopOpacity="0.9" />
+            </linearGradient>
+
+            <linearGradient id="neonCyanGlowGrad" x1="120" y1="380" x2="480" y2="80" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#1d4ed8" />
+              <stop offset="45%" stopColor="#60a5fa" />
+              <stop offset="75%" stopColor="#38bdf8" />
+              <stop offset="100%" stopColor="#0284c7" />
+            </linearGradient>
+
+            <filter id="ribbonSoftGlow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="8" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+          </defs>
+
+          {/* Deep diffused ambient blur stroke */}
+          <path
+            d="M 60 400 C 140 320 220 260 280 180 C 340 100 420 80 490 140 C 540 180 500 290 390 320 C 300 350 200 280 240 180 C 270 110 370 70 480 90"
+            stroke="url(#neonBlueGlowGrad)"
+            strokeWidth="56"
+            strokeLinecap="round"
+            className="opacity-45 blur-md"
           />
 
-          {/* Quick topic pills */}
-          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] text-zinc-400 font-medium">Popular:</span>
-            {QUICK_TOPICS.map((item) => (
+          {/* Main 3D ribbon body */}
+          <path
+            d="M 60 400 C 140 320 220 260 280 180 C 340 100 420 80 490 140 C 540 180 500 290 390 320 C 300 350 200 280 240 180 C 270 110 370 70 480 90"
+            stroke="url(#neonCyanGlowGrad)"
+            strokeWidth="38"
+            strokeLinecap="round"
+            filter="url(#ribbonSoftGlow)"
+          />
+
+          {/* Sharp silky specular crest sheen */}
+          <path
+            d="M 70 390 C 145 315 225 255 285 178 C 345 102 422 84 485 138 C 530 174 495 278 395 308 C 310 338 215 272 248 178 C 278 112 372 74 478 92"
+            stroke="#ffffff"
+            strokeWidth="4.5"
+            strokeLinecap="round"
+            className="opacity-80"
+          />
+        </svg>
+
+        <div className="relative z-10 max-w-xl">
+          {/* Top Pill Badge (Directly matching "Contact" pill in reference) */}
+          <div className="inline-flex items-center gap-2.5 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-medium text-white/90 backdrop-blur-md mb-6">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-white text-[11px] shadow-xs">
+              ✦
+            </span>
+            <span>Study Deck Architect</span>
+          </div>
+
+          {/* Editorial Display Heading in Classic Serif (Matching Reference Headline) */}
+          <h1 className="font-serif text-3xl sm:text-4xl lg:text-[44px] font-normal tracking-tight text-white leading-[1.16]">
+            Don&apos;t just memorize. <br />
+            Connect with concepts today.
+          </h1>
+
+          {/* Subtitle */}
+          <p className="mt-4 text-sm sm:text-[15px] font-normal leading-relaxed text-zinc-300/85">
+            Whether you&apos;re preparing for high-yield university exams, USMLE, licensing tests, or mastering complex topics, e-Mate transforms your curriculum into active-recall cards with verified diagrams.
+          </p>
+
+          {/* Action Pills inside Hero */}
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <a
+              href="#deck-specifications"
+              className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 hover:bg-white/20 px-6 py-2.5 text-xs sm:text-sm font-medium text-white backdrop-blur-md transition active:scale-95 cursor-pointer shadow-sm"
+            >
+              <span>Build Flashcards</span>
+              <span className="text-xs">↓</span>
+            </a>
+
+            {onUploadPdf && (
               <button
-                key={item}
                 type="button"
-                onClick={() => setTopic(item)}
-                disabled={loading}
-                className="rounded-full px-3 py-1 text-xs font-medium transition hover:bg-zinc-200 dark:hover:bg-zinc-700 bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-700/60 cursor-pointer"
+                onClick={onUploadPdf}
+                className="inline-flex items-center gap-2 rounded-full bg-white text-zinc-950 px-5 py-2.5 text-xs sm:text-sm font-semibold hover:bg-zinc-100 transition shadow-md active:scale-95 cursor-pointer"
               >
-                {item}
+                <span>Upload PDF Notes</span>
+                <ArrowRightIcon className="h-3.5 w-3.5 stroke-[2]" />
               </button>
-            ))}
+            )}
           </div>
         </div>
+      </div>
 
-        {/* Card Count Selector */}
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider mb-2 text-zinc-500 dark:text-zinc-400">
-            Number of Cards: <span className="font-bold text-blue-600 dark:text-blue-400">{count} cards</span>
-          </label>
-          <div className="grid grid-cols-4 gap-2">
-            {[5, 8, 12, 16].map((num) => (
-              <button
-                key={num}
-                type="button"
-                onClick={() => setCount(num)}
-                disabled={loading}
-                className={`rounded-xl py-2 px-3 text-xs font-semibold transition border cursor-pointer ${
-                  count === num
-                    ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
-                    : 'bg-white dark:bg-zinc-900 border-zinc-200/80 dark:border-zinc-800/80 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800'
-                }`}
-              >
-                {num} Cards
-              </button>
-            ))}
-          </div>
+      {/* ════ BOTTOM FORM CONTAINER: Pristine, Minimalist, Elegant (Matching Reference "Get in touch") ════ */}
+      <div
+        id="deck-specifications"
+        className="rounded-[32px] border border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-8 sm:p-12 shadow-sm"
+      >
+        {/* Section Heading in Editorial Serif (Matching "Get in touch") */}
+        <div className="mb-8">
+          <h2 className="font-serif text-3xl sm:text-4xl font-normal tracking-tight text-zinc-900 dark:text-zinc-100">
+            Deck specifications
+          </h2>
+          <p className="mt-1.5 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 font-normal">
+            Enter your study topic and configure your active recall preferences below.
+          </p>
         </div>
 
-        {/* Learning Mode Selector */}
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider mb-2 text-zinc-500 dark:text-zinc-400">
-            Learning Focus
-          </label>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-            {MODE_OPTIONS.map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => setMode(opt.id)}
-                disabled={loading}
-                className={`rounded-2xl p-3 text-left transition border cursor-pointer ${
-                  mode === opt.id
-                    ? 'bg-blue-50/70 border-blue-600 dark:bg-blue-950/40 dark:border-blue-500 ring-1 ring-blue-600 dark:ring-blue-500'
-                    : 'bg-white dark:bg-zinc-900 border-zinc-200/80 dark:border-zinc-800/80 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
-                }`}
-              >
-                <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{opt.label}</p>
-                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-tight mt-0.5">{opt.desc}</p>
-              </button>
-            ))}
+        <form onSubmit={handleGenerate} className="space-y-7">
+
+          {/* 1. Study Topic or Chapter (Minimalist Clean Field matching screenshot) */}
+          <div>
+            <label className="block text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+              Study topic or chapter title <span className="text-blue-600">*</span>
+            </label>
+            <input
+              type="text"
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              placeholder="e.g. Cellular Mitosis & Stages, Linked Lists, Organic Reactions..."
+              required
+              disabled={loading}
+              className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-4 py-3.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-500 dark:focus:border-zinc-400 transition font-normal shadow-2xs"
+            />
+
+            {/* Quick Suggestions below */}
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] font-medium text-zinc-400 mr-1">Popular:</span>
+              {QUICK_TOPICS.map((item) => (
+                <button
+                  key={item.name}
+                  type="button"
+                  onClick={() => setTopic(item.name)}
+                  disabled={loading}
+                  className="rounded-full px-3 py-1 text-xs font-normal transition hover:bg-zinc-100 hover:text-blue-600 dark:hover:bg-zinc-800 dark:hover:text-blue-300 bg-zinc-50 dark:bg-zinc-850 text-zinc-600 dark:text-zinc-400 border border-zinc-200/80 dark:border-zinc-800 cursor-pointer"
+                >
+                  {item.name}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
 
-        {/* Difficulty Level */}
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider mb-2 text-zinc-500 dark:text-zinc-400">
-            Difficulty Level
-          </label>
-          <div className="grid grid-cols-3 gap-2.5">
-            {DIFFICULTY_OPTIONS.map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => setDifficulty(opt.id)}
+          {/* 2. Two-Column Row: Academic Subject & Target Exam Date */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                Academic subject (optional)
+              </label>
+              <input
+                type="text"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="e.g. Biology, Computer Science, Pharmacology..."
                 disabled={loading}
-                className={`rounded-2xl p-3 text-left transition border cursor-pointer ${
-                  difficulty === opt.id
-                    ? 'bg-blue-50/70 border-blue-600 dark:bg-blue-950/40 dark:border-blue-500 ring-1 ring-blue-600 dark:ring-blue-500'
-                    : 'bg-white dark:bg-zinc-900 border-zinc-200/80 dark:border-zinc-800/80 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
-                }`}
-              >
-                <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{opt.label}</p>
-                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">{opt.desc}</p>
-              </button>
-            ))}
+                className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-4 py-3.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-500 dark:focus:border-zinc-400 transition font-normal shadow-2xs"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                Target exam date (optional)
+              </label>
+              <input
+                type="date"
+                value={examDate}
+                onChange={(e) => setExamDate(e.target.value)}
+                disabled={loading}
+                className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-500 dark:focus:border-zinc-400 transition font-normal shadow-2xs"
+              />
+            </div>
           </div>
-        </div>
 
-        {/* Optional Accordion: Study Material & Exam Date */}
-        <div className="pt-1">
-          <button
-            type="button"
-            onClick={() => setShowAdvanced((prev) => !prev)}
-            className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-          >
-            <SlidersHorizontal size={13} />
-            <span>{showAdvanced ? 'Hide Additional Context' : '+ Add Syllabus Notes or Exam Schedule'}</span>
-          </button>
+          {/* 3. Deck Size (Segmented Cards) */}
+          <div>
+            <div className="flex items-center justify-between mb-2.5">
+              <label className="text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Number of flashcards
+              </label>
+              <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
+                {count} Cards Selected
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {CARD_COUNT_OPTIONS.map((opt) => {
+                const isSelected = count === opt.count;
+                return (
+                  <button
+                    key={opt.count}
+                    type="button"
+                    onClick={() => setCount(opt.count)}
+                    disabled={loading}
+                    className={`rounded-2xl p-3.5 text-left transition border cursor-pointer ${
+                      isSelected
+                        ? 'bg-blue-50/70 border-blue-600 dark:bg-blue-950/50 dark:border-blue-500 ring-1 ring-blue-600 dark:ring-blue-500'
+                        : 'bg-zinc-50/60 dark:bg-zinc-800/40 border-zinc-200/80 dark:border-zinc-800 hover:bg-zinc-100/70 dark:hover:bg-zinc-800'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                        {opt.label}
+                      </span>
+                      <span className="text-[10px] text-zinc-400 font-medium">{opt.time}</span>
+                    </div>
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 font-normal leading-tight">
+                      {opt.desc}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-          {showAdvanced && (
-            <div className="mt-3 space-y-3 rounded-2xl bg-zinc-50/60 dark:bg-zinc-900/40 p-4 border border-zinc-200/80 dark:border-zinc-800/80">
-              <div>
-                <label className="block text-xs font-medium mb-1 text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
-                  <FileText size={12} />
-                  <span>Paste Syllabus or Class Notes (optional)</span>
+          {/* 4. Learning Recall Focus */}
+          <div>
+            <label className="block text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2.5">
+              Learning recall focus
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {MODE_OPTIONS.map((opt) => {
+                const isSelected = mode === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setMode(opt.id)}
+                    disabled={loading}
+                    className={`rounded-2xl p-3.5 text-left transition border cursor-pointer flex items-start gap-3 ${
+                      isSelected
+                        ? 'bg-blue-50/70 border-blue-600 dark:bg-blue-950/50 dark:border-blue-500 ring-1 ring-blue-600 dark:ring-blue-500'
+                        : 'bg-zinc-50/60 dark:bg-zinc-800/40 border-zinc-200/80 dark:border-zinc-800 hover:bg-zinc-100/70 dark:hover:bg-zinc-800'
+                    }`}
+                  >
+                    <span className="text-xl mt-0.5">{opt.icon}</span>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100">{opt.label}</p>
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 font-normal leading-relaxed">
+                        {opt.desc}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 5. Preparation Level */}
+          <div>
+            <label className="block text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2.5">
+              Preparation difficulty
+            </label>
+            <div className="grid grid-cols-3 gap-3">
+              {DIFFICULTY_OPTIONS.map((opt) => {
+                const isSelected = difficulty === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setDifficulty(opt.id)}
+                    disabled={loading}
+                    className={`rounded-2xl p-3 text-left transition border cursor-pointer ${
+                      isSelected
+                        ? 'bg-blue-50/70 border-blue-600 dark:bg-blue-950/50 dark:border-blue-500 ring-1 ring-blue-600 dark:ring-blue-500'
+                        : 'bg-zinc-50/60 dark:bg-zinc-800/40 border-zinc-200/80 dark:border-zinc-800 hover:bg-zinc-100/70 dark:hover:bg-zinc-800'
+                    }`}
+                  >
+                    <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100">{opt.label}</p>
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 font-normal leading-tight">
+                      {opt.desc}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 6. Collapsible Syllabus Excerpt */}
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced((prev) => !prev)}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+            >
+              <AdjustmentsHorizontalIcon className="h-4 w-4" />
+              <span>{showAdvanced ? 'Hide syllabus excerpt' : '+ Paste custom syllabus excerpt or notes (optional)'}</span>
+            </button>
+
+            {showAdvanced && (
+              <div className="mt-3.5 rounded-2xl bg-zinc-50/80 dark:bg-zinc-800/50 p-4 border border-zinc-200/80 dark:border-zinc-700/80">
+                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  Syllabus or Textbook Excerpt
                 </label>
                 <textarea
                   value={studyMaterial}
                   onChange={(e) => setStudyMaterial(e.target.value)}
-                  placeholder="Paste lecture notes, formulas, or textbook sections here to personalize the generated cards..."
+                  placeholder="Paste lecture notes or specific problem sets to ground the flashcards in your syllabus…"
                   rows={3}
                   disabled={loading}
-                  className="w-full rounded-xl border p-2.5 text-xs border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-3 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-400 font-normal"
                 />
               </div>
-
-              <div>
-                <label className="block text-xs font-medium mb-1 text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
-                  <Calendar size={12} />
-                  <span>Target Exam / Test Date (optional)</span>
-                </label>
-                <input
-                  type="date"
-                  value={examDate}
-                  onChange={(e) => setExamDate(e.target.value)}
-                  disabled={loading}
-                  className="rounded-xl border px-3 py-1.5 text-xs border-zinc-200/80 dark:border-zinc-700/80 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100"
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Error Message Alert */}
-        {error && (
-          <div className="rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/40 p-3.5 flex items-start gap-2.5 text-rose-800 dark:text-rose-200 text-xs">
-            <AlertCircle size={16} className="shrink-0 mt-0.5 text-rose-600 dark:text-rose-400" />
-            <div>
-              <p className="font-semibold">Generation Error</p>
-              <p className="mt-0.5 leading-relaxed">{error}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Submit Button & Animated Loading State */}
-        <div>
-          <button
-            type="submit"
-            disabled={loading || !topic.trim()}
-            className="w-full flex items-center justify-center gap-2 rounded-full py-3.5 px-6 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-xs transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-          >
-            {loading ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                <span>Browsing Wikimedia Commons &amp; Building Deck...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles size={16} />
-                <span>Create Flashcards Deck</span>
-              </>
             )}
-          </button>
+          </div>
 
-          {loading && (
-            <div className="mt-4 text-center">
-              <div className="inline-flex items-center gap-2 rounded-full px-4 py-2 bg-blue-50 dark:bg-blue-950/50 border border-blue-200/60 dark:border-blue-900/40 text-xs font-medium text-blue-700 dark:text-blue-300 animate-pulse">
-                <Compass size={14} className="text-blue-600 dark:text-blue-400 animate-spin" />
-                <span>{LOADING_STEPS[loadingStep]}</span>
+          {/* Error Alert */}
+          {error && (
+            <div className="rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/40 p-4 flex items-start gap-3 text-rose-800 dark:text-rose-200 text-xs">
+              <ExclamationTriangleIcon className="h-5 w-5 shrink-0 text-rose-600 mt-0.5" />
+              <div>
+                <p className="font-semibold">Unable to synthesize deck</p>
+                <p className="mt-0.5 leading-relaxed">{error}</p>
               </div>
             </div>
           )}
-        </div>
-      </form>
+
+          {/* Submit Button (Matching Modern Black Pill / Button in Reference) */}
+          <div className="pt-2">
+            <button
+              type="submit"
+              disabled={loading || !topic.trim()}
+              className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 px-6 text-sm font-semibold text-white bg-zinc-950 hover:bg-black dark:bg-white dark:hover:bg-zinc-100 dark:text-zinc-900 shadow-md transition-all active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {loading ? (
+                <>
+                  <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                  <span>Synthesizing Visual Flashcard Deck…</span>
+                </>
+              ) : (
+                <>
+                  <SparklesIcon className="h-4 w-4 stroke-[2]" />
+                  <span>Generate Flashcard Deck</span>
+                  <ArrowRightIcon className="h-4 w-4 stroke-[2]" />
+                </>
+              )}
+            </button>
+
+            {loading && (
+              <div className="mt-3.5 text-center">
+                <span className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 bg-blue-50 dark:bg-blue-950/60 border border-blue-200/60 text-xs font-medium text-blue-700 dark:text-blue-300 animate-pulse">
+                  <span>{LOADING_STEPS[loadingStep]}</span>
+                </span>
+              </div>
+            )}
+          </div>
+
+        </form>
+      </div>
+
     </div>
   );
 }

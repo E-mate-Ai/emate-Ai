@@ -373,6 +373,11 @@ export default function ChatMainArea({
   const router = useRouter();
   const [inputValue, setInputValue] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
+  const [heavyLoading, setHeavyLoading] = useState<{
+    active: boolean;
+    type: 'pptx' | 'docx' | 'image' | null;
+    states: string[];
+  }>({ active: false, type: null, states: [] });
   const [showFeatureModal, setShowFeatureModal] = useState(false);
   const [isStudyMode, setIsStudyMode] = useState(true); // server-safe default — synced from localStorage in useEffect
   const [isOpenRouterConnected, setIsOpenRouterConnected] = useState(true); // default to true, check in client mount
@@ -1154,6 +1159,16 @@ export default function ChatMainArea({
     setMessages(newMessages);
     setInputValue('');
     setIsStreaming(true);
+    setHeavyLoading({
+      active: true,
+      type: 'image',
+      states: [
+        'Analysing your prompt',
+        'Crafting composition',
+        'Rendering image',
+        'Applying finishing touches',
+      ],
+    });
 
     // Persist the user prompt to transcript (images themselves are stripped).
     if (!isGuest) {
@@ -1228,6 +1243,7 @@ export default function ChatMainArea({
       );
     } finally {
       setIsStreaming(false);
+      setHeavyLoading({ active: false, type: null, states: [] });
     }
   };
 
@@ -1359,6 +1375,24 @@ export default function ChatMainArea({
     setMessages(queuedMessages);
     setInputValue('');
     setIsStreaming(true);
+    setHeavyLoading({
+      active: true,
+      type: format,
+      states: format === 'pptx'
+        ? [
+            'Researching topic',
+            'Structuring slides',
+            'Writing content',
+            'Designing layout',
+            'Building presentation',
+          ]
+        : [
+            'Researching topic',
+            'Drafting document',
+            'Formatting sections',
+            'Finalising document',
+          ],
+    });
 
     if (!isGuest) {
       void saveChatSession({
@@ -1440,6 +1474,7 @@ export default function ChatMainArea({
       if (!isGuest) void saveChatTranscript(sessionIdRef.current, failedMessages);
     } finally {
       setIsStreaming(false);
+      setHeavyLoading({ active: false, type: null, states: [] });
     }
   };
 
@@ -3215,6 +3250,7 @@ export default function ChatMainArea({
         onSelectArtifact={setSelectedArtifactId}
         theme={theme}
       />
+
     </div>
   );
 }

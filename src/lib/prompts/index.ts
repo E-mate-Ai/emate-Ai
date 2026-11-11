@@ -106,8 +106,8 @@ export interface PromptPayload {
 // ── 4. Context Formatting & Budget Truncation Strategy ──────────────────────
 
 const DEFAULT_BUDGET: Required<ContextBudgetConfig> = {
-  maxCharacters: 12000,
-  maxTokens: 3000,
+  maxCharacters: 64000,
+  maxTokens: 16000,
   preserveWholeChunks: true,
 };
 
@@ -414,6 +414,8 @@ export interface ChatPromptOptions {
   budget?: ContextBudgetConfig;
   /** True when retrieval confidence is below threshold, triggering strict "not found" guidance */
   isGroundingWeak?: boolean;
+  /** Active study plan context (exam countdown, subjects, targets) - used only in Study Mode */
+  studyPlanContext?: string;
 }
 
 export function buildChatPrompt(options: ChatPromptOptions): PromptPayload {
@@ -428,6 +430,7 @@ export function buildChatPrompt(options: ChatPromptOptions): PromptPayload {
     historyMessages = [],
     currentUserMessage,
     budget,
+    studyPlanContext,
   } = options;
 
   // 1. (a) Base identity & conversational instructions
@@ -440,22 +443,22 @@ export function buildChatPrompt(options: ChatPromptOptions): PromptPayload {
     // ── General Workspace: direct, conversational answers. No study framing. ──
     systemPrompt = `You are e-Mate AI, a knowledgeable and friendly AI assistant.
 
-Answer the user's question directly and helpfully. Be clear, accurate, and concise.
+Answer the user's question directly, comprehensively, and helpfully. Provide full, thorough explanations without artificial word limits, token restrictions, or length caps.
 - Use the conversation history supplied with the request to understand follow-ups; do not ask what topic the user means when the chat already establishes it.
-- Never reveal private reasoning, hidden analysis, or a step-by-step account of how you interpreted the prompt. Give the useful answer and, when helpful, a short explanation of the conclusion.
+- Never reveal private reasoning, hidden analysis, or a step-by-step account of how you interpreted the prompt. Give the useful answer and, when helpful, a clear explanation of the conclusion.
 - Use Markdown formatting (headers, bold, code blocks, bullet points) where it genuinely improves readability.
 - For math or formulas, use LaTeX ($...$ for inline, $$...$$ for block).
 - Documents, presentations (.pptx), and images in e-Mate AI are compiled directly by e-Mate Studio engines. NEVER state "I can't create actual .pptx files" or "I cannot generate images".
-- Do NOT add academic study framing, exam tips, or revision mode labels to general answers.
+- Do NOT add academic study framing, exam tips, or revision mode labels to general answers unless asked.
 - Do NOT start answers with preamble like "Sure!", "Of course!", or "Great question!".
-- Just answer the question directly.`;
+- Just answer the question directly and thoroughly with as much detail and depth as the topic requires.`;
   } else {
     // ── Study Mode: grounded academic tutor, adapts depth from mode flag. ──
     // The mode flag controls HOW to answer (depth/format), NOT what to say as a preamble.
     const depthGuidance =
       mode === 'sprint'
-        ? 'Be concise but study-focused: explain the key idea, one useful example, the essential steps or application, and the exam takeaway. Keep each section short.'
-        : 'Be thorough and study-focused: explain all major parts of the requested topic step by step, with worked examples, intuitive analogies, and relevant edge cases.';
+        ? 'Be study-focused, high-yield, and clear: explain key concepts, essential formulas, worked examples, and exam takeaways directly without artificial word limits.'
+        : 'Be comprehensive, in-depth, and exhaustive: thoroughly explain all major parts of the requested topic step by step, with full worked examples, intuitive analogies, practical real-world applications, and relevant edge cases. Do not restrict word count or artificially shorten answers—provide the complete depth required for mastery.';
 
     const scopeNote =
       subject && unit
@@ -469,18 +472,22 @@ ${scopeNote ? `\n${scopeNote}` : ''}
 ${depthGuidance}
 
 Rules:
-- Answer the student's question directly. Do NOT start with "Mode: SPRINT", "Mode: DEEP DIVE", unit introductions, or any setup text.
+- Answer the student's question directly and thoroughly without artificial word or length limits. Do NOT start with "Mode: SPRINT", "Mode: DEEP DIVE", unit introductions, or any setup text.
 - Use the conversation history supplied with the request to resolve follow-ups and preserve the requested explanation style.
-- Never reveal private reasoning, hidden analysis, or a step-by-step account of how you interpreted the prompt. Give the student a clear explanation of the subject instead.
+- Never reveal private reasoning, hidden analysis, or a step-by-step account of how you interpreted the prompt. Give the student a clear, deep explanation of the subject instead.
 - Use Markdown: headers (##), bold key terms, bullet points, LaTeX math ($...$ / $$...$$).
-- For a broad concept or topic, teach it in numbered sections: (1) What it is, (2) Real-world examples, (3) How it works, (4) Main applications, (5) Advantages and limitations, (6) Exam-ready answer, and (7) Key takeaways. Explain each important subtopic clearly; include only sections that genuinely fit the question.
-- Start with a plain-language explanation, then build toward precise academic terminology. Use examples and short step-by-step breakdowns to make difficult ideas understandable.
+- For a broad concept or topic, teach it in comprehensive, detailed sections: (1) What it is, (2) Real-world examples, (3) How it works, (4) Main applications, (5) Advantages and limitations, (6) Exam-ready answer, and (7) Key takeaways. Explain each important subtopic thoroughly with full depth; include only sections that genuinely fit the question.
+- Start with a plain-language explanation, then build toward precise academic terminology. Use examples and complete step-by-step breakdowns to make difficult ideas understandable.
 - For narrow follow-up questions, answer the specific point first and add only the relevant study sections instead of repeating a full lesson.
 - Quizzes in e-Mate AI are exclusively interactive modules rendered by the e-Mate Quiz Engine. NEVER generate multiple-choice questions (MCQs), quizzes with choices A/B/C/D, or practice test questionnaires in plain text markdown. If the student asks for a quiz, questions, or a practice test, warmly confirm that their interactive quiz is starting or ask what topic they would like to practice — NEVER output text MCQs yourself.
 - Documents, presentations (.pptx), and images in e-Mate AI are compiled directly by e-Mate Studio engines. NEVER state "I can't create actual .pptx files" or "I cannot generate images".
 - Mark exam-critical points with ⭐ or 📌.
 - If notebook notes are provided, ground your answer in them and reference them naturally.
 - Do NOT announce the mode, subject, or unit at the start of your answer — just answer.`;
+
+    if (studyPlanContext?.trim()) {
+      systemPrompt += `\n\n## Student's Active Exam Study Plan:\n${studyPlanContext.trim()}\n- Align your explanations, revision prioritization, and depth with the student's exam milestones and target topics. If the student asks what to revise or focus on next, use this plan.`;
+    }
   }
 
   if (userPatternContext?.trim()) {

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import DeleteButton from '@/components/ui/DeleteButton';
 import {
   Cog6ToothIcon as Settings,
   Squares2X2Icon as LayoutGrid,
@@ -1020,16 +1021,15 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
             <div className="flex justify-between items-center">
               <p className="text-xs text-zinc-500 dark:text-[#b3b3b3]">Notes captured for <strong>{selectedSubject || 'active subject'}</strong></p>
               {notebookNotes.length > 0 && (
-                <button
+                <DeleteButton
+                  size="md"
+                  label="Clear All"
+                  title="Clear all notes"
                   onClick={() => {
                     clearNotebook(selectedSubject);
                     setNotebookNotes([]);
                   }}
-                  className="min-h-10 text-sm font-medium px-4 py-2 rounded-full border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 dark:border-red-400/30 dark:bg-[#414141] dark:hover:bg-[#505050] dark:text-red-300 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 inline-flex items-center gap-1.5"
-                >
-                  <Trash2 width={13} height={13} />
-                  Clear All Notes
-                </button>
+                />
               )}
             </div>
             <div className="space-y-2 max-h-[300px] overflow-y-auto">
@@ -1042,15 +1042,15 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
                       <p className="text-zinc-900 dark:text-zinc-100">{n.content}</p>
                       <span className="text-[10px] text-zinc-400 mt-1 block">{n.timestamp}</span>
                     </div>
-                    <button
+                    <DeleteButton
+                      size="sm"
+                      label="Delete"
+                      title="Delete note"
                       onClick={() => {
                         deleteNotebookEntry(selectedSubject, n.id);
                         setNotebookNotes((prev) => prev.filter((x) => x.id !== n.id));
                       }}
-                      className="text-red-500 p-1 hover:bg-red-500/10 rounded"
-                    >
-                      <Trash2 width={13} height={13} />
-                    </button>
+                    />
                   </div>
                 ))
               )}

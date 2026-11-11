@@ -28,6 +28,7 @@ import { getLibraryItems, removeLibraryItem, type LibraryItem } from '@/lib/libr
 
 const ChatSearchModal = dynamic(() => import('./ChatSearchModal'), { ssr: false });
 import UpgradeProButton from './UpgradeProButton';
+import DeleteButton from '@/components/ui/DeleteButton';
 import {
   Search,
   Image,
@@ -68,6 +69,7 @@ import {
   ArrowRight,
   GraduationCap,
   Layers,
+  Calendar,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -490,7 +492,7 @@ export default function Sidebar({
               href="/ai-flashcard-generator"
               className={`flex items-center justify-between w-full rounded-lg px-3 py-2 text-xs font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${
                 pathname === '/ai-flashcard-generator' || pathname === '/flashcards'
-                  ? 'bg-[#8CA36B]/15 text-[#4F6636] dark:text-[#A8C786] font-semibold'
+                  ? 'bg-blue-600/10 text-blue-700 dark:text-blue-300 font-semibold'
                   : ''
               }`}
               style={{
@@ -503,18 +505,40 @@ export default function Sidebar({
               }}
             >
               <div className="flex items-center gap-2.5">
-                <Layers size={14} />
+                <Layers size={14} className={pathname === '/ai-flashcard-generator' || pathname === '/flashcards' ? 'text-blue-600 dark:text-blue-400' : ''} />
                 <span>Flashcards</span>
               </div>
               <span
-                className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full"
-                style={{
-                  background: 'rgba(140, 163, 107, 0.15)',
-                  color: '#4F6636',
-                  border: '1px solid rgba(140, 163, 107, 0.25)',
-                }}
+                className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20"
               >
-                Visual
+                AI
+              </span>
+            </Link>
+
+            <Link
+              href="/ai-study-planner"
+              className={`flex items-center justify-between w-full rounded-lg px-3 py-2 text-xs font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${
+                pathname === '/ai-study-planner'
+                  ? 'bg-blue-600/10 text-blue-700 dark:text-blue-300 font-semibold'
+                  : ''
+              }`}
+              style={{
+                color:
+                  pathname === '/ai-study-planner'
+                    ? undefined
+                    : theme === 'dark'
+                    ? '#71717a'
+                    : '#52525b',
+              }}
+            >
+              <div className="flex items-center gap-2.5">
+                <Calendar size={14} className={pathname === '/ai-study-planner' ? 'text-blue-600 dark:text-blue-400' : ''} />
+                <span>Study Planner</span>
+              </div>
+              <span
+                className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20"
+              >
+                Plan
               </span>
             </Link>
 
@@ -625,13 +649,15 @@ export default function Sidebar({
                           >
                             <Edit2 size={10} style={{ color: '#a1a1aa' }} />
                           </button>
-                          <button
-                            onClick={() => setConfirmDeleteId(subject.id)}
-                            className="p-1 rounded-md hover:bg-red-500/10 transition"
+                          <DeleteButton
+                            size="sm"
+                            label="Delete"
                             title="Delete"
-                          >
-                            <Trash2 size={10} style={{ color: '#ef4444' }} />
-                          </button>
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConfirmDeleteId(subject.id);
+                            }}
+                          />
                         </div>
                       </div>
                     );
@@ -647,13 +673,12 @@ export default function Sidebar({
                   RECENT
                 </p>
                 {chatHistory.length > 0 && (
-                  <button
+                  <DeleteButton
+                    size="sm"
+                    label="Clear"
+                    title="Clear history"
                     onClick={() => clearChatHistory()}
-                    className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-[#db7a88] hover:bg-[#c96a78] text-white transition-all shadow-2xs cursor-pointer active:scale-95 inline-flex items-center gap-1"
-                  >
-                    <Trash2 size={12} />
-                    Clear
-                  </button>
+                  />
                 )}
               </div>
               {chatHistory.length === 0 ? (
@@ -700,16 +725,16 @@ export default function Sidebar({
                           {formatChatTime(chat.timestamp)}
                         </span>
                       </div>
-                      <button
+                      <DeleteButton
+                        size="sm"
+                        label="Delete"
+                        title="Remove"
+                        className="absolute right-2 top-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
                         onClick={(e) => {
                           e.stopPropagation();
                           deleteChatSession(chat.id);
                         }}
-                        className="absolute right-2 top-1.5 p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-red-500/10 transition"
-                        title="Remove"
-                      >
-                        <Trash2 size={10} style={{ color: '#ef4444' }} />
-                      </button>
+                      />
                     </div>
                   ))}
                 </div>
@@ -869,15 +894,13 @@ export default function Sidebar({
                           <p className="truncate text-sm font-semibold text-zinc-900 dark:text-white">{item.title}</p>
                           <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-400">{item.type}</p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => removeLibraryItem(item.id)}
-                          className="rounded-full p-1.5 text-zinc-500 transition hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-500/10"
-                          aria-label={`Remove ${item.title}`}
+                        <DeleteButton
+                          size="sm"
+                          label="Remove"
                           title="Remove from library"
-                        >
-                          <X size={12} />
-                        </button>
+                          aria-label={`Remove ${item.title}`}
+                          onClick={() => removeLibraryItem(item.id)}
+                        />
                       </div>
 
                       {item.type === 'image' && item.url ? (
@@ -1220,14 +1243,16 @@ export default function Sidebar({
                               >
                                 <Edit2 size={13} />
                               </button>
-                              <button
-                                onClick={() => setConfirmDeleteId(subj.id)}
-                                className="p-1.5 rounded-lg transition hover:bg-red-500/10 opacity-0 group-hover:opacity-100"
-                                style={{ color: '#ef4444' }}
+                              <DeleteButton
+                                size="sm"
+                                label="Delete"
                                 title="Delete notebook"
-                              >
-                                <Trash2 size={13} />
-                              </button>
+                                className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setConfirmDeleteId(subj.id);
+                                }}
+                              />
                             </>
                           )}
                         </div>

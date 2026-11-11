@@ -21,7 +21,7 @@ export async function generateStudyExplanation(
     `- Start with a brief encouraging note about their quiz performance.\n` +
     `- For each weak topic, provide: (1) a clear definition, (2) a worked example or analogy, (3) an exam tip.\n` +
     `- Highlight exam-important points with a ⭐ or 📌 marker.\n` +
-    `- Keep explanations concise but thorough — aim for clarity over length.\n` +
+    `- Provide clear, detailed, and complete explanations with full academic depth without word count limits.` +
     `- If the student's notebook contains relevant notes, reference and build upon them.`;
 
   const notebookSection = notebookContext
@@ -40,7 +40,7 @@ export async function generateStudyExplanation(
       { role: 'user', content: userMessage },
     ],
     temperature: 0.7,
-    max_tokens: 1500,
+    max_tokens: 4000,
   });
 
   // Extract the text content from the response

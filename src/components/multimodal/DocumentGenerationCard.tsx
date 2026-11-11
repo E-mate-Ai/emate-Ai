@@ -58,42 +58,9 @@ export default function DocumentGenerationCard({
       ? 'Document · MD'
       : 'Document · DOCX';
 
-  // ── Generating State ────────────────────────────────────────────────────────
+  // ── Generating State — hidden; inline StepProgress in chat handles this ────
   if (doc.status === 'generating') {
-    return (
-      <div
-        className={`my-3 flex items-center gap-3.5 rounded-2xl px-4 py-3.5 max-w-lg border transition-all ${
-          isDark
-            ? 'bg-zinc-900/80 border-amber-500/20 text-zinc-200'
-            : 'bg-amber-50/70 border-amber-200/80 text-zinc-800'
-        }`}
-      >
-        <div
-          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${
-            isPresentation
-              ? isDark
-                ? 'bg-[#3b2316] border-[#5e321e] text-[#f59e0b]'
-                : 'bg-amber-100 border-amber-300 text-amber-700'
-              : isDark
-                ? 'bg-blue-950/60 border-blue-800/40 text-blue-400'
-                : 'bg-blue-100 border-blue-200 text-blue-700'
-          }`}
-        >
-          <Loader2 size={20} className="animate-spin" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="text-xs font-semibold truncate">
-              Generating {isPresentation ? 'presentation' : 'document'}…
-            </p>
-            <span className="flex h-1.5 w-1.5 rounded-full bg-amber-400 animate-ping" />
-          </div>
-          <p className="text-[11px] text-zinc-400 mt-0.5 truncate">
-            {doc.title || 'Structuring content, key insights and notes…'}
-          </p>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   // ── Error State ─────────────────────────────────────────────────────────────

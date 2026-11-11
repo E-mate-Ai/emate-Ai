@@ -8,13 +8,13 @@ import {
   Clipboard,
   UploadCloud,
   FileText,
-  Trash2,
   ExternalLink,
   Check,
   AlertCircle,
   FolderOpen,
   File,
 } from 'lucide-react';
+import DeleteButton from '@/components/ui/DeleteButton';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { getNotebook, saveNotebook, addSubject, type NotebookEntry } from '@/lib/notebook';
@@ -616,14 +616,16 @@ export default function AddSourcesModal({ isOpen, onClose, subject: initialSubje
                               </p>
                             </div>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteSource(src.id, src.title)}
-                            className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors opacity-80 group-hover:opacity-100"
+                          <DeleteButton
+                            size="sm"
+                            label="Remove"
                             title="Remove source"
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                            className="opacity-80 group-hover:opacity-100"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteSource(src.id, src.title);
+                            }}
+                          />
                         </div>
                       ))}
                     </div>

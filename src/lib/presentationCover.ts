@@ -11,6 +11,285 @@ function escapeXml(value: string): string {
   });
 }
 
+export type PresentationThemeStyle =
+  | 'ai-tech'
+  | 'finance-business'
+  | 'medical-health'
+  | 'creative-marketing'
+  | 'executive-general'
+  | 'crimson-amber';
+
+export interface PresentationTheme {
+  id: PresentationThemeStyle;
+  name: string;
+  domainKicker: string;
+  icon: string;
+  coverBgGradient: [string, string];
+  coverBgHex: string;
+  coverKickerColor: string;
+  coverBadgeFill: string;
+  coverSubtitleColor: string;
+  coverPresenterColor: string;
+  coverPillBg: string;
+  coverPillBorder: string;
+  coverPillText: string;
+  contentBgHex: string;
+  contentKickerColor: string;
+  contentItemBadgeFill: string;
+  takeawayCardBg: string;
+  takeawayCardBorder: string;
+  takeawayBadgeFill: string;
+  takeawayLabelColor: string;
+}
+
+export const PRESENTATION_THEMES: Record<PresentationThemeStyle, PresentationTheme> = {
+  'ai-tech': {
+    id: 'ai-tech',
+    name: 'Obsidian Cyan (AI & Tech)',
+    domainKicker: 'COMPUTER SCIENCE • ARTIFICIAL INTELLIGENCE',
+    icon: 'cpu',
+    coverBgGradient: ['#090d16', '#030712'],
+    coverBgHex: '090D16',
+    coverKickerColor: '#38bdf8',
+    coverBadgeFill: '#1e293b',
+    coverSubtitleColor: '#94a3b8',
+    coverPresenterColor: '#64748b',
+    coverPillBg: '#131d31',
+    coverPillBorder: 'rgba(56, 189, 248, 0.25)',
+    coverPillText: '#7dd3fc',
+    contentBgHex: 'FFFFFF',
+    contentKickerColor: '0284C7',
+    contentItemBadgeFill: '0F172A',
+    takeawayCardBg: 'F0F7FF',
+    takeawayCardBorder: 'BAE6FD',
+    takeawayBadgeFill: '2563EB',
+    takeawayLabelColor: '1D4ED8',
+  },
+  'finance-business': {
+    id: 'finance-business',
+    name: 'Emerald Mint (Finance & Green)',
+    domainKicker: 'ECONOMICS • FINANCIAL SECTORS',
+    icon: 'landmark',
+    coverBgGradient: ['#173e33', '#112f27'],
+    coverBgHex: '173E33',
+    coverKickerColor: '#a3c4b8',
+    coverBadgeFill: '#245446',
+    coverSubtitleColor: '#d4ece3',
+    coverPresenterColor: '#8fb8a8',
+    coverPillBg: '#224e41',
+    coverPillBorder: 'rgba(255, 255, 255, 0.1)',
+    coverPillText: '#d4ece3',
+    contentBgHex: 'FFFFFF',
+    contentKickerColor: 'B45309',
+    contentItemBadgeFill: '173E33',
+    takeawayCardBg: 'F4F7F1',
+    takeawayCardBorder: 'E2E8F0',
+    takeawayBadgeFill: 'D97706',
+    takeawayLabelColor: '92400E',
+  },
+  'executive-general': {
+    id: 'executive-general',
+    name: 'Midnight Cobalt (Executive Strategy)',
+    domainKicker: 'EXECUTIVE STRATEGY • CORPORATE ADVISORY',
+    icon: 'chart',
+    coverBgGradient: ['#0f172a', '#020617'],
+    coverBgHex: '0F172A',
+    coverKickerColor: '#93c5fd',
+    coverBadgeFill: '#1e293b',
+    coverSubtitleColor: '#cbd5e1',
+    coverPresenterColor: '#94a3b8',
+    coverPillBg: '#1e293b',
+    coverPillBorder: 'rgba(147, 197, 253, 0.25)',
+    coverPillText: '#bae6fd',
+    contentBgHex: 'FFFFFF',
+    contentKickerColor: '2563EB',
+    contentItemBadgeFill: '0F172A',
+    takeawayCardBg: 'F8FAFC',
+    takeawayCardBorder: 'E2E8F0',
+    takeawayBadgeFill: '3B82F6',
+    takeawayLabelColor: '1D4ED8',
+  },
+  'medical-health': {
+    id: 'medical-health',
+    name: 'Ocean Teal (Clinical & Health)',
+    domainKicker: 'HEALTH SCIENCES • CLINICAL RESEARCH',
+    icon: 'sparkles',
+    coverBgGradient: ['#063940', '#022429'],
+    coverBgHex: '063940',
+    coverKickerColor: '#5eead4',
+    coverBadgeFill: '#0c5660',
+    coverSubtitleColor: '#ccfbf1',
+    coverPresenterColor: '#5eead4',
+    coverPillBg: '#0a4e57',
+    coverPillBorder: 'rgba(94, 234, 212, 0.25)',
+    coverPillText: '#99f6e4',
+    contentBgHex: 'FFFFFF',
+    contentKickerColor: '0D9488',
+    contentItemBadgeFill: '063940',
+    takeawayCardBg: 'F0FDFA',
+    takeawayCardBorder: '99F6E4',
+    takeawayBadgeFill: '0F766E',
+    takeawayLabelColor: '115E59',
+  },
+  'creative-marketing': {
+    id: 'creative-marketing',
+    name: 'Royal Plum (Brand & Creative)',
+    domainKicker: 'CREATIVE STRATEGY • BRAND & MEDIA',
+    icon: 'layers',
+    coverBgGradient: ['#24123a', '#170928'],
+    coverBgHex: '24123A',
+    coverKickerColor: '#e879f9',
+    coverBadgeFill: '#3b1f5c',
+    coverSubtitleColor: '#fae8ff',
+    coverPresenterColor: '#d8b4fe',
+    coverPillBg: '#381958',
+    coverPillBorder: 'rgba(232, 121, 249, 0.25)',
+    coverPillText: '#f0abfc',
+    contentBgHex: 'FFFFFF',
+    contentKickerColor: '9333EA',
+    contentItemBadgeFill: '24123A',
+    takeawayCardBg: 'FDF4FF',
+    takeawayCardBorder: 'F0ABFC',
+    takeawayBadgeFill: 'C026D3',
+    takeawayLabelColor: '86198F',
+  },
+  'crimson-amber': {
+    id: 'crimson-amber',
+    name: 'Terracotta Amber (Humanities & Law)',
+    domainKicker: 'HUMANITIES & SOCIAL SCIENCES • ACADEMIC STUDY',
+    icon: 'landmark',
+    coverBgGradient: ['#2e1518', '#1c0b0d'],
+    coverBgHex: '2E1518',
+    coverKickerColor: '#fbbf24',
+    coverBadgeFill: '#4a2024',
+    coverSubtitleColor: '#fef3c7',
+    coverPresenterColor: '#fca5a5',
+    coverPillBg: '#3d1c20',
+    coverPillBorder: 'rgba(251, 191, 36, 0.25)',
+    coverPillText: '#fde68a',
+    contentBgHex: 'FFFFFF',
+    contentKickerColor: 'DC2626',
+    contentItemBadgeFill: '2E1518',
+    takeawayCardBg: 'FFFBEB',
+    takeawayCardBorder: 'FDE68A',
+    takeawayBadgeFill: 'D97706',
+    takeawayLabelColor: '92400E',
+  },
+};
+
+export function detectPresentationTheme(text: string, preferredThemeId?: string): PresentationTheme {
+  // 1. Explicit user selection or override
+  if (preferredThemeId && preferredThemeId in PRESENTATION_THEMES) {
+    return PRESENTATION_THEMES[preferredThemeId as PresentationThemeStyle];
+  }
+
+  // 2. Embedded markdown theme tag: <!-- THEME: id -->
+  const tagMatch = text.match(/<!--\s*THEME:\s*([a-z-]+)\s*-->/i);
+  if (tagMatch && tagMatch[1] in PRESENTATION_THEMES) {
+    return PRESENTATION_THEMES[tagMatch[1] as PresentationThemeStyle];
+  }
+
+  const clean = text.toLowerCase();
+
+  // 3. AI, Tech, Computer Science (Obsidian Cyan)
+  const aiRegex = /\b(ai|artificial intelligence|machine learning|deep learning|neural|nlp|llm|language model|data science|algorithm|python|cyber|cybersecurity|software|hardware|computer|cloud|network|robot|robotics|quantum|adversarial|cryptograph|blockchain|code|coding|devops|fullstack|frontend|backend|tech|technical|transformer|gpt|rag|agentic)\b/i;
+  if (aiRegex.test(clean)) {
+    return PRESENTATION_THEMES['ai-tech'];
+  }
+
+  // 4. Finance, Banking, Economics, Sustainability (Emerald Mint)
+  const financeRegex = /\b(bank|banking|financ\w*|monetary|investment|economy|economic\w*|fiscal|capital|stock|stocks|portfolio|trading|green|sustainable|sustainability|climate|renewable\w*|clean energy|esg|fund|fintech|accounting|audit|wealth)\b/i;
+  if (financeRegex.test(clean)) {
+    return PRESENTATION_THEMES['finance-business'];
+  }
+
+  // 5. Medical, Health, Biology (Ocean Teal)
+  const medicalRegex = /\b(health|medicine|medical|clinic\w*|biolog\w*|pharma\w*|doctor|patient|psychol\w*|genom\w*|disease\w*|hospital|therapy|vaccin\w*|biotech\w*|cancer|anatom\w*|physiol\w*|nutrition|healthcare|pathology)\b/i;
+  if (medicalRegex.test(clean)) {
+    return PRESENTATION_THEMES['medical-health'];
+  }
+
+  // 6. Creative, Marketing, Design, Arts (Royal Plum)
+  const creativeRegex = /\b(marketing|brand\w*|design\w*|creative|media|advertising|art|arts|music|fashion|content creation|social media|storytelling|video production|graphic\w*|cinemat\w*|film|copywriting)\b/i;
+  if (creativeRegex.test(clean)) {
+    return PRESENTATION_THEMES['creative-marketing'];
+  }
+
+  // 7. Humanities, History, Law, Philosophy (Terracotta Amber)
+  const humanitiesRegex = /\b(history|histor\w*|law|legal|philosophy|philosoph\w*|literature|literary|politic\w*|justice|education|sociology|sociol\w*|culture|cultural|ethics|ethical|governance|policy|humanities|anthropology)\b/i;
+  if (humanitiesRegex.test(clean)) {
+    return PRESENTATION_THEMES['crimson-amber'];
+  }
+
+  // 8. Executive General Strategy / Corporate Advisory (Midnight Cobalt)
+  const execRegex = /\b(strategy|strategic|executive|leadership|management|corporate|consulting|operations|transformation|roadmap|business model|enterprise|advisory)\b/i;
+  if (execRegex.test(clean)) {
+    return PRESENTATION_THEMES['executive-general'];
+  }
+
+  // 9. Deterministic hash fallback: ensure even uncategorized topics don't all look identical
+  const allThemeKeys: PresentationThemeStyle[] = [
+    'ai-tech',
+    'finance-business',
+    'executive-general',
+    'medical-health',
+    'creative-marketing',
+    'crimson-amber',
+  ];
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+    hash = (hash << 5) - hash + text.charCodeAt(i);
+    hash |= 0;
+  }
+  const chosenKey = allThemeKeys[Math.abs(hash) % allThemeKeys.length];
+  return PRESENTATION_THEMES[chosenKey];
+}
+
+export interface RawPresentationSlide {
+  marker: string;
+  content: string;
+  isTitle: boolean;
+}
+
+/**
+ * Robustly parses markdown into presentation slides, cleanly handling any
+ * slide markers (including hyphens, spaces, and numbers) without dropping content.
+ */
+export function parsePresentationMarkdown(markdown: string): RawPresentationSlide[] {
+  const slideRegex = /(?:^|\n)---\s*SLIDE(?:\s*\d*|\s*:)\s*([^\n]*?)\s*---?\s*(?:\n|$)/gi;
+  const matches = [...markdown.matchAll(slideRegex)];
+
+  if (matches.length > 0) {
+    const slides: RawPresentationSlide[] = [];
+    for (let i = 0; i < matches.length; i++) {
+      const match = matches[i];
+      const rawName = match[1].replace(/---$/, '').trim();
+      const startIndex = match.index + match[0].length;
+      const endIndex = (i + 1 < matches.length) ? matches[i + 1].index : markdown.length;
+      const content = markdown.slice(startIndex, endIndex).trim();
+      const isTitle = i === 0 || /title|cover/i.test(rawName);
+      slides.push({
+        marker: rawName || (isTitle ? 'Title Slide' : `Slide ${i + 1}`),
+        content,
+        isTitle,
+      });
+    }
+    return slides;
+  }
+
+  // Fallback: split by ## headings
+  const h2Parts = markdown.split(/(?=^##\s+)/m).filter((p) => p.trim().length > 0);
+  if (h2Parts.length > 0) {
+    return h2Parts.map((part, idx) => ({
+      marker: idx === 0 ? 'Title Slide' : `Slide ${idx + 1}`,
+      content: part.trim(),
+      isTitle: idx === 0,
+    }));
+  }
+
+  return [{ marker: 'Title Slide', content: markdown.trim(), isTitle: true }];
+}
+
 export interface PresentationCoverData {
   title: string;
   subtitle: string;
@@ -26,26 +305,15 @@ export interface CoverOptions {
 
 /**
  * Extracts the 1st slide metadata from the generated markdown presentation.
- * Accurately extracts:
- * - Slide title
- * - Subtitle / tagline
- * - Speaker notes
  */
 export function extractPresentationCoverData(markdown: string, fallbackTitle?: string): PresentationCoverData {
   let title = (fallbackTitle || '').trim();
   let subtitle = '';
   let speakerNotes: string | undefined = undefined;
 
-  const firstMarkerMatch = /^---SLIDE:\s*(.*?)---\s*$/m.exec(markdown);
-  let firstSlideContent = '';
-
-  if (firstMarkerMatch) {
-    const startIdx = firstMarkerMatch.index + firstMarkerMatch[0].length;
-    const nextMarkerIdx = markdown.indexOf('---SLIDE:', startIdx);
-    firstSlideContent = (nextMarkerIdx >= 0 ? markdown.slice(startIdx, nextMarkerIdx) : markdown.slice(startIdx)).trim();
-  } else {
-    firstSlideContent = markdown.slice(0, 1000).trim();
-  }
+  const slides = parsePresentationMarkdown(markdown);
+  const titleSlide = slides.find((s) => s.isTitle) || slides[0];
+  const firstSlideContent = titleSlide ? titleSlide.content : markdown.slice(0, 1000).trim();
 
   if (firstSlideContent) {
     const lines = firstSlideContent.split('\n').map((l) => l.trim()).filter(Boolean);
@@ -66,7 +334,7 @@ export function extractPresentationCoverData(markdown: string, fallbackTitle?: s
     }
 
     // 3. Subtitle / tagline
-    const nonHeadingLines = lines.filter((l) => !/^#{1,3}\s+/.test(l) && !/Speaker notes:/i.test(l));
+    const nonHeadingLines = lines.filter((l) => !/^#{1,3}\s+/.test(l) && !/Speaker notes:/i.test(l) && !/^\*\*Pillars:/i.test(l));
     if (nonHeadingLines.length > 0) {
       const boldCandidate = nonHeadingLines.find((l) => /^\*\*(.*?)\*\*/.test(l));
       if (boldCandidate) {
@@ -98,17 +366,61 @@ export function extractPresentationCoverData(markdown: string, fallbackTitle?: s
 }
 
 export function getPresentationSlideCount(markdown: string): number {
-  const names = Array.from(markdown.matchAll(/---SLIDE:\s*(.*?)---/g), (match) => match[1].trim());
-  const contentSlides = names.length - (names[0] && /title|cover/i.test(names[0]) ? 1 : 0);
-  return Math.max(1, contentSlides + 1); // 1 title slide + N content slides
+  return parsePresentationMarkdown(markdown).length;
 }
 
 export function omitModelTitleSlide(markdown: string): string {
-  const firstMarker = /^---SLIDE:\s*(.*?)---\s*$/m.exec(markdown);
-  if (!firstMarker || !/title|cover/i.test(firstMarker[1])) return markdown;
+  const slides = parsePresentationMarkdown(markdown);
+  const contentSlides = slides.filter((s) => !s.isTitle);
+  if (contentSlides.length === 0) return markdown;
+  return contentSlides.map((s) => `---SLIDE: ${s.marker}---\n${s.content}`).join('\n\n');
+}
 
-  const nextMarkerIndex = markdown.indexOf('---SLIDE:', firstMarker.index + firstMarker[0].length);
-  return nextMarkerIndex < 0 ? '' : markdown.slice(nextMarkerIndex).trim();
+export function extractPresentationPillars(markdown: string): string[] {
+  // 1. Direct **Pillars:** line
+  const pillarMatch = markdown.match(/\*\*Pillars:\*\*\s*(.*)$/im);
+  if (pillarMatch && pillarMatch[1]) {
+    const list = pillarMatch[1]
+      .split(/[|,]/)
+      .map((p) => p.replace(/\*\*/g, '').replace(/^[-*•]\s+/, '').trim())
+      .filter((p) => p.length >= 2 && p.length <= 32);
+    if (list.length >= 3) return list.slice(0, 4);
+  }
+
+  // 2. Look for Agenda slide items
+  const agendaMatch = markdown.match(/---SLIDE:\s*(?:Agenda|Roadmap)[^-\n]*---\s*([\s\S]*?)(?=---SLIDE:|$)/i);
+  if (agendaMatch && agendaMatch[1]) {
+    const boldLines = agendaMatch[1].match(/\*\*([A-Za-z0-9\s]{3,24})\*\*/g);
+    if (boldLines) {
+      const items = boldLines
+        .map((b) => b.replace(/\*\*/g, '').trim())
+        .filter((b) => !/takeaway|agenda|slide|roadmap/i.test(b) && b.length >= 3);
+      if (items.length >= 3) return items.slice(0, 4);
+    }
+  }
+
+  // 3. Fallback to bold words across presentation
+  const boldMatches = markdown.match(/\*\*([A-Za-z0-9\s]{3,20})\*\*/g);
+  if (boldMatches) {
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const b of boldMatches) {
+      const clean = b.replace(/\*\*/g, '').trim();
+      if (
+        clean.length >= 3 &&
+        clean.length <= 20 &&
+        !seen.has(clean) &&
+        !/slide|notes|agenda|title|topic|key takeaway|takeaway|pillars/i.test(clean)
+      ) {
+        seen.add(clean);
+        result.push(clean);
+        if (result.length >= 4) break;
+      }
+    }
+    if (result.length >= 3) return result;
+  }
+
+  return [];
 }
 
 /**
@@ -134,15 +446,20 @@ export function createPresentationCoverSvg(
   const subtitle = (coverData.subtitle || 'Comprehensive Overview, Strategic Insights & Roadmap').trim();
   const slideCount = options?.slideCount || (isFullMarkdown ? getPresentationSlideCount(markdownOrSubtitle) : 8);
 
+  // Dynamic theme detection based on content
+  const fullText = (title + ' ' + subtitle + ' ' + (typeof markdownOrSubtitle === 'string' ? markdownOrSubtitle.slice(0, 500) : '')).toLowerCase();
+  const theme = detectPresentationTheme(fullText);
+  const kicker = theme.domainKicker;
+
   // Dynamic typography sizing
-  let fontSize = 48;
-  let maxCharsPerLine = 28;
+  let fontSize = 42;
+  let maxCharsPerLine = 32;
   if (finalTitle.length > 55) {
+    fontSize = 30;
+    maxCharsPerLine = 42;
+  } else if (finalTitle.length > 34) {
     fontSize = 36;
-    maxCharsPerLine = 38;
-  } else if (finalTitle.length > 32) {
-    fontSize = 42;
-    maxCharsPerLine = 32;
+    maxCharsPerLine = 34;
   }
 
   // Word-wrap title across lines
@@ -180,57 +497,91 @@ export function createPresentationCoverSvg(
   if (currentSub && subLines.length < 2) subLines.push(currentSub);
   if (subLines.length === 0) subLines.push(subtitle);
 
-  const startY = titleLines.length === 1 ? 260 : titleLines.length === 2 ? 220 : 190;
-  const lineSpacing = fontSize * 1.2;
+  const startY = titleLines.length === 1 ? 260 : titleLines.length === 2 ? 215 : 185;
+  const lineSpacing = fontSize * 1.25;
 
   const titleSvgMarkup = titleLines
     .map((line, idx) => `<tspan x="70" y="${startY + idx * lineSpacing}">${escapeXml(line)}</tspan>`)
     .join('');
 
-  const accentY = startY + titleLines.length * lineSpacing + 16;
-  const subStartY = accentY + 44;
+  const subStartY = startY + titleLines.length * lineSpacing + 28;
 
   const subSvgMarkup = subLines
     .map((line, idx) => `<tspan x="70" y="${subStartY + idx * 30}">${escapeXml(line)}</tspan>`)
     .join('');
 
+  // Extract 4 feature pills
+  const extractedPills = isFullMarkdown ? extractPresentationPillars(markdownOrSubtitle as string) : [];
+  const defaultPills = theme.id === 'ai-tech'
+    ? ['Core Concepts', 'Architectures', 'Model Training', 'Evaluation']
+    : theme.id === 'finance-business'
+    ? ['Financial Stability', 'Central Banking', 'Monetary Policy', 'Systemic Risk']
+    : theme.id === 'medical-health'
+    ? ['Clinical Evidence', 'Pathophysiology', 'Diagnostics', 'Therapeutics']
+    : theme.id === 'creative-marketing'
+    ? ['Brand Identity', 'Audience Growth', 'Visual Design', 'Campaign Strategy']
+    : ['Strategic Focus', 'Core Pillars', 'Architecture', 'Roadmap'];
+  const finalPills = extractedPills.length >= 3 ? extractedPills.slice(0, 4) : defaultPills;
+
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675">
   <defs>
-    <!-- Dark Zinc gradient matching presentation slide canvas -->
-    <linearGradient id="slideDarkCanvas" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#18181b" />
-      <stop offset="100%" stop-color="#27272a" />
+    <!-- Dynamic Topic-Tailored Presentation Canvas -->
+    <linearGradient id="presentationCoverGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="${theme.coverBgGradient[0]}" />
+      <stop offset="100%" stop-color="${theme.coverBgGradient[1]}" />
     </linearGradient>
   </defs>
 
   <!-- Slide Canvas Base -->
-  <rect width="1200" height="675" rx="16" fill="url(#slideDarkCanvas)" stroke="rgba(255, 255, 255, 0.1)" stroke-width="1.5" />
+  <rect width="1200" height="675" rx="16" fill="url(#presentationCoverGrad)" stroke="rgba(255, 255, 255, 0.08)" stroke-width="1.5" />
 
-  <!-- Slide Header Bar (Matching rest of PPT) -->
-  <g transform="translate(70, 52)">
-    <text x="0" y="0" fill="#f59e0b" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="700" letter-spacing="2">TITLE SLIDE</text>
-    <text x="1060" y="0" text-anchor="end" fill="#a1a1aa" font-family="monospace, sans-serif" font-size="13">1 of ${slideCount}</text>
-    <line x1="0" y1="20" x2="1060" y2="20" stroke="rgba(255, 255, 255, 0.1)" stroke-width="1.5" />
+  <!-- Slide Header Bar -->
+  <g transform="translate(70, 56)">
+    <text x="0" y="0" fill="${theme.coverKickerColor}" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700" letter-spacing="2.5">${escapeXml(kicker)}</text>
+    <circle cx="1040" cy="-6" r="22" fill="${theme.coverBadgeFill}" stroke="rgba(255, 255, 255, 0.15)" stroke-width="1" />
+    <path d="M1030 -10 L1040 -17 L1050 -10 L1050 -7 L1030 -7 Z M1032 -5 L1035 -5 L1035 3 L1032 3 Z M1038 -5 L1042 -5 L1042 3 L1038 3 Z M1045 -5 L1048 -5 L1048 3 L1045 3 Z M1028 5 L1052 5 L1052 7 L1028 7 Z" fill="#ffffff" />
   </g>
 
-  <!-- Hero Title (Matching rest of PPT) -->
-  <text font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="${fontSize}" font-weight="800" fill="#ffffff" letter-spacing="-0.5">
+  <!-- Hero Title (Matching Preview Serif Design) -->
+  <text font-family="Georgia, 'Times New Roman', serif" font-size="${fontSize}" font-weight="700" fill="#ffffff" letter-spacing="-0.3">
     ${titleSvgMarkup}
   </text>
 
-  <!-- Amber Accent Underline -->
-  <rect x="70" y="${accentY}" width="80" height="4" rx="2" fill="#f59e0b" />
-
-  <!-- Subtitle (Matching rest of PPT) -->
-  <text font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="21" font-weight="400" fill="#d4d4d8" letter-spacing="0.2">
+  <!-- Subtitle (Italic Georgia) -->
+  <text font-family="Georgia, 'Times New Roman', serif" font-style="italic" font-size="20" font-weight="400" fill="${theme.coverSubtitleColor}" letter-spacing="0.2">
     ${subSvgMarkup}
   </text>
 
-  <!-- Slide Footer Bar (Matching rest of PPT) -->
-  <g transform="translate(70, 618)">
-    <line x1="0" y1="-22" x2="1060" y2="-22" stroke="rgba(255, 255, 255, 0.1)" stroke-width="1.5" />
-    <text x="0" y="0" fill="#a1a1aa" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="600">e-Mate AI Studio</text>
-    <text x="1060" y="0" text-anchor="end" fill="#a1a1aa" font-family="system-ui, -apple-system, sans-serif" font-size="13">1 / ${slideCount}</text>
+  <!-- Presenter line -->
+  <text x="70" y="${subStartY + subLines.length * 30 + 26}" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="500" fill="${theme.coverPresenterColor}">
+    Prepared with e-Mate AI Studio
+  </text>
+
+  <!-- Feature Pills Row (4 pills) -->
+  <g transform="translate(70, 580)">
+    <!-- Pill 1 -->
+    <rect x="0" y="0" width="195" height="38" rx="19" fill="${theme.coverPillBg}" stroke="${theme.coverPillBorder}" />
+    <circle cx="20" cy="19" r="11" fill="rgba(255, 255, 255, 0.1)" />
+    <text x="40" y="24" fill="${theme.coverPillText}" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600">${escapeXml((finalPills[0] || 'Core Concepts').slice(0, 18))}</text>
+
+    <!-- Pill 2 -->
+    <rect x="210" y="0" width="195" height="38" rx="19" fill="${theme.coverPillBg}" stroke="${theme.coverPillBorder}" />
+    <circle cx="230" cy="19" r="11" fill="rgba(255, 255, 255, 0.1)" />
+    <text x="250" y="24" fill="${theme.coverPillText}" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600">${escapeXml((finalPills[1] || 'Architectures').slice(0, 18))}</text>
+
+    <!-- Pill 3 -->
+    <rect x="420" y="0" width="195" height="38" rx="19" fill="${theme.coverPillBg}" stroke="${theme.coverPillBorder}" />
+    <circle cx="440" cy="19" r="11" fill="rgba(255, 255, 255, 0.1)" />
+    <text x="460" y="24" fill="${theme.coverPillText}" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600">${escapeXml((finalPills[2] || 'Mechanisms').slice(0, 18))}</text>
+
+    <!-- Pill 4 -->
+    <rect x="630" y="0" width="195" height="38" rx="19" fill="${theme.coverPillBg}" stroke="${theme.coverPillBorder}" />
+    <circle cx="650" cy="19" r="11" fill="rgba(255, 255, 255, 0.1)" />
+    <text x="670" y="24" fill="${theme.coverPillText}" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600">${escapeXml((finalPills[3] || 'Roadmap').slice(0, 18))}</text>
+
+    <!-- Slide count pill on right -->
+    <rect x="960" y="0" width="100" height="38" rx="8" fill="rgba(0, 0, 0, 0.6)" stroke="rgba(255, 255, 255, 0.1)" />
+    <text x="1010" y="24" text-anchor="middle" fill="#ffffff" font-family="monospace, sans-serif" font-size="13" font-weight="600">Page 1 / ${slideCount}</text>
   </g>
 </svg>`;
 }

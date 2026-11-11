@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, X, Trash2, Plus, BookOpen } from 'lucide-react';
+import { ArrowLeft, X, Plus, BookOpen } from 'lucide-react';
+import DeleteButton from '@/components/ui/DeleteButton';
 import { toast } from 'sonner';
 import {
   getNotebook,
@@ -111,13 +112,12 @@ export default function NotebookOverlay({ subjectName, onClose, theme }: Noteboo
             </p>
           </div>
           {notebook && notebook.entries.length > 0 && (
-            <button
+            <DeleteButton
+              size="md"
+              label="Clear All"
+              title="Clear all notes"
               onClick={handleClearAll}
-              className="text-xs font-medium px-4 py-2 rounded-full bg-[#db7a88] hover:bg-[#c96a78] text-white transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer active:scale-95"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              Clear All Notes
-            </button>
+            />
           )}
         </div>
 
@@ -169,13 +169,16 @@ export default function NotebookOverlay({ subjectName, onClose, theme }: Noteboo
                   style={{ borderColor: bdr, background: cardBg }}
                 >
                   <p className="text-sm leading-relaxed whitespace-pre-wrap">{entry.content}</p>
-                  <button
-                    onClick={() => handleDeleteNote(entry.id)}
-                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 rounded-md text-zinc-400 hover:text-red-500 transition-all"
+                  <DeleteButton
+                    size="sm"
+                    label="Delete"
                     title="Delete note"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                    className="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteNote(entry.id);
+                    }}
+                  />
                 </div>
               ))}
             </div>

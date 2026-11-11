@@ -22,7 +22,7 @@ import {
   stripLeadingSafetyMetadata,
 } from '@/lib/chat/streamProtocol';
 
-const MAX_CHAT_RESPONSE_TOKENS = 2000;
+const MAX_CHAT_RESPONSE_TOKENS = 8192;
 
 // Fastest free model — always works for guests using the server key with zero credits needed
 const PRIMARY_MODEL = 'openrouter/free';
@@ -123,6 +123,7 @@ export async function POST(req: Request) {
       model,
       notebookContext,
       isGeneralChat,
+      studyPlanContext,
       attachments,
       credits,
       userApiKey,
@@ -324,6 +325,7 @@ export async function POST(req: Request) {
       notebookContext,
       retrievedChunks,
       isGeneralChat,
+      studyPlanContext: isGeneralChat ? undefined : studyPlanContext,
       isGroundingWeak,
       userPatternContext,
       historyMessages: messages.slice(0, -1).map((m: any) => ({

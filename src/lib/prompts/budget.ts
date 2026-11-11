@@ -9,17 +9,17 @@ import type { RetrievedChunk, ChatMessage } from './index';
 
 export const CONTEXT_BUDGET = {
   /** Hard ceiling on total prompt input tokens (system + context + history + user query) */
-  MAX_INPUT_TOKENS: 4800,
+  MAX_INPUT_TOKENS: 32000,
   /** Hard ceiling on total request tokens including completion generation */
-  MAX_TOTAL_REQUEST_TOKENS: 6000,
+  MAX_TOTAL_REQUEST_TOKENS: 40000,
   /** Reserved tokens for assistant generation */
-  RESERVED_OUTPUT_TOKENS: 1200,
+  RESERVED_OUTPUT_TOKENS: 8000,
 
   /** Component target budgets */
-  TARGET_SYSTEM_TOKENS: 800,
-  TARGET_RETRIEVED_CONTEXT_TOKENS: 2400,
-  TARGET_HISTORY_TOKENS: 1000,
-  TARGET_USER_QUERY_TOKENS: 600,
+  TARGET_SYSTEM_TOKENS: 2000,
+  TARGET_RETRIEVED_CONTEXT_TOKENS: 16000,
+  TARGET_HISTORY_TOKENS: 12000,
+  TARGET_USER_QUERY_TOKENS: 4000,
 } as const;
 
 export type ContextBudgetConfig = typeof CONTEXT_BUDGET;

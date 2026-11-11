@@ -1,4 +1,5 @@
 import { openRouterCompletion } from '@/lib/openrouter';
+import { detectPresentationTheme, parsePresentationMarkdown } from '@/lib/presentationCover';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -15,6 +16,7 @@ export interface GenerateDocumentRequest {
   notebookContext?: string;
   subject?: string;
   unit?: string;
+  preferredTheme?: string;
 }
 
 function getApiKey(req: Request, bodyKey?: string): string | null {
@@ -142,42 +144,105 @@ Format rules:
   - Final actionable recommendations and sign-off criteria.`;
 
 
-const SYSTEM_PROMPT_PPTX = `You are an expert presentation designer and slide structure compiler for e-Mate AI.
-Your output is sent directly into e-Mate's PowerPoint .pptx compilation engine that automatically builds real presentation decks for the user.
+const SYSTEM_PROMPT_PPTX = `You are an elite presentation designer, slide architect, and visual compiler for e-Mate AI.
+You adhere to the high-end principles of the PPT Generation Skill (combining Apple Keynote clarity, modern Editorial layout, and Swiss Grid alignment).
+Your output is compiled directly by e-Mate's presentation engine into real PowerPoint (.pptx) decks and live interactive previews.
 
-CRITICAL INSTRUCTIONS:
-- You MUST output ONLY the slide markers and slide content using the EXACT format below.
-- Do NOT include ANY introductory greeting, preamble, apology, or disclaimers.
-- NEVER say "I can't create actual .pptx files" or "I cannot make PowerPoint files" — the system compiles your output directly into real .pptx files!
-- Start IMMEDIATELY with the first slide marker: ---SLIDE: Title Slide---
-- Slide 1 (Title Slide) MUST feature a bespoke, topic-tailored title (## Specific Topic Title) and a descriptive subtitle/tagline (**Subtitle** - Clear scope and strategic value). Never output generic placeholders!
+CRITICAL DESIGN & ALIGNMENT PRINCIPLES:
+1. MANDATORY DECK LENGTH (6 TO 8 SLIDES):
+   - You MUST generate a complete deck of 6 to 8 slides.
+   - NEVER stop after 2 or 3 slides. Every presentation must be a full, coherent narrative from Title to Conclusion.
+   - Typical deck flow:
+     * Slide 1: Title & Positioning
+     * Slide 2: Agenda & Strategic Roadmap
+     * Slide 3: Core Foundations & Taxonomy
+     * Slide 4: Deep-Dive Mechanisms & Architecture
+     * Slide 5: Real-World Applications & Empirical Findings
+     * Slide 6: Systemic Trade-offs, Challenges & Safeguards
+     * Slide 7: Strategic Conclusion & Next Steps
 
-Format your output EXACTLY like this:
+2. VISUAL HIERARCHY & NEGATIVE SPACE:
+   - Every slide must feel executive, uncluttered, and breatheable with 40-50% negative space.
+   - Exactly ONE primary focus per slide. Never dump walls of raw text or cluttered bullet lists.
+   - Keep slide titles concise, punchy, and impactful (4-7 words, strictly under 40 characters).
+
+3. STRICT 2-COLUMN BENTO SLIDE ARCHITECTURE:
+   - For all content slides (Slides 2+), enforce a structured 2-column layout:
+     * LEFT COLUMN: Exactly 2 or 3 structured insight cards. Each card MUST have a bold, punchy title (2-4 words) followed by a hyphen and 1-2 focused, high-value sentences (under 120 characters).
+     * RIGHT COLUMN: Exactly ONE Key Takeaway card with the bold prefix "**Key Takeaway** - [Actionable executive conclusion or strategic synthesis, under 140 characters]".
+   - This exact balance guarantees clean visual alignment in both the PowerPoint slides and live deck preview.
+
+4. SLIDE 1 (TITLE & POSITIONING):
+   - Bespoke, high-impact headline (## Specific Title under 40 chars).
+   - Descriptive subtitle (**Subtitle** - Scope, audience, and strategic value, under 70 chars).
+   - A dedicated line of 4 core thematic pillar anchors: "**Pillars:** [Pillar 1] | [Pillar 2] | [Pillar 3] | [Pillar 4]" (each pillar 2-3 words, under 18 chars).
+   - Presenter coaching notes in [Speaker notes: ...].
+
+5. SLIDE 2 (AGENDA & STRATEGIC ROADMAP):
+   - Clear overview of the 3-4 core pillars of the presentation.
+   - Includes "**Key Takeaway** - [Strategic roadmap takeaway]".
+
+FORMAT SPECIFICATION:
+You MUST output ONLY slide markers and slide content using the EXACT structure below.
+Do NOT include any greetings, markdown backtick fences (\`\`\`), apologies, or preambles.
+Start IMMEDIATELY with "---SLIDE: Title Slide---".
 
 ---SLIDE: Title Slide---
-## [Engaging, Topic-Specific Presentation Title]
-**[Compelling Subtitle]** - [Clear summary of scope, audience, or purpose]
+## [Focused Presentation Title]
+**[Compelling Subtitle]** - [Clear scope, strategic value, and audience context]
+**Pillars:** [Pillar 1] | [Pillar 2] | [Pillar 3] | [Pillar 4]
 [Speaker notes: Key context and opening remarks for the presenter]
 
 ---SLIDE: Agenda---
 ## Agenda & Strategic Roadmap
-**Key Area 1** - Overview of first core pillar
-**Key Area 2** - Overview of second core pillar
-**Key Area 3** - Implementation roadmap and next steps
-[Speaker notes: Walk through the presentation structure]
+**[Pillar 1 Name]** - [Concise 1-sentence overview of first core area]
+**[Pillar 2 Name]** - [Concise 1-sentence overview of second core area]
+**[Pillar 3 Name]** - [Concise 1-sentence overview of third core area]
+**Key Takeaway** - [Core takeaway highlighting the strategic arc of the presentation]
+[Speaker notes: Walk through the structure and set expectations]
 
----SLIDE: Topic One---
-## Topic One Title
-**Main Insight** - Detailed explanation
-**Supporting Data** - Metrics or relevant facts
-**Takeaway** - Actionable conclusion
-[Speaker notes: Explanation for the presenter]
+---SLIDE: [Pillar 1 Foundations]---
+## [Punchy Headline for Foundations]
+**[Point 1 Title]** - [Clear explanation of foundational mechanism or principle]
+**[Point 2 Title]** - [Supporting evidence, real-world application, or proof point]
+**[Point 3 Title]** - [Implementation considerations or architectural nuance]
+**Key Takeaway** - [Actionable conclusion or core strategic takeaway for this topic]
+[Speaker notes: Presenter coaching notes explaining how to deliver this slide]
 
-Rules:
-- Generate 6-10 comprehensive, high-value slides.
-- Each slide MUST start with "---SLIDE: [Slide Name]---"
-- Provide 3-5 punchy bullet points with bold prefixes per slide.
-- Include thoughtful speaker notes in "[Speaker notes: ...]" on each slide.
+---SLIDE: [Pillar 2 Architecture]---
+## [Punchy Headline for Architecture]
+**[Point 1 Title]** - [Deep-dive explanation of core mechanism]
+**[Point 2 Title]** - [Metrics, operational dynamics, or technical trade-offs]
+**Key Takeaway** - [Actionable conclusion or core strategic takeaway for this topic]
+[Speaker notes: Key delivery tips and transitions]
+
+---SLIDE: [Pillar 3 Implementation]---
+## [Punchy Headline for Applications]
+**[Point 1 Title]** - [Practical implementation pattern and deployment]
+**[Point 2 Title]** - [Measurable benchmark results and empirical findings]
+**Key Takeaway** - [Critical factor for real-world operational success]
+[Speaker notes: Walk through implementation nuances]
+
+---SLIDE: [Pillar 4 Challenges]---
+## [Punchy Headline for Trade-offs]
+**[Point 1 Title]** - [Critical bottleneck, systemic risk, or constraint]
+**[Point 2 Title]** - [Proven mitigation strategies and architectural safeguards]
+**Key Takeaway** - [Core defensive posture and best practices]
+[Speaker notes: Highlight risks and mitigation paths]
+
+---SLIDE: Strategic Outlook---
+## Conclusion & Future Horizons
+**[Point 1 Title]** - [Immediate next steps and adoption priorities]
+**[Point 2 Title]** - [Long-term roadmap and technological frontiers]
+**Key Takeaway** - [Final executive vision and strategic mandate]
+[Speaker notes: Final summary and call to action]
+
+RULES:
+- Generate 6-8 comprehensive, high-value slides without skipping any sections.
+- Each slide MUST start with "---SLIDE: [Category/Pillar Name]---".
+- Every content slide MUST contain 2 to 3 insight points + exactly 1 "**Key Takeaway** - ...".
+- Every slide MUST include thoughtful [Speaker notes: ...] at the bottom.
+- Ensure titles are under 40 characters to avoid awkward line wrapping.
 - Do NOT output any text before the first "---SLIDE:" or after the last slide.`;
 
 function getSystemPrompt(format: 'docx' | 'pptx'): string {
@@ -201,8 +266,13 @@ function extractText(content: unknown): string {
 function normalizeDocumentContent(content: string, format: 'docx' | 'pptx', defaultTitle?: string): string {
   let clean = content.trim();
   if (format === 'pptx') {
-    const slideIndex = clean.indexOf('---SLIDE:');
-    if (slideIndex >= 0) clean = clean.slice(slideIndex).trim();
+    const slideIndex = clean.search(/(?:^|\n)---\s*SLIDE/i);
+    if (slideIndex >= 0) {
+      clean = clean.slice(slideIndex).trim();
+    } else {
+      const altSlideIndex = clean.search(/(?:^|\n)(?:---\s*Slide|##\s+)/i);
+      if (altSlideIndex >= 0) clean = clean.slice(altSlideIndex).trim();
+    }
     return clean;
   }
 
@@ -226,8 +296,10 @@ function normalizeDocumentContent(content: string, format: 'docx' | 'pptx', defa
 }
 
 function isValidDocument(content: string, format: 'docx' | 'pptx'): boolean {
-  if (content.trim().length < 80) return false;
-  return format === 'docx' ? /^#\s+\S/m.test(content) : (content.match(/---SLIDE:/g) || []).length >= 3;
+  if (content.trim().length < 60) return false;
+  if (format === 'docx') return /^#\s+\S/m.test(content) || content.length > 120;
+  const slides = parsePresentationMarkdown(content);
+  return slides.length >= 1;
 }
 
 export async function POST(req: Request) {
@@ -243,6 +315,7 @@ export async function POST(req: Request) {
       notebookContext = '',
       subject = '',
       unit = '',
+      preferredTheme,
     } = body;
 
     if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
@@ -278,35 +351,70 @@ export async function POST(req: Request) {
     ].filter(Boolean).join('\n\n');
 
     const activeModel = model || 'emate';
-    let cleanContent = '';
+    let bestContent = '';
+    let bestSlideCount = 0;
+
     for (let attempt = 0; attempt < 2; attempt += 1) {
-      const response = await openRouterCompletion(apiKey, {
-        model: activeModel,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: attempt === 0
-            ? userPrompt
-            : `${userPrompt}\n\nReturn the complete document now. The previous response was empty or did not follow the required ${format.toUpperCase()} source format. Output ONLY valid Markdown starting directly with # Title.` },
-        ],
-        temperature: attempt === 0 ? 0.45 : 0.25,
-        max_tokens: 6500,
-      });
+      try {
+        const response = await openRouterCompletion(apiKey, {
+          model: activeModel,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            {
+              role: 'user',
+              content:
+                attempt === 0
+                  ? userPrompt
+                  : `${userPrompt}\n\nEnsure you generate a complete, full presentation with 6 to 8 slides starting directly with ---SLIDE: Title Slide---.`,
+            },
+          ],
+          temperature: attempt === 0 ? 0.45 : 0.25,
+          max_tokens: 6500,
+        });
 
-      let rawContent = extractText((response as any)?.choices?.[0]?.message?.content);
-      // Strip outer markdown fences if the model wrapped output in ```markdown ... ```
-      if (rawContent.startsWith('```markdown')) {
-        rawContent = rawContent.replace(/^```markdown\s*/i, '').replace(/\s*```$/, '').trim();
-      } else if (rawContent.startsWith('```')) {
-        rawContent = rawContent.replace(/^```\w*\s*/, '').replace(/\s*```$/, '').trim();
+        let rawContent = extractText((response as any)?.choices?.[0]?.message?.content);
+        // Strip outer markdown fences if the model wrapped output in ```markdown ... ```
+        if (rawContent.startsWith('```markdown')) {
+          rawContent = rawContent.replace(/^```markdown\s*/i, '').replace(/\s*```$/, '').trim();
+        } else if (rawContent.startsWith('```')) {
+          rawContent = rawContent.replace(/^```\w*\s*/, '').replace(/\s*```$/, '').trim();
+        }
+
+        const candidate = normalizeDocumentContent(rawContent, format, title);
+        if (candidate && candidate.trim().length >= 60) {
+          if (format === 'pptx') {
+            const slides = parsePresentationMarkdown(candidate);
+            if (slides.length > bestSlideCount) {
+              bestSlideCount = slides.length;
+              bestContent = candidate;
+            }
+            // If we got 5+ slides, it's a complete deck — break early!
+            if (slides.length >= 5) break;
+          } else {
+            bestContent = candidate;
+            if (isValidDocument(candidate, format)) break;
+          }
+        }
+      } catch (err: any) {
+        console.warn(`[generate-document] Attempt ${attempt} failed:`, err?.message || err);
+        if (attempt === 1 && !bestContent) throw err;
       }
-
-      cleanContent = normalizeDocumentContent(rawContent, format, title);
-      if (isValidDocument(cleanContent, format)) break;
-      cleanContent = '';
     }
 
-    if (!cleanContent) {
+    let cleanContent = bestContent;
+
+    if (!cleanContent || cleanContent.trim().length < 40) {
       return Response.json({ error: 'The model returned an incomplete document. Please try again or switch models.' }, { status: 502 });
+    }
+
+    if (format === 'pptx') {
+      if (!cleanContent.includes('<!-- THEME:')) {
+        const detected = detectPresentationTheme(
+          `${title || ''} ${prompt} ${cleanContent.slice(0, 1000)}`,
+          preferredTheme
+        );
+        cleanContent = `<!-- THEME: ${detected.id} -->\n${cleanContent}`;
+      }
     }
 
     // Extract title from content if not provided

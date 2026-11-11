@@ -7,7 +7,6 @@ import {
   Search,
   BookOpen,
   Play,
-  Trash2,
   Sparkles,
   Layers,
   CheckCircle2,
@@ -15,6 +14,7 @@ import {
   Plus,
   ArrowRight,
 } from 'lucide-react';
+import DeleteButton from '@/components/ui/DeleteButton';
 
 interface FlashcardLibraryViewProps {
   decks: FlashcardDeck[];
@@ -219,17 +219,15 @@ export default function FlashcardLibraryView({
                       <span>Study</span>
                     </button>
 
-                    <button
-                      type="button"
+                    <DeleteButton
+                      size="sm"
+                      title="Delete deck"
+                      label="Delete"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDelete(deck.id);
                       }}
-                      title="Delete deck"
-                      className="p-1.5 rounded-full text-zinc-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    />
                   </div>
                 </div>
               </div>

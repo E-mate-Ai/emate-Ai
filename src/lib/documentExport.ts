@@ -20,11 +20,11 @@ export function exportToXls(title: string, markdownOrData: string | SpreadsheetD
 /**
  * Exports markdown content into a true Microsoft PowerPoint (.pptx) file via server generation.
  */
-export async function exportToPptx(title: string, markdown: string): Promise<Blob> {
+export async function exportToPptx(title: string, markdown: string, themeId?: string): Promise<Blob> {
   const res = await fetch('/api/export-document', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, content: markdown, format: 'pptx' }),
+    body: JSON.stringify({ title, content: markdown, format: 'pptx', themeId }),
   });
 
   if (!res.ok) {

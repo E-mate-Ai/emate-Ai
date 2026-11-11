@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Copy, Check, RotateCcw, BookMarked, Sparkles, Loader2, ChevronRight, Plus } from 'lucide-react';
+import LatticeLoader from '@/components/ui/LatticeLoader';
+import StepProgress from '@/components/ui/StepProgress';
 import type { ChatMessage } from './AITopperChatScreen';
 import { appendToNotebook } from '@/lib/notebook';
 import { toast } from 'sonner';
@@ -862,11 +864,22 @@ export default function ChatMessageBubble({
             </>
           ) : (
             isStreaming && (
-              <div className="flex items-center gap-1.5 py-1.5 text-zinc-400 dark:text-zinc-500 text-xs">
-                <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '300ms' }} />
-              </div>
+              <LatticeLoader
+                status="working"
+                label="Thinking"
+                pattern="orbit"
+                grid={3}
+                shape="round"
+                color="#3b82f6"
+                doneColor="#22c55e"
+                errorColor="#ef4444"
+                cellSize={5.5}
+                gap={2}
+                fontSize={13}
+                step={90}
+                idleOpacity={0.15}
+                showTimer={false}
+              />
             )
           )}
         </div>
@@ -1060,6 +1073,17 @@ export default function ChatMessageBubble({
         )}
 
         {/* Generated document artifact */}
+        {message.generatedDoc && message.generatedDoc.status === 'generating' && isStreaming && (
+          <StepProgress
+            steps={
+              message.generatedDoc.format === 'pptx'
+                ? ['Researching topic', 'Structuring slides', 'Writing content', 'Designing layout', 'Building presentation']
+                : ['Researching topic', 'Drafting document', 'Formatting sections', 'Finalising document']
+            }
+            active={true}
+            duration={1600}
+          />
+        )}
         {message.generatedDoc && (
           <DocumentGenerationCard
             doc={message.generatedDoc}

@@ -16,7 +16,15 @@ import {
   BookOpen,
   Zap,
   UploadCloud,
+  Edit3,
+  FileSpreadsheet,
+  FileText,
+  Download,
+  Loader2,
+  Check,
 } from 'lucide-react';
+import { detectIfSpreadsheetContent } from '@/lib/documentScanner';
+import { exportToXls, exportToDocx, downloadFile } from '@/lib/documentExport';
 
 // ----------------------------------------------------------------------
 // Slash Commands
@@ -450,6 +458,10 @@ function AttachmentGalleryModal({
 }) {
   const [phase, setPhase] = useState<'opening' | 'open' | 'closing'>('opening');
   const [textContent, setTextContent] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedText, setEditedText] = useState<string>('');
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [targetRect, setTargetRect] = useState<{
     top: number;
     left: number;
@@ -462,17 +474,65 @@ function AttachmentGalleryModal({
   const ext = (attachment.name.split('.').pop() || '').toLowerCase();
   const isImage = attachment.kind === 'image' || ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(ext);
   const isPdf = attachment.file?.type === 'application/pdf' || ext === 'pdf';
-  const isTextLike = ['txt', 'md', 'json', 'csv', 'js', 'ts', 'jsx', 'tsx', 'py', 'html', 'css', 'xml', 'yaml', 'yml'].includes(ext);
+  const isTextLike = ['txt', 'md', 'json', 'csv', 'tsv', 'js', 'ts', 'jsx', 'tsx', 'py', 'html', 'css', 'xml', 'yaml', 'yml'].includes(ext);
 
   // Load text file content if applicable
   useEffect(() => {
     if (isTextLike && attachment.file) {
       attachment.file
         .text()
-        .then((txt) => setTextContent(txt.slice(0, 40000)))
+        .then((txt) => {
+          setTextContent(txt.slice(0, 40000));
+          setEditedText(txt.slice(0, 40000));
+        })
         .catch(() => setTextContent(null));
     }
   }, [attachment.file, isTextLike]);
+
+  const handleExtractFromPdf = async () => {
+    if (!attachment.file) return;
+    setIsExtracting(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', attachment.file);
+      const res = await fetch('/api/parse-pdf', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (data.text) {
+        setTextContent(data.text);
+        setEditedText(data.text);
+        setIsEditing(true);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
+  const isSpreadsheet = editedText ? detectIfSpreadsheetContent(editedText, attachment.name) : false;
+
+  const handleExportXls = () => {
+    try {
+      const baseName = attachment.name.replace(/\.[^/.]+$/, '');
+      const blob = exportToXls(baseName, editedText);
+      downloadFile(blob, `${baseName}-edited.xls`);
+    } catch (e) {
+      console.error('Failed to export xls:', e);
+    }
+  };
+
+  const handleExportDocx = async () => {
+    try {
+      setIsExporting(true);
+      const baseName = attachment.name.replace(/\.[^/.]+$/, '');
+      const blob = await exportToDocx(baseName, editedText);
+      downloadFile(blob, `${baseName}-edited.docx`);
+    } catch (e) {
+      console.error('Failed to export docx:', e);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   useEffect(() => {
     const isDoc = !isImage;
@@ -556,7 +616,7 @@ function AttachmentGalleryModal({
       >
         {/* Header bar */}
         <div className="flex items-center justify-between px-4 py-2.5 bg-zinc-950/90 border-b border-zinc-800/80 text-xs text-zinc-300 shrink-0">
-          <div className="flex items-center gap-2 min-w-0 pr-10">
+          <div className="flex items-center gap-2 min-w-0 pr-4">
             <span
               className="text-[10px] font-extrabold px-1.5 py-0.5 rounded uppercase leading-none tracking-tight shrink-0"
               style={{ background: fileStyle.bg, color: fileStyle.color }}
@@ -567,12 +627,70 @@ function AttachmentGalleryModal({
             {sizeLabel && <span className="text-[10px] text-zinc-400 shrink-0">({sizeLabel})</span>}
           </div>
           <div className="flex items-center gap-2 mr-8">
+            {/* Scan & Edit for PDFs */}
+            {isPdf && !isEditing && (
+              <button
+                type="button"
+                onClick={handleExtractFromPdf}
+                disabled={isExtracting}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-600/20 text-blue-300 hover:bg-blue-600/30 border border-blue-500/40 text-[11px] font-medium transition-colors cursor-pointer"
+              >
+                {isExtracting ? <Loader2 size={12} className="animate-spin" /> : <Edit3 size={12} />}
+                <span>{isExtracting ? 'Scanning…' : 'Scan & Edit'}</span>
+              </button>
+            )}
+
+            {/* Toggle Edit for Text files */}
+            {isTextLike && textContent !== null && (
+              <button
+                type="button"
+                onClick={() => setIsEditing((v) => !v)}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer border ${
+                  isEditing
+                    ? 'bg-blue-600 text-white border-blue-500'
+                    : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700'
+                }`}
+              >
+                <Edit3 size={12} />
+                <span>{isEditing ? 'Editing' : 'Edit'}</span>
+              </button>
+            )}
+
+            {/* In Editing mode: Export buttons */}
+            {isEditing && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleExportXls}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${
+                    isSpreadsheet
+                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs'
+                      : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'
+                  }`}
+                  title="Export content as Microsoft Excel spreadsheet (.xls)"
+                >
+                  <FileSpreadsheet size={12} />
+                  <span>Export .xls {isSpreadsheet && '★'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportDocx}
+                  disabled={isExporting}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-semibold transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+                  title="Export content as Microsoft Word document (.docx)"
+                >
+                  {isExporting ? <Loader2 size={12} className="animate-spin" /> : <FileText size={12} />}
+                  <span>Export .docx</span>
+                </button>
+              </>
+            )}
+
             <a
               href={attachment.url}
               download={attachment.name}
               target="_blank"
               rel="noreferrer"
-              className="px-2 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] font-medium transition-colors"
+              className="px-2.5 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] font-medium transition-colors"
             >
               Download
             </a>
@@ -581,7 +699,24 @@ function AttachmentGalleryModal({
 
         {/* Content viewer */}
         <div className="relative flex-1 min-h-0 bg-zinc-950/60 overflow-hidden flex items-center justify-center">
-          {isImage ? (
+          {isEditing ? (
+            <div className="size-full flex flex-col p-4">
+              <div className="flex items-center justify-between pb-2 mb-2 border-b border-zinc-800 text-[11px] text-zinc-400">
+                <span className="flex items-center gap-2">
+                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  {isSpreadsheet ? 'Spreadsheet structure detected' : 'Standard document'}
+                  <span className="text-zinc-500">· {editedText.length.toLocaleString()} characters</span>
+                </span>
+                <span className="text-zinc-500">Edit directly below then choose export format</span>
+              </div>
+              <textarea
+                value={editedText}
+                onChange={(e) => setEditedText(e.target.value)}
+                className="flex-1 w-full bg-zinc-900 text-zinc-100 font-mono text-xs p-4 rounded-xl border border-zinc-800 focus:border-blue-500 focus:outline-hidden resize-none leading-relaxed"
+                placeholder="Document content..."
+              />
+            </div>
+          ) : isImage ? (
             <img
               ref={imgRef}
               src={attachment.url}
@@ -612,13 +747,15 @@ function AttachmentGalleryModal({
               <p className="text-xs text-zinc-400 mt-3 max-w-xs">
                 This document is ready to be analyzed with your prompt in the chat.
               </p>
-              <a
-                href={attachment.url}
-                download={attachment.name}
-                className="mt-4 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-sm transition-colors"
-              >
-                Download / Open file
-              </a>
+              <div className="flex items-center gap-2 mt-4">
+                <a
+                  href={attachment.url}
+                  download={attachment.name}
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-sm transition-colors"
+                >
+                  Download / Open file
+                </a>
+              </div>
             </div>
           )}
         </div>
