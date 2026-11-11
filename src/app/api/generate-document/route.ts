@@ -1,5 +1,9 @@
 import { openRouterCompletion } from '@/lib/openrouter';
-import { detectPresentationTheme, parsePresentationMarkdown } from '@/lib/presentationCover';
+import {
+  detectPresentationTheme,
+  parsePresentationMarkdown,
+  getRandomPresentationTheme,
+} from '@/lib/presentationCover';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -409,11 +413,10 @@ export async function POST(req: Request) {
 
     if (format === 'pptx') {
       if (!cleanContent.includes('<!-- THEME:')) {
-        const detected = detectPresentationTheme(
-          `${title || ''} ${prompt} ${cleanContent.slice(0, 1000)}`,
-          preferredTheme
-        );
-        cleanContent = `<!-- THEME: ${detected.id} -->\n${cleanContent}`;
+        const themeToApply = preferredTheme
+          ? detectPresentationTheme('', preferredTheme)
+          : getRandomPresentationTheme();
+        cleanContent = `<!-- THEME: ${themeToApply.id} -->\n${cleanContent}`;
       }
     }
 

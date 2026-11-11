@@ -33,7 +33,6 @@ import {
   extractPresentationPillars,
   parsePresentationMarkdown,
   detectPresentationTheme,
-  PRESENTATION_THEMES,
   type PresentationTheme,
   type PresentationThemeStyle,
 } from '@/lib/presentationCover';
@@ -470,17 +469,10 @@ export default function DocumentLivePreviewModal({
 
   const isPptx = doc?.format === 'pptx';
 
-  const initialThemeId = useMemo(() => {
+  const activeThemeId = useMemo(() => {
     if (!isPptx || !doc?.content) return 'executive-general' as PresentationThemeStyle;
     return detectPresentationTheme(doc.title + ' ' + doc.content.slice(0, 1000)).id;
   }, [isPptx, doc?.content, doc?.title]);
-
-  const [activeThemeId, setActiveThemeId] = useState<PresentationThemeStyle>(initialThemeId);
-  const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
-
-  useEffect(() => {
-    setActiveThemeId(initialThemeId);
-  }, [initialThemeId]);
 
   const slides = isPptx && doc?.content ? parseSlides(doc.content, doc.title, activeThemeId) : [];
 
@@ -622,80 +614,6 @@ export default function DocumentLivePreviewModal({
 
           {/* Right Toolbar Actions */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            {/* Theme Selector for PPTX */}
-            {isPptx && (
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setIsThemeMenuOpen((o) => !o)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer border ${
-                    isDark
-                      ? 'border-white/10 bg-zinc-800/60 text-zinc-200 hover:text-white hover:bg-zinc-800'
-                      : 'border-zinc-200 bg-zinc-50 text-zinc-700 hover:text-zinc-950 hover:bg-zinc-100'
-                  }`}
-                  title="Change presentation theme"
-                  aria-label="Change presentation theme"
-                >
-                  <span
-                    className="w-2.5 h-2.5 rounded-full shrink-0 border border-white/20 shadow-xs"
-                    style={{
-                      background: `linear-gradient(135deg, ${PRESENTATION_THEMES[activeThemeId].coverBgGradient[0]}, ${PRESENTATION_THEMES[activeThemeId].coverBgGradient[1]})`,
-                    }}
-                  />
-                  <span className="max-w-[110px] truncate hidden sm:inline">
-                    {PRESENTATION_THEMES[activeThemeId].name.split('(')[0].trim()}
-                  </span>
-                  <ChevronDown size={13} className="opacity-70" />
-                </button>
-
-                {isThemeMenuOpen && (
-                  <div
-                    className={`absolute right-0 top-full mt-1.5 w-60 rounded-xl border py-1.5 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-100 ${
-                      isDark
-                        ? 'bg-[#1c1c20] border-zinc-700 text-zinc-200'
-                        : 'bg-white border-zinc-200 text-zinc-800'
-                    }`}
-                  >
-                    <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-                      Presentation Theme
-                    </div>
-                    {(Object.values(PRESENTATION_THEMES) as PresentationTheme[]).map((thm) => (
-                      <button
-                        key={thm.id}
-                        type="button"
-                        onClick={() => {
-                          setActiveThemeId(thm.id);
-                          setIsThemeMenuOpen(false);
-                        }}
-                        className={`w-full px-3 py-2 text-left text-xs transition-colors flex items-center justify-between cursor-pointer ${
-                          activeThemeId === thm.id
-                            ? isDark
-                              ? 'bg-zinc-800 text-white font-semibold'
-                              : 'bg-zinc-100 text-zinc-950 font-semibold'
-                            : isDark
-                              ? 'hover:bg-zinc-800/60'
-                              : 'hover:bg-zinc-50'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <span
-                            className="w-4 h-4 rounded-full shrink-0 border border-white/30 shadow-xs"
-                            style={{
-                              background: `linear-gradient(135deg, ${thm.coverBgGradient[0]}, ${thm.coverBgGradient[1]})`,
-                            }}
-                          />
-                          <span className="truncate">{thm.name}</span>
-                        </div>
-                        {activeThemeId === thm.id && (
-                          <span className="text-[11px] text-amber-500 font-bold shrink-0">✓</span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
             {/* Zoom dropdown (e.g. "46% ⌵") */}
             <div className="relative">
               <button

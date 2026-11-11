@@ -245,6 +245,22 @@ export function detectPresentationTheme(text: string, preferredThemeId?: string)
   return PRESENTATION_THEMES[chosenKey];
 }
 
+/**
+ * Returns a randomized theme across the 6 core presentation palettes.
+ */
+export function getRandomPresentationTheme(): PresentationTheme {
+  const allThemeKeys: PresentationThemeStyle[] = [
+    'ai-tech',
+    'finance-business',
+    'executive-general',
+    'medical-health',
+    'creative-marketing',
+    'crimson-amber',
+  ];
+  const randomIndex = Math.floor(Math.random() * allThemeKeys.length);
+  return PRESENTATION_THEMES[allThemeKeys[randomIndex]];
+}
+
 export interface RawPresentationSlide {
   marker: string;
   content: string;
