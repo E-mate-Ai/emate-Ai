@@ -418,105 +418,104 @@ function InputForm({
       {/* ════ CRAFT TWO-PANEL INVESTMENT CALCULATOR LAYOUT ════ */}
       <div className="overflow-hidden rounded-[32px] border border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xl shadow-blue-500/5 flex flex-col lg:flex-row min-h-[620px]">
 
-        {/* ── LEFT PANEL: Academic Study Theme ── */}
+        {/* ── LEFT PANEL: eMate Study Planner ── */}
         <div className="relative flex-shrink-0 lg:w-[45%] bg-gradient-to-b from-[#1e3a5f] via-[#1a2f4e] to-[#162540] dark:from-[#0a0f1e] dark:via-[#0d1527] dark:to-[#080c18] p-8 sm:p-10 flex flex-col justify-between overflow-hidden min-h-[320px] lg:min-h-0">
 
           {/* Soft ambient glows */}
-          <div className="pointer-events-none absolute -top-12 -left-12 h-64 w-64 rounded-full bg-blue-400/10 blur-3xl" />
-          <div className="pointer-events-none absolute top-1/3 -right-16 h-72 w-72 rounded-full bg-indigo-500/10 blur-[80px]" />
-          <div className="pointer-events-none absolute -bottom-10 left-10 h-56 w-80 rounded-full bg-blue-300/5 blur-2xl" />
+          <div className="pointer-events-none absolute -top-20 -left-20 h-72 w-72 rounded-full bg-blue-500/15 blur-3xl" />
+          <div className="pointer-events-none absolute top-1/2 -right-16 h-80 w-80 rounded-full bg-indigo-600/10 blur-[90px]" />
+          <div className="pointer-events-none absolute -bottom-16 left-6 h-64 w-72 rounded-full bg-blue-400/8 blur-2xl" />
 
-          {/* Top Brand Logo */}
+          {/* Top: Brand + close */}
           <div className="relative z-10 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="flex flex-col gap-1 w-4">
                 <span className="h-0.5 w-4 bg-white rounded-full" />
-                <span className="h-0.5 w-3 bg-white rounded-full" />
+                <span className="h-0.5 w-3 bg-white/70 rounded-full" />
                 <span className="h-0.5 w-4 bg-white rounded-full" />
               </div>
               <span className="text-base font-black tracking-widest text-white uppercase font-sans">
                 eMate
               </span>
             </div>
-
             {onCancel && (
               <button
                 type="button"
                 onClick={onCancel}
-                className="rounded-full bg-white/70 dark:bg-zinc-800/80 backdrop-blur-md px-3 py-1 text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:bg-white transition cursor-pointer"
+                className="rounded-full bg-white/10 border border-white/20 backdrop-blur-md px-3 py-1 text-xs font-bold text-white/80 hover:bg-white/20 transition cursor-pointer"
               >
                 ✕ Close
               </button>
             )}
           </div>
 
-          {/* Center: Study illustration + info pill */}
-          <div className="relative z-10 flex flex-col items-center justify-center my-auto py-6">
+          {/* Middle: Headline + feature list + illustration */}
+          <div className="relative z-10 flex flex-col gap-6 my-auto py-4">
 
-            {/* Open book SVG illustration */}
-            <div className="relative w-full max-w-[280px] h-32 flex items-center justify-center">
-              <svg viewBox="0 0 320 160" className="w-full h-full drop-shadow-lg overflow-visible">
-                {/* Book spine */}
-                <rect x="155" y="30" width="10" height="110" rx="2" fill="#c7d2fe" opacity="0.9" />
-                {/* Left page */}
-                <path d="M155 35 Q100 32 50 42 L50 128 Q100 120 155 125 Z" fill="white" opacity="0.92" />
-                {/* Right page */}
-                <path d="M165 35 Q220 32 270 42 L270 128 Q220 120 165 125 Z" fill="white" opacity="0.88" />
-                {/* Left page lines */}
-                <line x1="70" y1="62" x2="145" y2="60" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" opacity="0.6" />
-                <line x1="70" y1="76" x2="145" y2="74" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" opacity="0.6" />
-                <line x1="70" y1="90" x2="145" y2="88" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" opacity="0.6" />
-                <line x1="70" y1="104" x2="130" y2="102" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
-                {/* Right page lines */}
-                <line x1="175" y1="62" x2="250" y2="60" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" opacity="0.6" />
-                <line x1="175" y1="76" x2="250" y2="74" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" opacity="0.6" />
-                <line x1="175" y1="90" x2="250" y2="88" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" opacity="0.6" />
-                <line x1="175" y1="104" x2="235" y2="102" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
-                {/* Bookmark ribbon */}
-                <path d="M230 30 L230 70 L223 62 L216 70 L216 30 Z" fill="#6366f1" opacity="0.85" />
-                {/* Stars/sparkle accents */}
-                <circle cx="90" cy="45" r="3" fill="#6366f1" opacity="0.7" />
-                <circle cx="250" cy="48" r="2.5" fill="#818cf8" opacity="0.6" />
-                <circle cx="270" cy="38" r="2" fill="#a5b4fc" opacity="0.5" />
-              </svg>
+            {/* Headline */}
+            <div>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-500/20 border border-indigo-400/30 px-3 py-1 text-[10px] font-bold tracking-widest text-indigo-200 uppercase mb-3">
+                <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse" />
+                AI-Powered
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight tracking-tight">
+                Your Personal<br />Study Architect
+              </h2>
+              <p className="mt-2 text-sm text-white/60 font-normal leading-relaxed">
+                Tell us your exam, timeline & subjects — we'll build a day-by-day plan tailored just for you.
+              </p>
             </div>
 
-            {/* Info pill: exam name ↔ daily hours */}
-            <div className="mt-4 w-full max-w-[310px] rounded-full bg-white/15 backdrop-blur-xl border border-white/20 p-2 shadow-xl flex items-center justify-between gap-1.5">
-              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 rounded-full min-w-0 max-w-[125px]">
-                <span className="text-sm">🎯</span>
+            {/* Feature rows */}
+            <div className="flex flex-col gap-3">
+              {[
+                { icon: '📅', title: 'Smart daily schedule', desc: 'Automatically balances subjects based on difficulty' },
+                { icon: '🎯', title: 'Goal-aware pacing', desc: 'Adjusts intensity as your exam date gets closer' },
+                { icon: '📊', title: 'Live progress tracking', desc: 'See coverage & streaks update in real time' },
+              ].map((f) => (
+                <div key={f.title} className="flex items-start gap-3 rounded-2xl bg-white/5 border border-white/8 px-4 py-3">
+                  <span className="text-lg shrink-0 mt-0.5">{f.icon}</span>
+                  <div>
+                    <p className="text-xs font-bold text-white">{f.title}</p>
+                    <p className="text-[11px] text-white/50 mt-0.5 leading-relaxed">{f.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Live preview pill */}
+            <div className="w-full rounded-full bg-white/10 backdrop-blur-xl border border-white/15 p-1.5 flex items-center justify-between gap-1.5">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/15 rounded-full min-w-0 max-w-[48%]">
+                <span className="text-sm shrink-0">🎯</span>
                 <span className="text-[11px] font-black text-white truncate">
                   {form.examName || 'Your Exam'}
                 </span>
               </div>
-
-              <div className="h-7 w-7 rounded-full bg-white/20 border border-white/30 flex items-center justify-center shrink-0">
-                <span className="text-xs text-white font-bold">⇄</span>
+              <div className="h-6 w-6 rounded-full bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
+                <span className="text-[10px] text-white font-bold">⇄</span>
               </div>
-
-              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 rounded-full min-w-0 max-w-[125px]">
-                <span className="text-sm">⚡</span>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/15 rounded-full min-w-0 max-w-[48%]">
+                <span className="text-sm shrink-0">⚡</span>
                 <span className="text-[11px] font-black text-white truncate">
                   {form.dailyHours}h / day
                 </span>
               </div>
             </div>
-
           </div>
 
-          {/* Bottom Trust Badges */}
-          <div className="relative z-10 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] font-medium text-white/80">
+          {/* Bottom trust badges */}
+          <div className="relative z-10 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[10px] font-semibold text-white/50">
             <span className="inline-flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-blue-400" />
+              <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
               Syllabus-grounded
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-emerald-400" />
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
               Active recall paced
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-amber-400" />
-              Synced with Study Mode ⓘ
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+              Synced with Study Mode
             </span>
           </div>
 
