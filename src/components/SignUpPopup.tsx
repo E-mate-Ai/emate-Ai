@@ -32,14 +32,18 @@ export default function SignUpPopup({
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('nk-theme') as 'light' | 'dark' | null;
-    if (savedTheme === 'dark' || savedTheme === 'light') {
-      setTheme(savedTheme);
-    }
+    try {
+      const savedTheme = localStorage?.getItem('nk-theme') as 'light' | 'dark' | null;
+      if (savedTheme === 'dark' || savedTheme === 'light') {
+        setTheme(savedTheme);
+      }
+    } catch {}
 
     const handleStorage = () => {
-      const t = localStorage.getItem('nk-theme') as 'light' | 'dark' | null;
-      setTheme(t || 'light');
+      try {
+        const t = localStorage?.getItem('nk-theme') as 'light' | 'dark' | null;
+        setTheme(t || 'light');
+      } catch {}
     };
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
@@ -51,15 +55,18 @@ export default function SignUpPopup({
 
   const getRedirectUrl = () => {
     const base =
+      (typeof window !== 'undefined' && window.location.origin) ||
       process.env.NEXT_PUBLIC_APP_URL ||
       process.env.NEXT_PUBLIC_SITE_URL ||
-      (typeof window !== 'undefined' ? window.location.origin : 'https://emate.live');
+      'https://emate.live';
     return `${base}/auth/callback?next=/ai-topper-chat`;
   };
 
   const suppressPopup = () => {
     if (typeof window !== 'undefined') {
-      window.localStorage.setItem('nk-signup-popup-suppressed', 'true');
+      try {
+        window.localStorage?.setItem('nk-signup-popup-suppressed', 'true');
+      } catch {}
     }
   };
 
@@ -85,7 +92,7 @@ export default function SignUpPopup({
         return;
       }
       if (data?.url) {
-        window.location.href = data.url;
+        window.location.assign(data.url);
       }
     } catch (err: any) {
       toast.error(err?.message || 'Google sign-in failed');
@@ -111,7 +118,7 @@ export default function SignUpPopup({
         return;
       }
       if (data?.url) {
-        window.location.href = data.url;
+        window.location.assign(data.url);
       }
     } catch (err: any) {
       toast.error(err?.message || 'Apple sign-in failed');
@@ -119,10 +126,12 @@ export default function SignUpPopup({
     }
   };
 
-  const handleEmailNext = (e: React.FormEvent) => {
+  const handleEmailNext = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    const trimmed = email.trim();
+    const formData = new FormData(e.currentTarget);
+    const formEmail = (formData.get('email') as string) || email;
+    const trimmed = formEmail.trim();
     if (!trimmed) {
       toast.error('Please enter your email address');
       return;
@@ -131,18 +140,21 @@ export default function SignUpPopup({
       toast.error('Please enter a valid email address');
       return;
     }
+    setEmail(trimmed);
     setStep('password');
   };
 
-  const handleAuthSubmit = async (e: React.FormEvent) => {
+  const handleAuthSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     e.stopPropagation();
+    const formData = new FormData(e.currentTarget);
+    const formPassword = (formData.get('password') as string) || password;
     const trimmedEmail = email.trim();
-    if (!password) {
+    if (!formPassword) {
       toast.error('Please enter your password');
       return;
     }
-    if (isSignUpMode && password.length < 6) {
+    if (isSignUpMode && formPassword.length < 6) {
       toast.error('Password must be at least 6 characters');
       return;
     }
@@ -154,7 +166,7 @@ export default function SignUpPopup({
       if (isSignUpMode) {
         const { data, error } = await supabase.auth.signUp({
           email: trimmedEmail,
-          password,
+          password: formPassword,
           options: {
             data: { full_name: trimmedEmail.split('@')[0] },
             emailRedirectTo: getRedirectUrl(),
@@ -178,11 +190,13 @@ export default function SignUpPopup({
         suppressPopup();
         toast.success('Account created! Welcome to e-Mate.');
         onClose();
-        window.location.reload();
+        setTimeout(() => {
+          window.location.reload();
+        }, 150);
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email: trimmedEmail,
-          password,
+          password: formPassword,
         });
 
         if (error) {
@@ -199,13 +213,16 @@ export default function SignUpPopup({
         suppressPopup();
         toast.success('Signed in successfully!');
         onClose();
-        window.location.reload();
+        setTimeout(() => {
+          window.location.reload();
+        }, 150);
       }
     } catch (err: any) {
       toast.error(err?.message || 'Authentication failed');
       setAuthLoading(false);
     }
   };
+
 
   const handleOpenAuthScreen = (e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -357,6 +374,8 @@ export default function SignUpPopup({
           <form onSubmit={handleEmailNext} className="space-y-2 mt-3 pt-2">
             <input
               type="email"
+              name="email"
+              autoComplete="email"
               placeholder="Enter your email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -380,6 +399,7 @@ export default function SignUpPopup({
               <span>Continue with email</span>
             </button>
           </form>
+
 
           {/* Footer options */}
           <div className="pt-2 flex flex-col items-center gap-1.5 text-center">
@@ -411,6 +431,8 @@ export default function SignUpPopup({
           <div className="relative">
             <input
               type={showPassword ? 'text' : 'password'}
+              name="password"
+              autoComplete={isSignUpMode ? 'new-password' : 'current-password'}
               placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -422,6 +444,7 @@ export default function SignUpPopup({
                 color: isDark ? '#ffffff' : '#000000',
               }}
             />
+
             <button
               type="button"
               onClick={(e) => {

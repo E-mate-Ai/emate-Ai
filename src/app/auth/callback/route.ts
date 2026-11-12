@@ -6,19 +6,23 @@ export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
   const next = requestUrl.searchParams.get('next') || '/ai-topper-chat';
+  
+  // Use the exact origin the request came from so Safari doesn't strip cookies on cross-origin redirects
+  const origin = requestUrl.origin;
   const canonicalOrigin =
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.NEXT_PUBLIC_SITE_URL ||
     'https://emate.live';
+  const redirectBase = origin || canonicalOrigin;
 
   if (!code) {
     return NextResponse.redirect(
-      new URL('/sign-up-login-screen?error=missing_oauth_code', canonicalOrigin)
+      new URL('/sign-up-login-screen?error=missing_oauth_code', redirectBase)
     );
   }
 
   // Pre-create the response so setAll can write Set-Cookie headers directly to it
-  const response = NextResponse.redirect(new URL(next, canonicalOrigin));
+  const response = NextResponse.redirect(new URL(next, redirectBase));
   const cookieStore = await cookies();
 
   const supabase = createServerClient(
@@ -36,7 +40,7 @@ export async function GET(request: NextRequest) {
                 ...options,
                 maxAge: 60 * 60 * 24 * 30, // 30 days persistence
                 sameSite: 'lax' as const,
-                secure: process.env.NODE_ENV === 'production',
+                secure: process.env.NODE_ENV === 'production' || requestUrl.protocol === 'https:',
                 path: '/',
               };
               cookieStore.set(name, value, cookieOpts);
@@ -55,9 +59,10 @@ export async function GET(request: NextRequest) {
   if (sessionError) {
     console.error('[auth/callback] exchange failed:', sessionError.message);
     return NextResponse.redirect(
-      new URL(`/sign-up-login-screen?error=${encodeURIComponent(sessionError.message)}`, canonicalOrigin)
+      new URL(`/sign-up-login-screen?error=${encodeURIComponent(sessionError.message)}`, redirectBase)
     );
   }
+
 
   const {
     data: { user },

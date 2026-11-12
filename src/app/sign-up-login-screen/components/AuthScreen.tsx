@@ -22,10 +22,14 @@ export default function AuthScreen() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   useEffect(() => {
     const updateTheme = () => {
-      const savedTheme = localStorage.getItem('nk-theme') as 'light' | 'dark' | null;
-      const t = savedTheme || 'light';
-      setTheme(t);
-      applyTheme(t);
+      try {
+        const savedTheme = localStorage?.getItem('nk-theme') as 'light' | 'dark' | null;
+        const t = savedTheme || 'light';
+        setTheme(t);
+        applyTheme(t);
+      } catch {
+        // Safari Private Browsing
+      }
     };
 
     updateTheme();
@@ -34,15 +38,22 @@ export default function AuthScreen() {
   }, []);
 
   const getRedirectUrl = () => {
+    // Current window origin first to keep OAuth callback on the exact active domain for Safari
     const base =
+      (typeof window !== 'undefined' && window.location.origin) ||
       process.env.NEXT_PUBLIC_APP_URL ||
       process.env.NEXT_PUBLIC_SITE_URL ||
-      (typeof window !== 'undefined' ? window.location.origin : 'https://emate.live');
+      'https://emate.live';
     return `${base}/auth/callback?next=/ai-topper-chat`;
   };
 
   // Reload through middleware so it can read the auth cookies written by Supabase.
-  const redirectToWorkspace = () => window.location.replace('/ai-topper-chat');
+  // Delay slightly (150ms) to ensure WebKit/Safari cookie engine commits document.cookie before HTTP navigation.
+  const redirectToWorkspace = () => {
+    setTimeout(() => {
+      window.location.replace('/ai-topper-chat');
+    }, 150);
+  };
 
   /* ── Google OAuth ── */
   const handleGoogleSignIn = async () => {
@@ -66,7 +77,7 @@ export default function AuthScreen() {
         return;
       }
       if (data?.url) {
-        window.location.href = data.url;
+        window.location.assign(data.url);
       }
     } catch (err: any) {
       setError(err?.message || 'Google sign-in failed');
@@ -75,9 +86,11 @@ export default function AuthScreen() {
   };
 
   /* ── Email step ── */
-  const handleEmailSubmit = (e: React.FormEvent) => {
+  const handleEmailSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const trimmed = email.trim();
+    const formData = new FormData(e.currentTarget);
+    const formEmail = (formData.get('email') as string) || email;
+    const trimmed = formEmail.trim();
     if (!trimmed) {
       setError('Email address is required');
       return;
@@ -91,35 +104,38 @@ export default function AuthScreen() {
     setStep('password');
   };
 
-  const handleSignupSubmit = async (e: React.FormEvent) => {
+  const handleSignupSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const trimmedEmail = email.trim();
-    const trimmedName = name.trim();
-    const trimmedUsername = username.trim();
+    // Read directly from FormData to capture Safari AutoFill values that don't trigger React onChange
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+    const formEmail = (formData.get('email') as string) || email;
+    const formName = (formData.get('name') as string) || name;
+    const formUsername = (formData.get('username') as string) || username;
+    const formPassword = (formData.get('password') as string) || password;
+
+    const trimmedEmail = formEmail.trim();
+    const trimmedName = formName.trim() || trimmedEmail.split('@')[0];
+    const trimmedUsername = formUsername.trim() || trimmedEmail.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '') || 'user';
+    const finalPassword = formPassword;
+
     if (!/^\S+@\S+\.\S+$/.test(trimmedEmail)) {
       setError('Please enter a valid email address');
       return;
     }
-    if (!trimmedName) {
-      setError('Please enter your full name');
-      return;
-    }
-    if (!trimmedUsername) {
-      setError('Please choose a username');
-      return;
-    }
-    if (password.length < 6) {
+    if (!finalPassword || finalPassword.length < 6) {
       setError('Password must be at least 6 characters');
       return;
     }
 
     setEmail(trimmedEmail);
+    setPassword(finalPassword);
     setIsLoading(true);
     setError(null);
     const supabase = createClient();
     const { data, error } = await supabase.auth.signUp({
       email: trimmedEmail,
-      password,
+      password: finalPassword,
       options: {
         data: { full_name: trimmedName, username: trimmedUsername },
         emailRedirectTo: getRedirectUrl(),
@@ -127,7 +143,16 @@ export default function AuthScreen() {
     });
 
     if (error) {
-      setError(error.message);
+      if (error.message.toLowerCase().includes('already registered') || error.message.toLowerCase().includes('already exists')) {
+        setError('An account with this email already exists. Switching to login...');
+        setTimeout(() => {
+          setIsSignUp(false);
+          setStep('password');
+          setError(null);
+        }, 1200);
+      } else {
+        setError(error.message);
+      }
       setIsLoading(false);
       return;
     }
@@ -162,9 +187,13 @@ export default function AuthScreen() {
   const handleGuestContinue = async () => {
     setGuestModeEnabled(true);
 
-    // Set guest cookie so middleware allows access
-    document.cookie = 'is_guest_user=true; path=/; max-age=86400; SameSite=Lax';
-    localStorage.setItem('guest_session', 'true');
+    try {
+      const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+      document.cookie = `is_guest_user=true; path=/; max-age=86400; SameSite=Lax${isHttps ? '; Secure' : ''}`;
+      localStorage.setItem('guest_session', 'true');
+    } catch {
+      // Safari private mode
+    }
 
     // Server-side cookie for production
     try {
@@ -178,13 +207,18 @@ export default function AuthScreen() {
   };
 
   /* ── Password / signup step ── */
-  const handlePasswordSubmit = async (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!password) {
+    const formData = new FormData(e.currentTarget);
+    const formPassword = (formData.get('password') as string) || password;
+    const formName = (formData.get('name') as string) || name;
+    const finalPassword = formPassword;
+
+    if (!finalPassword) {
       setError('Password is required');
       return;
     }
-    if (isSignUp && password.length < 6) {
+    if (isSignUp && finalPassword.length < 6) {
       setError('Password must be at least 6 characters');
       return;
     }
@@ -197,9 +231,9 @@ export default function AuthScreen() {
     if (isSignUp) {
       const { data, error } = await supabase.auth.signUp({
         email,
-        password,
+        password: finalPassword,
         options: {
-          data: { full_name: name || email.split('@')[0] },
+          data: { full_name: formName.trim() || email.split('@')[0] },
           emailRedirectTo: getRedirectUrl(),
         },
       });
@@ -217,7 +251,7 @@ export default function AuthScreen() {
             {
               id: data.user.id,
               email: data.user.email,
-              full_name: name || email.split('@')[0],
+              full_name: formName.trim() || email.split('@')[0],
               updated_at: new Date().toISOString(),
             },
             { onConflict: 'id' }
@@ -239,7 +273,7 @@ export default function AuthScreen() {
       toast.success('Account created! Welcome to e-Mate.');
       redirectToWorkspace();
     } else {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password: finalPassword });
 
       if (error) {
         if (
@@ -264,6 +298,7 @@ export default function AuthScreen() {
       }
     }
   };
+
 
   /* ── Forgot password ── */
   const handleForgotPassword = async () => {
@@ -511,32 +546,33 @@ export default function AuthScreen() {
                 <>
                   <form onSubmit={handleSignupSubmit} className="space-y-3" noValidate>
                     <div>
-                      <label className="mb-1 block text-[11px] font-medium text-zinc-700" htmlFor="auth-email">Email address</label>
-                      <input id="auth-email" type="email" value={email} autoComplete="email" placeholder="you@university.edu" onChange={(e) => { setEmail(e.target.value); setError(null); }} className={inputClass} style={{ borderColor: inputBorder, color: fg, backgroundColor: inputBg }} />
+                      <label className="mb-1 block text-[11px] font-medium text-zinc-700" htmlFor="auth-signup-email">Email address</label>
+                      <input id="auth-signup-email" name="email" type="email" value={email} autoComplete="email" placeholder="you@university.edu" onChange={(e) => { setEmail(e.target.value); setError(null); }} className={inputClass} style={{ borderColor: inputBorder, color: fg, backgroundColor: inputBg }} />
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="mb-1 block text-[11px] font-medium text-zinc-700" htmlFor="auth-name">Full name</label>
-                        <input id="auth-name" type="text" value={name} autoComplete="name" placeholder="Your full name" onChange={(e) => { setName(e.target.value); setError(null); }} className={inputClass} style={{ borderColor: inputBorder, color: fg, backgroundColor: inputBg }} />
+                        <label className="mb-1 block text-[11px] font-medium text-zinc-700" htmlFor="auth-signup-name">Full name</label>
+                        <input id="auth-signup-name" name="name" type="text" value={name} autoComplete="name" placeholder="Your full name" onChange={(e) => { setName(e.target.value); setError(null); }} className={inputClass} style={{ borderColor: inputBorder, color: fg, backgroundColor: inputBg }} />
                       </div>
                       <div>
-                        <label className="mb-1 block text-[11px] font-medium text-zinc-700" htmlFor="auth-username">Username</label>
-                        <input id="auth-username" type="text" value={username} autoComplete="username" placeholder="Choose a username" onChange={(e) => { setUsername(e.target.value); setError(null); }} className={inputClass} style={{ borderColor: inputBorder, color: fg, backgroundColor: inputBg }} />
+                        <label className="mb-1 block text-[11px] font-medium text-zinc-700" htmlFor="auth-signup-username">Username</label>
+                        <input id="auth-signup-username" name="username" type="text" value={username} autoComplete="username" placeholder="Choose a username" onChange={(e) => { setUsername(e.target.value); setError(null); }} className={inputClass} style={{ borderColor: inputBorder, color: fg, backgroundColor: inputBg }} />
                       </div>
                     </div>
                     <div>
-                      <label className="mb-1 block text-[11px] font-medium text-zinc-700" htmlFor="auth-password">Password</label>
+                      <label className="mb-1 block text-[11px] font-medium text-zinc-700" htmlFor="auth-signup-password">Password</label>
                       <div className="relative">
-                        <input id="auth-password" type={showPassword ? 'text' : 'password'} value={password} autoComplete="new-password" placeholder="At least 6 characters" onChange={(e) => { setPassword(e.target.value); setError(null); }} className={`${inputClass} pr-12`} style={{ borderColor: error ? '#ef4444' : inputBorder, color: fg, backgroundColor: inputBg }} />
-                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-500" aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                        <input id="auth-signup-password" name="password" type={showPassword ? 'text' : 'password'} value={password} autoComplete="new-password" placeholder="At least 6 characters" onChange={(e) => { setPassword(e.target.value); setError(null); }} className={`${inputClass} pr-12`} style={{ borderColor: error ? '#ef4444' : inputBorder, color: fg, backgroundColor: inputBg }} />
+                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-500 cursor-pointer" aria-label={showPassword ? 'Hide password' : 'Show password'}>
                           {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                         </button>
                       </div>
                     </div>
-                    <button type="submit" disabled={isLoading} className="auth-btn flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold text-white disabled:opacity-60" style={{ background: btnPrimaryBg }}>
+                    <button type="submit" disabled={isLoading} className="auth-btn flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold text-white disabled:opacity-60 cursor-pointer" style={{ background: btnPrimaryBg }}>
                       {isLoading ? <><Loader2 size={16} className="animate-spin" /> Creating account...</> : 'Continue'}
                     </button>
                   </form>
+
                   <p className="text-center text-xs text-zinc-600">
                     Already have an account?{' '}
                     <button type="button" onClick={() => { setIsSignUp(false); setError(null); }} className="font-semibold text-[#2448d8] hover:underline">Login</button>
@@ -600,6 +636,7 @@ export default function AuthScreen() {
                   </label>
                   <input
                     id="auth-email"
+                    name="email"
                     type="email"
                     placeholder="you@university.edu"
                     value={email}
@@ -613,6 +650,7 @@ export default function AuthScreen() {
                     className={`${inputClass} ${error ? '!border-red-500 !ring-red-500/20' : ''}`}
                     style={{ borderColor: error ? '#ef4444' : inputBorder, color: fg, backgroundColor: inputBg }}
                   />
+
                   {error && (
                     <p id="auth-email-error" className="text-xs text-red-500 dark:text-red-400 mt-1.5 flex items-center gap-1 font-medium animate-in fade-in duration-150">
                       <AlertCircle size={13} className="shrink-0" />
@@ -676,6 +714,7 @@ export default function AuthScreen() {
                     </label>
                     <input
                       id="auth-name"
+                      name="name"
                       type="text"
                       placeholder="Your name"
                       value={name}
@@ -693,6 +732,7 @@ export default function AuthScreen() {
                   <div className="relative">
                     <input
                       id="auth-password"
+                      name="password"
                       type={showPassword ? 'text' : 'password'}
                       placeholder={isSignUp ? 'Min 6 characters' : 'Enter your password'}
                       value={password}
@@ -706,6 +746,7 @@ export default function AuthScreen() {
                       className={`${inputClass} pr-12 ${error ? '!border-red-500 !ring-red-500/20' : ''}`}
                       style={{ borderColor: error ? '#ef4444' : inputBorder, color: fg, backgroundColor: inputBg }}
                     />
+
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
