@@ -1962,9 +1962,9 @@ export default function ChatMainArea({
 
     // 2. Presentation / PPT Intent: explicit mode or natural language
     const isPptxIntent =
-      /\b(create|make|generate|build|prepare|design|give me|write)\b.*\b(presentation|ppt|pptx|powerpoint|slide deck|slides?)\b/i.test(lowerContent) ||
-      /\b(presentation|ppt|pptx|powerpoint|slide deck)\b.*\b(about|on|for|regarding)\b/i.test(lowerContent) ||
-      /^(make|create|generate)\s+(a\s+)?(ppt|presentation|slide deck)\b/i.test(lowerContent);
+      /\b(?:create|creat|make|mak|generate|genarte|genrate|generat|generte|build|buld|prepare|design|give\s+me|write|writ)\b.*\b(?:presentation|ppt|pptx|powerpoint|slide\s+deck|slides?)\b/i.test(lowerContent) ||
+      /\b(?:presentation|ppt|pptx|powerpoint|slide\s+deck)\b.*\b(?:about|on|for|regarding)\b/i.test(lowerContent) ||
+      /^(?:make|creat|create|generate|genarte|genrate)\s+(?:a\s+)?(?:ppt|presentation|slide\s+deck)\b/i.test(lowerContent);
 
     if (isPptxIntent && !generationHowToQuestion) {
       const timestamp = new Date().toISOString();
@@ -2006,10 +2006,12 @@ export default function ChatMainArea({
       return;
     }
 
-    // 3. Document / DOCX Intent: explicit mode or natural language
+    // 3. Document / DOCX Intent: explicit mode or natural language (tolerates typos like "genarte file of this", "genarte resume")
     const isDocxIntent =
-      /\b(create|make|generate|build|write|prepare|export|download|draft)\b.{0,60}\b(?:a\s+)?(?:document|docx|word document|word doc|doc|report|pdf|resume|cover letter|essay|study guide|notes doc|proposal|whitepaper|case study|brief|sop)(?:\s+file)?\b/i.test(lowerContent) ||
-      /\b(?:document|docx|word document|word doc|doc|report|pdf|resume|cover letter|essay|study guide|notes doc|proposal|whitepaper|case study|brief|sop)\b.{0,50}\b(about|on|for|regarding)\b/i.test(lowerContent);
+      /\b(?:create|creat|make|mak|generate|genarte|genrate|generat|generte|build|buld|write|writ|prepare|export|download|downlod|dwnload|draft|give\s+me)\b.{0,60}\b(?:a\s+)?(?:document|docx|word\s+document|word\s+doc|word\s+file|word|doc|report|pdf|resume|cv|curriculum\s+vitae|cover\s+letter|essay|study\s+guide|notes\s+doc|proposal|whitepaper|case\s+study|brief|sop|file|files)\b/i.test(lowerContent) ||
+      /\b(?:convert|turn|put|save|export)\s+(?:this|it)\s+(?:in|into|as|to)\s+(?:a\s+)?(?:file|doc|docx|word|document|pdf|resume|cv)\b/i.test(lowerContent) ||
+      /\b(?:file|doc|docx|word|document|resume|cv|report)\s+(?:of|for|from)\s+(?:this|it|above)\b/i.test(lowerContent) ||
+      /\b(?:document|docx|word\s+document|word\s+doc|word\s+file|doc|report|pdf|resume|cv|cover\s+letter|essay|proposal)\b.{0,50}\b(?:about|on|for|regarding)\b/i.test(lowerContent);
 
     if (isDocxIntent && !generationHowToQuestion) {
       router.push(`/ai-topper-chat?chatId=${targetChatId}`, { scroll: false });

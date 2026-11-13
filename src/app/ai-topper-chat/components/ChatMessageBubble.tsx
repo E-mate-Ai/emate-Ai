@@ -828,7 +828,7 @@ export default function ChatMessageBubble({
             })}
           </div>
         )}
-        <div className="bg-[#cbe2ff] dark:bg-[#1e3a8a]/70 text-[#1a1a1a] dark:text-[#f0f0f0] px-4 py-2 rounded-full max-w-[80%] inline-block text-xs sm:text-sm font-normal shadow-2xs">
+        <div className="bg-[#cbe2ff] dark:bg-[#1e3a8a]/70 text-[#1a1a1a] dark:text-[#f0f0f0] px-4 sm:px-5 py-2 sm:py-2.5 rounded-[20px] max-w-[85%] sm:max-w-[75%] inline-block text-xs sm:text-sm font-normal shadow-2xs whitespace-pre-wrap break-words leading-relaxed text-left">
           {contentText}
         </div>
 
