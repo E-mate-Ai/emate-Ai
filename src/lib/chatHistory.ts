@@ -22,7 +22,11 @@ export interface GeneratedImage {
   style?: string;
   model?: string;
   revisedPrompt?: string;
-  status?: 'generating' | 'done' | 'error';
+  enhancedPrompt?: string;
+  enhancementWarning?: string;
+  /** Prior image used as an image-to-image reference for this result. */
+  referenceImageUrl?: string;
+  status?: 'enhancing' | 'generating' | 'done' | 'error';
   errorMessage?: string;
 }
 

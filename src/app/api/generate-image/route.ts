@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const ASPECT_RATIOS = new Set(['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '4:5', '5:4']);
+const RESOLUTIONS = new Set(['512', '768', '1K', '1.5K', '2K', '4K']);
 const IMAGE_MODEL_PREFERENCES = [
   IMAGE_GENERATION_MODEL,
   'google/gemini-2.5-flash-image',
@@ -57,29 +58,56 @@ function buildImagePrompt(prompt: string, style: string, aspectRatio: string): s
   return `Create one image. Depict this subject accurately: ${subject}. Keep the requested subject as the clear focal point; do not replace it with a different subject or add people unless requested. ${styleGuidance[style]} ${orientation} Follow the user's details closely. Do not add lettering, frames, logos, or watermarks unless requested.`;
 }
 
-async function getAvailableImageModels(apiKey: string): Promise<string[]> {
+function buildReferenceEditPrompt(
+  request: string,
+  referencePrompt: string,
+  style: string,
+  aspectRatio: string
+): string {
+  const styleGuidance: Record<string, string> = {
+    creative: 'Improve polish, lighting, and composition while keeping the established visual direction.',
+    educational: 'Keep the image accurate, legible, and uncluttered.',
+    realistic: 'Keep materials, proportions, and lighting believable.',
+    vector: 'Keep clean vector shapes, crisp edges, and a restrained palette.',
+    illustration: 'Keep the established illustration style, shape language, and visual hierarchy.',
+    anime: 'Keep the established anime style and character design.',
+    watercolor: 'Keep the watercolor treatment and paper texture.',
+    cinematic: 'Keep the cinematic visual direction and deliberate lighting.',
+  };
+  const context = referencePrompt.trim().slice(0, 1200);
+  return [
+    'Edit the supplied reference image according to the user’s request.',
+    `User request: ${request.trim()}`,
+    context ? `Original image brief for context: ${context}` : '',
+    'Preserve the main subject, identity, recognizable details, and existing framing unless the user asks to change them. Apply only the requested improvements; do not introduce a different subject or unrelated objects.',
+    styleGuidance[style],
+    `Keep the existing ${aspectRatio} aspect ratio.`,
+  ].filter(Boolean).join(' ');
+}
+
+async function getAvailableImageModels(apiKey: string, needsReference = false): Promise<string[]> {
   try {
     const response = await fetch('https://openrouter.ai/api/v1/images/models', {
       headers: { Authorization: `Bearer ${apiKey}` },
       cache: 'no-store',
       signal: AbortSignal.timeout(5000),
     });
-    if (!response.ok) return IMAGE_MODEL_PREFERENCES;
+    if (!response.ok) return needsReference ? [] : IMAGE_MODEL_PREFERENCES;
 
-    const result = (await response.json()) as { data?: Array<{ id?: string; architecture?: { output_modalities?: string[] } }> };
-    const available = new Set(
-      (result.data || [])
-        .filter((model) => model.id && (!model.architecture?.output_modalities || model.architecture.output_modalities.includes('image')))
-        .map((model) => model.id as string)
-    );
+    const result = (await response.json()) as { data?: Array<{ id?: string; architecture?: { input_modalities?: string[]; output_modalities?: string[] } }> };
+    const available = new Set((result.data || [])
+      .filter((model) => model.id &&
+        (!model.architecture?.output_modalities || model.architecture.output_modalities.includes('image')) &&
+        (!needsReference || model.architecture?.input_modalities?.includes('image')))
+      .map((model) => model.id as string));
     const preferred = IMAGE_MODEL_PREFERENCES.filter((model) => available.has(model));
-    return preferred.length ? preferred : IMAGE_MODEL_PREFERENCES;
+    return preferred.length ? preferred : needsReference ? [] : IMAGE_MODEL_PREFERENCES;
   } catch {
-    return IMAGE_MODEL_PREFERENCES;
+    return needsReference ? [] : IMAGE_MODEL_PREFERENCES;
   }
 }
 
-function pollinationsDimensions(aspectRatio: string): { width: number; height: number } {
+function pollinationsDimensions(aspectRatio: string, resolution: string): { width: number; height: number } {
   const ratios: Record<string, { width: number; height: number }> = {
     '1:1': { width: 1024, height: 1024 },
     '16:9': { width: 1280, height: 720 },
@@ -91,28 +119,43 @@ function pollinationsDimensions(aspectRatio: string): { width: number; height: n
     '4:5': { width: 864, height: 1080 },
     '5:4': { width: 1080, height: 864 },
   };
-  return ratios[aspectRatio] || ratios['1:1'];
+  const base = ratios[aspectRatio] || ratios['1:1'];
+  if (resolution === '1K') return base;
+  const targetLongEdge: Record<string, number> = {
+    '512': 512,
+    '768': 768,
+    '1.5K': 1536,
+    '2K': 2048,
+    '4K': 4096,
+  };
+  const scale = (targetLongEdge[resolution] || 1024) / Math.max(base.width, base.height);
+  return {
+    width: Math.round((base.width * scale) / 8) * 8,
+    height: Math.round((base.height * scale) / 8) * 8,
+  };
 }
 
-async function generateWithPollinations(prompt: string, aspectRatio: string): Promise<string> {
-  const { width, height } = pollinationsDimensions(aspectRatio);
+async function generateWithPollinations(prompt: string, aspectRatio: string, resolution: string, apiKey: string): Promise<string> {
+  const { width, height } = pollinationsDimensions(aspectRatio, resolution);
   const seed = Math.floor(Math.random() * 1_000_000);
-  const pollinationsKey = process.env.POLLINATIONS_API_KEY || process.env.POLLINATIONS_API_TOKEN;
+  const pollinationsKey = apiKey;
   if (!pollinationsKey) {
-    throw new Error('Pollinations image generation is not configured. Add POLLINATIONS_API_KEY or use an OpenRouter key with image-generation credits.');
+    throw new Error('Image generation API is not configured.');
   }
-  const baseUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(prompt)}?width=${width}&height=${height}&model=black-forest-labs/flux.1-schnell&nologo=true&seed=${seed}`;
-  const headers: Record<string, string> = { 'User-Agent': 'e-Mate-AI/1.0' };
-  if (pollinationsKey) headers.Authorization = `Bearer ${pollinationsKey}`;
+  const baseUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(prompt)}?width=${width}&height=${height}&model=flux&nologo=true&seed=${seed}`;
+  const headers: Record<string, string> = {
+    'User-Agent': 'e-Mate-AI/1.0',
+    Authorization: `Bearer ${pollinationsKey}`,
+  };
   const response = await fetch(baseUrl, {
     headers,
-    signal: AbortSignal.timeout(35000),
+    signal: AbortSignal.timeout(45000),
   });
   if (!response.ok) {
     if (response.status === 401 || response.status === 403) {
-      throw new Error('Pollinations rejected its API key. Check POLLINATIONS_API_KEY in the server environment.');
+      throw new Error(`Image API authentication failed (HTTP ${response.status}). Check image API key.`);
     }
-    throw new Error(`Pollinations image generation failed (HTTP ${response.status}).`);
+    throw new Error(`Image generation failed (HTTP ${response.status}).`);
   }
 
   const contentType = response.headers.get('content-type') || '';
@@ -128,7 +171,17 @@ export async function POST(req: Request) {
     const authHeaderKey = authHeader ? authHeader.replace(/^Bearer\s+/i, '').trim() : '';
     const cookieKey = getCookie(req.headers.get('cookie'), 'user_openrouter_key');
     const body = await req.json().catch(() => ({}));
-    const { prompt, aspectRatio: requestedRatio, style: requestedStyle, userApiKey: bodyKey } = body;
+    const {
+      prompt,
+      aspectRatio: requestedRatio,
+      style: requestedStyle,
+      userApiKey: bodyKey,
+      referenceImageUrl,
+      referencePrompt,
+      promptIsEnhanced,
+      promptIsFinal,
+      resolution: requestedResolution,
+    } = body;
 
     if (typeof prompt !== 'string' || !prompt.trim()) {
       return Response.json({ error: 'A prompt is required to generate an image.' }, { status: 400 });
@@ -137,53 +190,92 @@ export async function POST(req: Request) {
     const aspectRatio = typeof requestedRatio === 'string' && ASPECT_RATIOS.has(requestedRatio)
       ? requestedRatio
       : '1:1';
+    const normalizedResolution = typeof requestedResolution === 'string' ? requestedResolution.toUpperCase() : '1K';
+    const resolution = RESOLUTIONS.has(normalizedResolution) ? normalizedResolution : '1K';
     const style = normalizeImageStyle(requestedStyle, prompt);
-    const enhancedPrompt = buildImagePrompt(prompt, style, aspectRatio);
-    const apiKey =
-      authHeaderKey ||
-      (typeof bodyKey === 'string' ? bodyKey.trim() : '') ||
-      cookieKey ||
-      process.env.OPENROUTER_SERVER_FREE_KEY ||
-      process.env.OPENROUTER_API_KEY;
+    const reference = typeof referenceImageUrl === 'string' ? referenceImageUrl : '';
+    const validReference = !reference ||
+      ((reference.startsWith('data:image/png;base64,') || reference.startsWith('data:image/jpeg;base64,') || reference.startsWith('data:image/webp;base64,')) && reference.length <= 20_000_000) ||
+      (/^https:\/\//i.test(reference) && reference.length <= 4096);
+    if (!validReference) {
+      return Response.json({ error: 'The reference image is invalid or too large. Please use a PNG, JPEG, or WebP image under 15 MB.' }, { status: 400 });
+    }
+    const priorPrompt = typeof referencePrompt === 'string' ? referencePrompt.slice(0, 1200) : '';
+    const enhancedPrompt = reference
+      ? buildReferenceEditPrompt(prompt, priorPrompt, style, aspectRatio)
+      : promptIsFinal === true || promptIsEnhanced === true
+        ? prompt.trim()
+        : buildImagePrompt(prompt, style, aspectRatio);
 
-    let lastOpenRouterError: any;
-    const hasOpenRouterKey = Boolean(apiKey && apiKey !== 'your-openrouter-api-key-here');
-    if (hasOpenRouterKey) {
-      const models = await getAvailableImageModels(apiKey);
-      for (const model of models) {
-        try {
-          const generated = await openRouterImageCompletion(apiKey, {
-            prompt: enhancedPrompt,
-            model,
-            aspectRatio,
-            resolution: '1K',
-          });
-          return Response.json({
-            imageUrl: generated.imageUrl,
-            model,
-            revisedPrompt: enhancedPrompt,
-            aspectRatio,
-            style,
-          });
-        } catch (error) {
-          lastOpenRouterError = error;
-          console.warn(`[Generate-Image] ${model} failed; trying the next image provider.`, error);
-        }
+    // Image-to-image requests require a model that explicitly accepts image references.
+    // The text-to-image Flux service cannot honor a visual reference.
+    const userKey = authHeaderKey || (typeof bodyKey === 'string' ? bodyKey.trim() : '') || cookieKey;
+    const serverKey = process.env.OPENROUTER_SERVER_FREE_KEY || process.env.OPENROUTER_API_KEY;
+    const apiKey = userKey || serverKey;
+    const pollinationsKey = process.env.POLLINATIONS_API_KEY || process.env.POLLINATIONS_API_TOKEN;
+    if (reference && !apiKey) {
+      throw Object.assign(new Error('Image editing needs an image model connection. Add an OpenRouter key in Settings, then try again.'), { status: 503 });
+    }
+    if (!apiKey && !pollinationsKey) {
+      throw Object.assign(new Error('Image generation is not connected. Add an image provider key in Settings, then try again.'), { status: 503 });
+    }
+    if (!reference && pollinationsKey) {
+      try {
+        const imageUrl = await generateWithPollinations(enhancedPrompt, aspectRatio, resolution, pollinationsKey);
+        return Response.json({
+          imageUrl,
+          model: 'Pollinations Flux',
+          revisedPrompt: enhancedPrompt,
+          aspectRatio,
+          resolution,
+          style,
+        });
+      } catch (pollinationsError: any) {
+        console.warn('[Generate-Image] Dedicated Flux image API failed; attempting fallback.', pollinationsError);
       }
     }
 
-    const hasPollinationsKey = Boolean(process.env.POLLINATIONS_API_KEY || process.env.POLLINATIONS_API_TOKEN);
-    if (hasPollinationsKey) {
-      const imageUrl = await generateWithPollinations(enhancedPrompt, aspectRatio);
-      return Response.json({ imageUrl, model: 'Flux image service', revisedPrompt: enhancedPrompt, aspectRatio, style });
+    if (apiKey) {
+      let lastModelError: any;
+      try {
+        const models = await getAvailableImageModels(apiKey, Boolean(reference));
+        if (reference && models.length === 0) {
+          throw Object.assign(new Error('No connected image model currently supports editing from a reference image.'), { status: 422 });
+        }
+        for (const model of models) {
+          try {
+            const generated = await openRouterImageCompletion(apiKey, {
+              prompt: enhancedPrompt,
+              model,
+              aspectRatio,
+              resolution,
+              inputReferences: reference ? [reference] : undefined,
+            });
+            return Response.json({
+              imageUrl: generated.imageUrl,
+              model,
+              revisedPrompt: enhancedPrompt,
+              aspectRatio,
+              resolution,
+              style,
+            });
+          } catch (modelErr) {
+            lastModelError = modelErr;
+            console.warn(`[Generate-Image] ${model} failed; trying next fallback model.`, modelErr);
+          }
+        }
+      } catch (openRouterErr) {
+        console.warn('[Generate-Image] OpenRouter fallback failed.', openRouterErr);
+        if (openRouterErr && typeof openRouterErr === 'object' && 'status' in openRouterErr) throw openRouterErr;
+      }
+      if (lastModelError?.status && lastModelError.status !== 404) throw lastModelError;
     }
-    if (lastOpenRouterError) {
-      const status = lastOpenRouterError.status === 401 ? 401 : lastOpenRouterError.status === 402 ? 402 : 502;
-      throw Object.assign(new Error(lastOpenRouterError.message || 'OpenRouter image generation failed.'), { status });
-    }
+
     throw Object.assign(
-      new Error('Image generation needs a configured provider. Add an OpenRouter API key with image-generation credits or a POLLINATIONS_API_KEY to the server environment.'),
-      { status: 503 }
+      new Error(reference
+        ? 'Could not edit this image. Check your image model connection and try again.'
+        : 'Image generation failed. Please try again with a revised prompt.'),
+      { status: 502 }
     );
   } catch (error: any) {
     console.error('[Generate-Image] Image generation failed:', error);

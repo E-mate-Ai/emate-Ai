@@ -384,6 +384,7 @@ export default function ChatMainArea({
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [isConnectingOpenRouter, setIsConnectingOpenRouter] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const enhanceImagePrompts = true;
   const [guestCredits, setGuestCreditsState] = useState(GUEST_LIMIT);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [isSupabaseSignedUp, setIsSupabaseSignedUp] = useState(false);
@@ -1103,24 +1104,41 @@ export default function ChatMainArea({
 
   // ── Image Generation ──────────────────────────────────────────────────────
 
-  const getImageRequestOptions = (rawPrompt: string) => {
+  const getImageRequestOptions = (rawPrompt: string, fallbackAspectRatio?: string) => {
     const ratioDirective = /(?:--ar\s*|aspect\s*ratio\s*)(1:1|16:9|9:16|4:3|3:4|3:2|2:3|4:5|5:4)/i;
     const match = rawPrompt.match(ratioDirective);
-    const prompt = rawPrompt.replace(ratioDirective, '').trim();
+    const resolutionDirective = /--resolution\s*=?\s*(512|768|1k|1\.5k|2k|4k)\b/i;
+    const resolutionMatch = rawPrompt.match(resolutionDirective);
+    const prompt = rawPrompt.replace(ratioDirective, '').replace(resolutionDirective, '').trim()
+      .replace(/\bporche\b/gi, 'Porsche')
+      .replace(/\bbloosme\b/gi, 'blossom')
+      .replace(/\bblossome\b/gi, 'blossom')
+      .replace(/\benviorn(?:wmnt|ment)\b/gi, 'environment');
     const aspectRatio = match?.[1]
       ? match[1]
       : /\b(portrait|vertical|phone wallpaper)\b/i.test(prompt)
         ? '9:16'
         : /\b(landscape|wide|banner|wallpaper)\b/i.test(prompt)
           ? '16:9'
-          : '1:1';
-    return { prompt: prompt || rawPrompt.trim(), aspectRatio };
+          : fallbackAspectRatio || '1:1';
+    return {
+      prompt: prompt || rawPrompt.trim(),
+      aspectRatio,
+      resolution: resolutionMatch?.[1].toUpperCase() || '1K',
+    };
   };
 
   /** Send an image generation request and stream the result into the chat. */
-  const handleImageSend = async (prompt: string) => {
+  const handleImageSend = async (
+    prompt: string,
+    referenceImageUrl?: string,
+    referencePrompt?: string,
+    referenceAspectRatio?: string,
+    shouldEnhancePrompt = enhanceImagePrompts,
+    referenceStyle?: string
+  ) => {
     if (!prompt.trim() || isStreaming) return;
-    const imageRequest = getImageRequestOptions(prompt);
+    const imageRequest = getImageRequestOptions(prompt, referenceAspectRatio);
 
     const formatTimestamp = () => {
       try {
@@ -1151,7 +1169,14 @@ export default function ChatMainArea({
       timestamp: formatTimestamp(),
       subject: selectedContext.subject,
       isGeneralChat: !isStudyMode,
-      images: [{ id: imageId, url: '', prompt: imageRequest.prompt, aspectRatio: imageRequest.aspectRatio, status: 'generating' }],
+      images: [{
+        id: imageId,
+        url: '',
+        prompt: imageRequest.prompt,
+        aspectRatio: imageRequest.aspectRatio,
+        referenceImageUrl,
+        status: shouldEnhancePrompt ? 'enhancing' : 'generating',
+      }],
     };
 
     const newMessages = [...messages, userMsg, assistantMsg];
@@ -1163,7 +1188,7 @@ export default function ChatMainArea({
       active: true,
       type: 'image',
       states: [
-        'Analysing your prompt',
+        ...(shouldEnhancePrompt ? ['Enhancing your prompt'] : []),
         'Crafting composition',
         'Rendering image',
         'Applying finishing touches',
@@ -1192,22 +1217,104 @@ export default function ChatMainArea({
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (userApiKey) headers['Authorization'] = `Bearer ${userApiKey}`;
+      let generationPrompt = imageRequest.prompt;
+      let generationStyle: string | undefined;
+      let generationResolution = imageRequest.resolution;
+      let promptWasEnhanced = false;
+      const noteEnhancementFallback = () => {
+        setMessages((prev) => prev.map((message) => {
+          if (message.id !== assistantMsg.id || !message.images?.length) return message;
+          return {
+            ...message,
+            images: [{
+              ...message.images[0],
+              enhancementWarning: 'Prompt enhancement is unavailable. Using your original prompt.',
+            }],
+          };
+        }));
+      };
+      if (shouldEnhancePrompt) {
+        try {
+          const enhanceResponse = await fetch('/api/enhance-prompt', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              prompt: imageRequest.prompt,
+              style: referenceStyle,
+              aspectRatio: imageRequest.aspectRatio,
+              resolution: imageRequest.resolution,
+              referencePrompt,
+              isEdit: Boolean(referenceImageUrl),
+            }),
+          });
+          if (enhanceResponse.ok) {
+            const enhancement = await enhanceResponse.json() as {
+              enhancedPrompt?: string;
+              style?: string;
+              enhanced?: boolean;
+              resolution?: string;
+            };
+            if (typeof enhancement.enhancedPrompt === 'string' && enhancement.enhancedPrompt.trim()) {
+              generationPrompt = enhancement.enhancedPrompt.trim();
+              generationStyle = enhancement.style;
+              generationResolution = enhancement.resolution || generationResolution;
+              promptWasEnhanced = true;
+              setMessages((prev) => prev.map((message) => {
+                if (message.id !== assistantMsg.id || !message.images?.length) return message;
+                return {
+                  ...message,
+                  images: [{
+                    ...message.images[0],
+                    enhancedPrompt: enhancement.enhanced ? generationPrompt : undefined,
+                    style: generationStyle,
+                    status: 'generating',
+                  }],
+                };
+              }));
+            }
+          } else {
+            noteEnhancementFallback();
+            console.warn('[Image Generation] Prompt enhancement unavailable; using the original prompt.');
+          }
+        } catch {
+          noteEnhancementFallback();
+          console.warn('[Image Generation] Prompt enhancement failed; using the original prompt.');
+        }
+      }
+      setMessages((prev) => prev.map((message) => {
+        if (message.id !== assistantMsg.id || !message.images?.length) return message;
+        return { ...message, images: [{ ...message.images[0], status: 'generating' }] };
+      }));
+
       const res = await fetch('/api/generate-image', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ ...imageRequest }),
+        body: JSON.stringify({
+          ...imageRequest,
+          prompt: generationPrompt,
+          originalPrompt: imageRequest.prompt,
+          promptIsEnhanced: promptWasEnhanced,
+          promptIsFinal: true,
+          style: generationStyle,
+          resolution: generationResolution,
+          referenceImageUrl,
+          referencePrompt,
+        }),
       });
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        if (res.status === 401 || res.status === 403 || data?.code === 'auth_required' || data?.error?.includes('connected accounts')) {
-          toast.error('An OpenRouter API key is required for image generation.');
+        if ((res.status === 401 || res.status === 403) && userApiKey) {
+          toast.error('Your connected API key was rejected. Please check your key settings.');
           handleConnectOpenRouter();
         }
         throw new Error(data.error || `Image generation failed (${res.status})`);
       }
 
       const imageResult = (await res.json()) as { imageUrl: string; model?: string; revisedPrompt?: string; style?: string };
+      if (typeof imageResult?.imageUrl !== 'string' || !imageResult.imageUrl) {
+        throw new Error('The image model returned an empty result. Please try again.');
+      }
       const { imageUrl } = imageResult;
 
       addGeneratedAsset({
@@ -1223,7 +1330,14 @@ export default function ChatMainArea({
           if (m.id !== assistantMsg.id || !m.images?.length) return m;
           return {
             ...m,
-            images: [{ ...m.images[0], url: imageUrl, model: imageResult.model, revisedPrompt: imageResult.revisedPrompt, style: imageResult.style, status: 'done' }],
+            images: [{
+              ...m.images[0],
+              url: imageUrl,
+              model: imageResult.model,
+              revisedPrompt: imageResult.revisedPrompt,
+              style: imageResult.style || generationStyle,
+              status: 'done',
+            }],
           };
         })
       );
@@ -1248,8 +1362,17 @@ export default function ChatMainArea({
   };
 
   /** Re-run image generation for an existing assistant message's image. */
-  const handleRegenerateImage = async (messageId: string, imageId: string, prompt: string) => {
+  const handleRegenerateImage = async (
+    messageId: string,
+    imageId: string,
+    prompt: string,
+    promptIsEnhanced = false
+  ) => {
     if (isStreaming) return;
+
+    const referenceImageUrl = messages
+      .find((message) => message.id === messageId)
+      ?.images?.find((image) => image.id === imageId)?.referenceImageUrl;
 
     // Set the image back to generating state.
     setMessages((prev) =>
@@ -1264,7 +1387,10 @@ export default function ChatMainArea({
       })
     );
     setIsStreaming(true);
-    const imageRequest = getImageRequestOptions(prompt);
+    const previousImage = messages
+      .find((message) => message.id === messageId)
+      ?.images?.find((image) => image.id === imageId);
+    const imageRequest = getImageRequestOptions(prompt, previousImage?.aspectRatio);
 
     const userApiKey = typeof window !== 'undefined'
       ? localStorage.getItem('user_openrouter_key') ||
@@ -1277,19 +1403,30 @@ export default function ChatMainArea({
       const res = await fetch('/api/generate-image', {
         method: 'POST',
         headers: regenHeaders,
-        body: JSON.stringify(imageRequest),
+        body: JSON.stringify({
+          ...imageRequest,
+          referenceImageUrl,
+          referencePrompt: previousImage?.prompt,
+          originalPrompt: previousImage?.prompt,
+          promptIsEnhanced,
+          promptIsFinal: true,
+          style: previousImage?.style,
+        }),
       });
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        if (res.status === 401 || res.status === 403 || data?.code === 'auth_required' || data?.error?.includes('connected accounts')) {
-          toast.error('An OpenRouter API key is required for image generation.');
+        if ((res.status === 401 || res.status === 403) && userApiKey) {
+          toast.error('Your connected API key was rejected. Please check your key settings.');
           handleConnectOpenRouter();
         }
         throw new Error(data.error || `Image generation failed (${res.status})`);
       }
 
       const imageResult = (await res.json()) as { imageUrl: string; model?: string; revisedPrompt?: string; style?: string };
+      if (typeof imageResult?.imageUrl !== 'string' || !imageResult.imageUrl) {
+        throw new Error('The image model returned an empty result. Please try again.');
+      }
       const { imageUrl } = imageResult;
 
       setMessages((prev) =>
@@ -1298,7 +1435,16 @@ export default function ChatMainArea({
           return {
             ...m,
             images: m.images.map((img) =>
-              img.id === imageId ? { ...img, url: imageUrl, aspectRatio: imageRequest.aspectRatio, model: imageResult.model, revisedPrompt: imageResult.revisedPrompt, style: imageResult.style, status: 'done' as const } : img
+              img.id === imageId ? {
+                ...img,
+                url: imageUrl,
+                aspectRatio: imageRequest.aspectRatio,
+                model: imageResult.model,
+                revisedPrompt: imageResult.revisedPrompt,
+                style: imageResult.style || previousImage?.style,
+                enhancedPrompt: promptIsEnhanced ? imageRequest.prompt : img.enhancedPrompt,
+                status: 'done' as const,
+              } : img
             ),
           };
         })
@@ -1822,7 +1968,12 @@ export default function ChatMainArea({
     await handleSend(prompt, undefined, true);
   };
 
-  const handleSend = async (text?: string, attachmentOverride?: File[] | boolean, _systemAction?: boolean) => {
+  const handleSend = async (
+    text?: string,
+    attachmentOverride?: File[] | boolean,
+    _systemAction?: boolean,
+    shouldEnhanceImagePrompt = enhanceImagePrompts
+  ) => {
     setAgentSkillStatus('');
     // Support legacy call-site: handleSend(prompt, true) where second arg is the flag
     const isSystemAction = _systemAction === true || attachmentOverride === true;
@@ -1846,21 +1997,63 @@ export default function ChatMainArea({
     // Route image requests before flashcard, quiz, document, credit, or text-chat
     // handling so the language model cannot answer with a fake image URL.
     const slashImageMatch = content.match(/^\/(?:image|img|draw)\s+(.+)/i);
+    const latestGeneratedImage = [...messages].reverse()
+      .flatMap((message) => message.images || [])
+      .find((image) => image.status === 'done' && image.url);
+    // Normalize common typing variants for routing and the image prompt while
+    // leaving the user's displayed chat message unchanged.
+    const imageIntentText = content.replace(/\bgen(?:rate|arate|arte)\b/gi, 'generate');
+    const imageEditIntent =
+      /\b(?:make|edit|change|modify|improve|enhance|beautify|more beautiful|better|nicer|retouch|rework|update|keep|remove|add|replace|turn|convert)\b/i.test(content) &&
+      /\b(?:image|picture|photo|it|this|that|same|more beautiful|better|nicer|brighter|darker|sharper|background|color|colour|style|look|subject|car|object|realistic|cinematic|polished)\b/i.test(content);
+    const visualOutput =
+      /\b(?:image|picture|photo|photograph|illustration|drawing|visual|graphic|artwork|logo|icon|poster|wallpaper|diagram|infographic|portrait|banner|cover|avatar|thumbnail|concept art|scene|render|sticker|mockup|book cover)\b/i.test(content);
+    const visualCreationVerb =
+      /\b(?:generate|create|make|draw|paint|render|illustrate|design|sketch|visualize|depict|produce|craft|show me)\b/i.test(imageIntentText);
+    const visualSubject =
+      /\b(?:car|vehicle|cat|dog|animal|bird|flower|tree|forest|mountain|beach|landscape|city|house|building|person|portrait|character|robot|dragon|spaceship|planet|galaxy|food|cake|room|garden|island|ocean|sunset|outfit|dress|shoe|product|mascot|creature)s?\b/i.test(content);
+    const directVisualAction =
+      /^\s*(?:please\s+)?(?:draw|paint|illustrate|sketch|visualize|depict|render)\s+(?:(?:me|a|an|the)\s+)?[a-z]/i.test(content);
+    const directImagePrompt =
+      /^\s*(?:(?:please|can you|could you|would you)\s+)?(?:(?:make|create|generate|draw|paint|design)\s+)?(?:me\s+)?(?:an?\s+)?(?:image|picture|photo|portrait|illustration|drawing|logo|poster|wallpaper|diagram|infographic|avatar|sticker)\s+(?:of|for|showing|with)\b/i.test(content) ||
+      /\b(?:can|could|would)\s+i\s+(?:get|have|see)\s+(?:an?\s+)?(?:image|picture|photo|illustration|drawing)\b/i.test(content);
     const naturalImageIntent =
-      /\b(?:gen(?:erate|rate|arte)|create|make|draw|paint|render|illustrate|design|produce|show me|i need|i want)\b.{0,100}\b(?:image|picture|photo|illustration|drawing|visual|graphic|artwork|logo|poster|wallpaper|diagram|infographic)s?\b/i.test(content) ||
-      /\b(?:image|picture|photo|illustration|drawing|visual|artwork|logo|poster|wallpaper|diagram|infographic)s?\s+(?:of|for|about)\b/i.test(content) ||
-      /^\s*(?:please\s+)?(?:draw|paint|illustrate)\s+(?:(?:me|a|an|the)\s+)?[a-z]/i.test(content);
+      (visualCreationVerb && (visualOutput || visualSubject)) || directVisualAction || directImagePrompt ||
+      /\b(?:show|give)\s+me\s+(?:an?\s+)?(?:image|picture|photo|visual|illustration|drawing|render)\b/i.test(content);
     const imageMetaQuestion =
       /^(?:how|why|what is|when|where|explain|tell me about|can you (?:explain|tell me how)|could you (?:explain|tell me how))\b/i.test(content) ||
       /\b(?:understand|learn about|teach me about)\b.{0,80}\b(?:image generation|image models?|visual generation)\b/i.test(content);
-    if (!isSystemAction && (slashImageMatch || (naturalImageIntent && !imageMetaQuestion))) {
-      const promptToUse = (slashImageMatch?.[1] || content)
+    const personalImageRequest =
+      /\b(?:i want|i need|i would like|i'd like)\b[\s\S]{0,80}\b(?:image|picture|photo|illustration|drawing|visual|graphic|artwork|logo|icon|poster|wallpaper|diagram|infographic|portrait|banner|cover|avatar|thumbnail|sticker)\b/i.test(content);
+    const additionalImageMetaQuestion =
+      /\b(?:know about|learn about|understand|explain)\b[\s\S]{0,80}\b(?:image generation|image models?|visual generation)\b/i.test(content);
+    if (!isSystemAction && latestGeneratedImage && imageEditIntent) {
+      router.push(`/ai-topper-chat?chatId=${targetChatId}`, { scroll: false });
+      try {
+        // Keep the user's natural-language edit request intact and provide the
+        // latest generated image as the visual reference for the image model.
+        await handleImageSend(
+          content,
+          latestGeneratedImage.url,
+          latestGeneratedImage.prompt,
+          latestGeneratedImage.aspectRatio,
+          shouldEnhanceImagePrompt,
+          latestGeneratedImage.style
+        );
+      } finally {
+        sendInFlightRef.current = false;
+      }
+      return;
+    }
+
+    if (!isSystemAction && (slashImageMatch || ((naturalImageIntent || personalImageRequest) && !imageMetaQuestion && !additionalImageMetaQuestion))) {
+      const promptToUse = (slashImageMatch?.[1] || imageIntentText)
         .replace(/^(?:please\s+)?(?:can you|could you|i want|i need|make me|create me|generate me|show me)\s+/i, '')
-        .replace(/^(?:please\s+)?(?:gen(?:erate|rate|arte)|create|make|draw|paint|render|illustrate|design|produce|show me)\s+(?:an?\s+)?(?:(?:image|picture|photo|illustration|drawing|visual|graphic|artwork)\s+(?:of|about|for)?\s+)?/i, '')
+        .replace(/^(?:please\s+)?(?:generate|create|make|draw|paint|render|illustrate|design|produce|show me)\s+(?:an?\s+)?(?:(?:image|picture|photo|illustration|drawing|visual|graphic|artwork)\s+(?:of|about|for)?\s+)?/i, '')
         .trim();
       router.push(`/ai-topper-chat?chatId=${targetChatId}`, { scroll: false });
       try {
-        await handleImageSend(promptToUse || content);
+        await handleImageSend(promptToUse || content, undefined, undefined, undefined, shouldEnhanceImagePrompt);
       } finally {
         sendInFlightRef.current = false;
       }
@@ -3057,8 +3250,9 @@ export default function ChatMainArea({
                   setAttachedFiles(meta.attachments);
                   setPreviewUrls(meta.attachments.map((f) => URL.createObjectURL(f)));
                 }
-                handleSend(text, meta.attachments);
+                handleSend(text, meta.attachments, undefined, meta.enhanceImagePrompts);
               }}
+              enhanceImagePrompts={enhanceImagePrompts}
               models={visibleModelNames}
               modelSelectorEnabled={isGuest || isModelSelectorEnabled}
               selectedModel={activeModelName}
@@ -3220,8 +3414,9 @@ export default function ChatMainArea({
                   setAttachedFiles(meta.attachments);
                   setPreviewUrls(meta.attachments.map((f) => URL.createObjectURL(f)));
                 }
-                handleSend(text, meta.attachments);
+                handleSend(text, meta.attachments, undefined, meta.enhanceImagePrompts);
               }}
+              enhanceImagePrompts={enhanceImagePrompts}
               models={visibleModelNames}
               modelSelectorEnabled={isGuest || isModelSelectorEnabled}
               selectedModel={activeModelName}

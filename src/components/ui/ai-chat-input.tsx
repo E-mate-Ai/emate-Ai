@@ -22,6 +22,7 @@ import {
   Download,
   Loader2,
   Check,
+  Sparkles,
 } from 'lucide-react';
 import { detectIfSpreadsheetContent } from '@/lib/documentScanner';
 import { exportToXls, exportToDocx, downloadFile } from '@/lib/documentExport';
@@ -784,7 +785,7 @@ function AttachmentGalleryModal({
 // ----------------------------------------------------------------------
 
 export interface PromptInputProps {
-  onSubmit?: (value: string, meta: { model: string; effort: string; attachments: File[] }) => void;
+  onSubmit?: (value: string, meta: { model: string; effort: string; attachments: File[]; enhanceImagePrompts: boolean }) => void;
   placeholder?: string;
   className?: string;
   models?: string[];
@@ -802,6 +803,7 @@ export interface PromptInputProps {
   onModelChange?: (model: string) => void;
   /** When true, renders as a sleek, slim floating pill input bar */
   isSlim?: boolean;
+  enhanceImagePrompts?: boolean;
 }
 
 export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
@@ -821,6 +823,7 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
       selectedModel: controlledModel,
       onModelChange,
       isSlim = false,
+      enhanceImagePrompts = true,
     },
     ref
   ) => {
@@ -1103,6 +1106,7 @@ export const PromptInput = React.forwardRef<HTMLDivElement, PromptInputProps>(
         model: selectedModel,
         effort: efforts[effortIndex],
         attachments: attachments.map((a) => a.file),
+        enhanceImagePrompts,
       });
       handleValueChange('');
       attachments.forEach((a) => URL.revokeObjectURL(a.url));

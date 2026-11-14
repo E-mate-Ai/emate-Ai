@@ -264,6 +264,7 @@ export async function openRouterImageCompletion(
     model?: string;
     aspectRatio?: string;
     resolution?: string;
+    inputReferences?: string[];
     referer?: string;
     title?: string;
   }
@@ -273,6 +274,7 @@ export async function openRouterImageCompletion(
     model = IMAGE_GENERATION_MODEL,
     aspectRatio,
     resolution = '1K',
+    inputReferences,
     referer,
     title,
   } = options;
@@ -283,6 +285,12 @@ export async function openRouterImageCompletion(
     resolution,
   };
   if (aspectRatio) payload.aspect_ratio = aspectRatio;
+  if (inputReferences?.length) {
+    payload.input_references = inputReferences.map((url) => ({
+      type: 'image_url',
+      image_url: { url },
+    }));
+  }
 
   let response: Response;
   try {

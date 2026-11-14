@@ -63,7 +63,7 @@ interface ChatMessageBubbleProps {
    */
   processStep?: number;
   /** Called when the user clicks a generated-image "Regenerate". (imageId, prompt) */
-  onRegenerateImage?: (messageId: string, imageId: string, prompt: string) => void;
+  onRegenerateImage?: (messageId: string, imageId: string, prompt: string, promptIsEnhanced?: boolean) => void;
   /** Called when user clicks "Reinforce Weak Concepts" in an analyzer report. */
   onReinforce?: (weakTopics: string[], submissionData?: MCQSubmission, quiz?: MCQQuiz) => void;
   /** Called when a student submits an inline quiz in the conversation. */
@@ -863,7 +863,7 @@ export default function ChatMessageBubble({
               )}
             </>
           ) : (
-            isStreaming && (
+            isStreaming && !message.images?.length && !message.generatedDoc && (
               <LatticeLoader
                 status="working"
                 label="Thinking"
@@ -1054,6 +1054,20 @@ export default function ChatMessageBubble({
           </div>
         )}
 
+        {/* Generated image step progress */}
+        {message.images && message.images.some((img) => img.status === 'generating' || img.status === 'enhancing') && isStreaming && (
+          <StepProgress
+            steps={[
+              'Analysing visual prompt',
+              'Crafting composition',
+              'Rendering image with Flux',
+              'Applying finishing touches',
+            ]}
+            active={true}
+            duration={1600}
+          />
+        )}
+
         {/* Generated image cards */}
         {message.images && message.images.length > 0 && (
           <div className="mt-2">
@@ -1064,7 +1078,7 @@ export default function ChatMessageBubble({
                 theme={theme}
                 onRegenerate={
                   onRegenerateImage
-                    ? (imageId, prompt) => onRegenerateImage(message.id, imageId, prompt)
+                    ? (imageId, prompt, promptIsEnhanced) => onRegenerateImage(message.id, imageId, prompt, promptIsEnhanced)
                     : undefined
                 }
               />

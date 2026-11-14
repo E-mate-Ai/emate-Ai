@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { Download, Maximize2, RefreshCw, X, Loader2, KeyRound } from 'lucide-react';
+import { Download, Maximize2, RefreshCw, X, KeyRound, ChevronDown, Sparkles } from 'lucide-react';
 import type { GeneratedImage } from '@/lib/chatHistory';
-import { ImageGeneration } from '@/components/ui/ai-chat-image-generation-1';
+import BlueDotMatrix from '@/components/ui/BlueDotMatrix';
 import { Button } from '@/components/ui/button';
 
 function getFriendlyImageError(message?: string) {
@@ -24,7 +24,7 @@ interface GeneratedImageCardProps {
   image: GeneratedImage;
   theme?: 'light' | 'dark';
   /** Re-run generation for this image. Called with (imageId, prompt). */
-  onRegenerate?: (imageId: string, prompt: string) => void;
+  onRegenerate?: (imageId: string, prompt: string, promptIsEnhanced?: boolean) => void;
   /** Open OpenRouter connect modal */
   onConnectOpenRouter?: () => void;
 }
@@ -41,7 +41,13 @@ export default function GeneratedImageCard({
   onConnectOpenRouter,
 }: GeneratedImageCardProps) {
   const [lightboxOpen, setLightboxOpen] = React.useState(false);
+  const [enhancedPromptOpen, setEnhancedPromptOpen] = React.useState(false);
+  const [promptDraft, setPromptDraft] = React.useState(image.enhancedPrompt || image.prompt);
   const isDark = theme === 'dark';
+
+  useEffect(() => {
+    setPromptDraft(image.enhancedPrompt || image.prompt);
+  }, [image.enhancedPrompt, image.prompt]);
 
   const handleConnectKey = () => {
     if (onConnectOpenRouter) {
@@ -71,17 +77,39 @@ export default function GeneratedImageCard({
     document.body.removeChild(a);
   };
 
-  if (image.status === 'generating') {
+  if (image.status === 'enhancing' || image.status === 'generating') {
+    const isLandscape = image.aspectRatio === '16:9' || image.aspectRatio === '3:2';
+    const isPortrait = image.aspectRatio === '9:16' || image.aspectRatio === '3:4';
+    const aspectClass = isLandscape
+      ? 'aspect-video'
+      : isPortrait
+        ? 'aspect-[9/16] max-h-[380px]'
+        : 'aspect-square max-h-[320px]';
+
     return (
-      <ImageGeneration>
-        <div className="w-full aspect-video flex items-center justify-center bg-zinc-50 dark:bg-zinc-900">
-          <Loader2
-            className="animate-spin"
-            style={{ color: isDark ? '#8aa2ff' : '#1f51ff' }}
-            size={28}
-          />
+      <div className="my-2 w-full max-w-md overflow-hidden rounded-2xl border border-blue-400/15 bg-[#030916] shadow-[0_12px_48px_rgba(0,90,255,0.12)]">
+        <div className={`relative flex w-full flex-col items-center justify-center gap-4 overflow-hidden p-6 ${aspectClass}`}>
+          <BlueDotMatrix />
+          <p className="text-center text-xs font-medium tracking-[0.12em] text-blue-100/80 sm:text-sm" role="status" aria-live="polite">
+            {image.status === 'enhancing' ? 'Enhancing your prompt...' : 'Creating your imagination...'}
+          </p>
+          {image.enhancedPrompt && (
+            <p className="max-w-[280px] text-center text-[11px] text-cyan-200/70">
+              Prompt ready · preparing your image
+            </p>
+          )}
+          {image.enhancementWarning && (
+            <p className="max-w-[280px] text-center text-[10px] text-amber-200/75">
+              {image.enhancementWarning}
+            </p>
+          )}
+          {image.prompt && (
+            <p className="line-clamp-2 max-w-[280px] px-2 text-center text-[11px] text-slate-400/75">
+              “{image.prompt}”
+            </p>
+          )}
         </div>
-      </ImageGeneration>
+      </div>
     );
   }
 
@@ -113,7 +141,7 @@ export default function GeneratedImageCard({
           {onRegenerate && (
             <Button
               type="button"
-              onClick={() => onRegenerate(image.id, image.prompt)}
+              onClick={() => onRegenerate(image.id, image.enhancedPrompt || image.prompt, Boolean(image.enhancedPrompt))}
               variant="outline"
               size="sm"
               className="h-9 border-red-500/30 px-3 text-xs text-red-500 hover:bg-red-500/10 dark:text-red-300"
@@ -134,7 +162,7 @@ export default function GeneratedImageCard({
         <img
           src={image.url}
           alt={image.prompt}
-          className="w-full h-auto object-cover block cursor-zoom-in"
+          className="generated-image-reveal w-full h-auto object-cover block cursor-zoom-in"
           onClick={() => setLightboxOpen(true)}
         />
 
@@ -161,7 +189,7 @@ export default function GeneratedImageCard({
           {onRegenerate && (
             <button
               type="button"
-              onClick={() => onRegenerate(image.id, image.prompt)}
+              onClick={() => onRegenerate(image.id, image.enhancedPrompt || image.prompt, Boolean(image.enhancedPrompt))}
               title="Regenerate image"
               aria-label="Regenerate image"
               className="h-8 w-8 rounded-full flex items-center justify-center bg-white/15 backdrop-blur-sm text-white hover:bg-white/30 transition-colors cursor-pointer"
@@ -171,6 +199,46 @@ export default function GeneratedImageCard({
           )}
         </div>
       </div>
+      {image.enhancementWarning && (
+        <p className="mb-2 max-w-md text-[11px] text-amber-600 dark:text-amber-400">
+          {image.enhancementWarning}
+        </p>
+      )}
+      {image.enhancedPrompt && (
+        <div className="mb-3 max-w-md overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/70 dark:bg-zinc-900/60">
+          <button
+            type="button"
+            onClick={() => setEnhancedPromptOpen((open) => !open)}
+            aria-expanded={enhancedPromptOpen}
+            className="flex min-h-10 w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/70"
+          >
+            <span className="flex items-center gap-2"><Sparkles size={14} className="text-blue-500" /> AI Enhanced Prompt</span>
+            <ChevronDown size={14} className={enhancedPromptOpen ? 'transition-transform rotate-180' : 'transition-transform'} />
+          </button>
+          {enhancedPromptOpen && (
+            <div className="space-y-2 border-t border-zinc-200 p-3 dark:border-zinc-800">
+              <label htmlFor={'enhanced-prompt-' + image.id} className="sr-only">Edit enhanced image prompt</label>
+              <textarea
+                id={'enhanced-prompt-' + image.id}
+                value={promptDraft}
+                onChange={(event) => setPromptDraft(event.target.value)}
+                rows={5}
+                className="w-full resize-y rounded-lg border border-zinc-200 bg-white p-2.5 text-xs leading-relaxed text-zinc-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/15 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200"
+              />
+              {onRegenerate && (
+                <button
+                  type="button"
+                  disabled={!promptDraft.trim()}
+                  onClick={() => onRegenerate(image.id, promptDraft.trim(), true)}
+                  className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Generate with this prompt
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Lightbox */}
       {lightboxOpen && (

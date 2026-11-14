@@ -1,1 +1,74 @@
 @import './tailwind.css';
+
+.blue-dot-matrix {
+  width: min(100%, 240px);
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: #030916;
+}
+
+.generated-image-reveal {
+  animation: generated-image-reveal 520ms ease-out both;
+}
+
+@keyframes generated-image-reveal {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.blue-dot-matrix__grid {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  grid-template-columns: repeat(40, minmax(0, 1fr));
+  grid-template-rows: repeat(40, minmax(0, 1fr));
+  gap: 0;
+}
+
+.blue-dot-matrix__cell {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  place-items: center;
+}
+
+.blue-dot-matrix__dot {
+  width: 66%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #1264c9;
+  opacity: calc(0.43 + var(--dot-variation));
+  transform: scale(0.78);
+  box-shadow: 0 0 2px rgba(35, 133, 255, 0.16);
+  animation: blue-matrix-wave 3.2s ease-in-out var(--wave-delay) infinite;
+  will-change: opacity, transform, box-shadow;
+}
+
+@keyframes blue-matrix-wave {
+  0%, 100% {
+    opacity: calc(0.38 + var(--dot-variation));
+    transform: scale(0.72);
+    background: #1055a6;
+    box-shadow: 0 0 2px rgba(35, 133, 255, 0.12);
+  }
+  48% {
+    opacity: 0.96;
+    transform: scale(1);
+    background: #55dcff;
+    box-shadow: 0 0 5px rgba(28, 154, 255, 0.82), 0 0 11px rgba(0, 115, 255, 0.52);
+  }
+  61% {
+    opacity: 0.78;
+    transform: scale(0.9);
+    background: #218cf5;
+    box-shadow: 0 0 4px rgba(28, 154, 255, 0.48);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blue-dot-matrix__dot {
+    animation: none;
+    opacity: 0.72;
+    transform: scale(0.88);
+  }
+}

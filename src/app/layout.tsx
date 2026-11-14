@@ -3,7 +3,7 @@ import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import { Outfit, JetBrains_Mono, Geist } from 'next/font/google';
 import { Toaster } from 'sonner';
-import '../styles/tailwind.css';
+import '../styles/index.css';
 import RouteTracker from '@/components/RouteTracker';
 import { AuthListener } from '@/components/AuthListener';
 import CookieBanner from '@/components/CookieBanner';
