@@ -298,10 +298,15 @@ export async function openRouterImageCompletion(
       method: 'POST',
       headers: buildOpenRouterHeaders(apiKey, referer, title),
       body: JSON.stringify(payload),
+      // Image providers can stall without closing the connection. Bound each
+      // attempt so the route can move on to its next configured image model.
+      signal: AbortSignal.timeout(45_000),
     });
   } catch (err) {
     const e: OpenRouterError = new Error(
-      'Network error reaching OpenRouter. Check your connection and try again.'
+      err instanceof DOMException && err.name === 'TimeoutError'
+        ? 'The image provider took too long to respond. Trying another image model may help.'
+        : 'Network error reaching OpenRouter. Check your connection and try again.'
     );
     e.retryable = true;
     throw e;

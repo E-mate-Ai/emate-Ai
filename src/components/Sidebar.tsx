@@ -12,6 +12,7 @@ import {
   deleteSubject,
   renameSubject,
   getNotebook,
+  appendToNotebook,
   Subject,
 } from '@/lib/notebook';
 import {
@@ -58,6 +59,7 @@ import {
   Edit2,
   Check,
   MoreHorizontal,
+  Pin,
   ArrowLeft,
   Folder,
   BookMarked,
@@ -182,10 +184,24 @@ export default function Sidebar({
 
   // ── Real-time chat history sync ────────────────────────────────────────
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
+  const [pinnedChatIds, setPinnedChatIds] = useState<string[]>([]);
+  const [openChatMenuId, setOpenChatMenuId] = useState<string | null>(null);
 
   useEffect(() => {
     setChatHistory(getChatHistory());
-    const handleHistoryChange = () => setChatHistory(getChatHistory());
+    const readPinnedChats = () => {
+      try {
+        const saved = JSON.parse(localStorage.getItem('nk-pinned-chat-ids') || '[]');
+        setPinnedChatIds(Array.isArray(saved) ? saved.filter((id): id is string => typeof id === 'string') : []);
+      } catch {
+        setPinnedChatIds([]);
+      }
+    };
+    readPinnedChats();
+    const handleHistoryChange = () => {
+      setChatHistory(getChatHistory());
+      readPinnedChats();
+    };
     window.addEventListener('nk-chat-history-change', handleHistoryChange);
     // Also sync when another tab writes to localStorage
     window.addEventListener('storage', handleHistoryChange);
@@ -212,6 +228,46 @@ export default function Sidebar({
     };
   }, []);
 
+  const togglePinnedChat = (chatId: string) => {
+    const next = pinnedChatIds.includes(chatId)
+      ? pinnedChatIds.filter((id) => id !== chatId)
+      : [chatId, ...pinnedChatIds];
+    setPinnedChatIds(next);
+    localStorage.setItem('nk-pinned-chat-ids', JSON.stringify(next));
+    setOpenChatMenuId(null);
+    toast.success(next.includes(chatId) ? 'Chat pinned' : 'Chat unpinned');
+  };
+
+  const saveChatToNotebook = async (chat: ChatHistoryItem) => {
+    try {
+      const subject = chat.subject?.trim() || selectedSubject || 'Saved Chats';
+      if (!getSubjects().some((item) => item.name.toLowerCase() === subject.toLowerCase())) {
+        await addSubject(subject);
+      }
+      const transcript = getChatTranscript(chat.id);
+      const conversation = transcript
+        .map((message) => {
+          const text = [message.content, message.generatedDoc?.content]
+            .filter((value): value is string => Boolean(value?.trim()))
+            .join('\n\n');
+          return text ? `${message.role === 'user' ? 'You' : 'e-Mate'}: ${text}` : '';
+        })
+        .filter(Boolean)
+        .join('\n\n');
+      await appendToNotebook(subject, `Chat: ${chat.title}\n\n${conversation || 'No text transcript is available.'}`);
+      handleSelectNotebook(subject);
+      setOpenChatMenuId(null);
+      toast.success('Chat added to notebook');
+      onOpenNotebook?.(subject);
+    } catch {
+      toast.error('Could not add this chat to the notebook. Please try again.');
+    }
+  };
+
+  const sortedChatHistory = [...chatHistory].sort((a, b) =>
+    Number(pinnedChatIds.includes(b.id)) - Number(pinnedChatIds.includes(a.id))
+  );
+
   const handleCreateNotebook = () => {
     setNewSubjectName('');
     setNewSubjectIcon('book');
@@ -232,6 +288,7 @@ export default function Sidebar({
   const [editingSubjectId, setEditingSubjectId] = useState<string | null>(null);
   const [editingSubjectName, setEditingSubjectName] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [confirmClearChats, setConfirmClearChats] = useState(false);
 
   const handleDeleteSubject = async (id: string) => {
     const updated = await deleteSubject(id);
@@ -395,9 +452,9 @@ export default function Sidebar({
           href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap"
         />
         {/* ── Sticky top section: logo + nav + search (never scrolls) ── */}
-        <div className="px-3 pt-3 pb-2 shrink-0">
+        <div className="px-3 pt-2.5 pb-1.5 shrink-0">
           {/* Logo + collapse button */}
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-2">
             <Link
               href="/"
               className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
@@ -438,7 +495,7 @@ export default function Sidebar({
           </div>
 
           {/* Nav */}
-          <nav className="space-y-1">
+          <nav className="space-y-0.5">
             <a
               href="/ai-topper-chat"
               onClick={(e) => {
@@ -453,7 +510,7 @@ export default function Sidebar({
                   router.push('/ai-topper-chat');
                 }
               }}
-              className="w-full flex items-center justify-center gap-2 rounded-full px-4 py-2.5 bg-[#0060df] hover:bg-[#0052cc] text-white text-xs font-semibold shadow-xs transition-all active:scale-[0.98] cursor-pointer mb-2"
+              className="w-full flex items-center justify-center gap-2 rounded-full px-4 py-2 bg-[#0060df] hover:bg-[#0052cc] text-white text-[11px] font-semibold shadow-xs transition-all active:scale-[0.98] cursor-pointer mb-1"
             >
               <Plus size={15} />
               <span>{!selectedSubject ? 'General Workspace' : 'New chat'}</span>
@@ -462,13 +519,13 @@ export default function Sidebar({
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
-              className="flex items-center gap-2.5 w-full rounded-lg px-3 py-2 text-xs font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+              className="flex items-center gap-2.5 w-full rounded-lg px-3 py-1.5 text-[11px] font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5"
               style={{ color: theme === 'dark' ? '#71717a' : '#52525b' }}
             >
               <Search size={14} />
               <span>Search</span>
               <span
-                className="ml-auto text-[9px] font-medium px-1.5 py-0.5 rounded"
+                className="ml-auto text-[8px] font-medium px-1 py-0.5 rounded"
                 style={{
                   color: theme === 'dark' ? '#8aa2ff' : '#1f51ff',
                   background: theme === 'dark' ? 'rgba(20,119,242,0.16)' : 'rgba(20,119,242,0.08)',
@@ -481,7 +538,7 @@ export default function Sidebar({
             <button
               type="button"
               onClick={() => setLibraryOpen(true)}
-              className="flex items-center gap-2.5 w-full rounded-lg px-3 py-2 text-xs font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+              className="flex items-center gap-2.5 w-full rounded-lg px-3 py-1.5 text-[11px] font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5"
               style={{ color: theme === 'dark' ? '#71717a' : '#71717a' }}
             >
               <BookOpen size={14} />
@@ -490,7 +547,7 @@ export default function Sidebar({
 
             <Link
               href="/ai-flashcard-generator"
-              className={`flex items-center justify-between w-full rounded-lg px-3 py-2 text-xs font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${
+              className={`flex items-center justify-between w-full rounded-lg px-3 py-1.5 text-[11px] font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${
                 pathname === '/ai-flashcard-generator' || pathname === '/flashcards'
                   ? 'bg-blue-600/10 text-blue-700 dark:text-blue-300 font-semibold'
                   : ''
@@ -509,7 +566,7 @@ export default function Sidebar({
                 <span>Flashcards</span>
               </div>
               <span
-                className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20"
+                className="px-1 py-0.5 text-[9px] font-semibold rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20"
               >
                 AI
               </span>
@@ -517,7 +574,7 @@ export default function Sidebar({
 
             <Link
               href="/ai-study-planner"
-              className={`flex items-center justify-between w-full rounded-lg px-3 py-2 text-xs font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${
+              className={`flex items-center justify-between w-full rounded-lg px-3 py-1.5 text-[11px] font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${
                 pathname === '/ai-study-planner'
                   ? 'bg-blue-600/10 text-blue-700 dark:text-blue-300 font-semibold'
                   : ''
@@ -536,7 +593,7 @@ export default function Sidebar({
                 <span>Study Planner</span>
               </div>
               <span
-                className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20"
+                className="px-1 py-0.5 text-[9px] font-semibold rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20"
               >
                 Plan
               </span>
@@ -549,7 +606,7 @@ export default function Sidebar({
                   description: 'We are building an advanced AI agent workspace. Stay tuned!',
                 })
               }
-              className="flex items-center justify-between w-full rounded-lg px-3 py-2 text-xs font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+              className="flex items-center justify-between w-full rounded-lg px-3 py-1.5 text-[11px] font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5"
               style={{ color: theme === 'dark' ? '#71717a' : '#52525b' }}
             >
               <div className="flex items-center gap-2.5">
@@ -557,7 +614,7 @@ export default function Sidebar({
                 <span>Builder X</span>
               </div>
               <span
-                className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full"
+                className="px-1 py-0.5 text-[9px] font-semibold rounded-full"
                 style={{
                   background: theme === 'dark' ? 'rgba(20,119,242,0.16)' : 'rgba(20,119,242,0.08)',
                   color: theme === 'dark' ? '#8aa2ff' : '#1f51ff',
@@ -574,7 +631,7 @@ export default function Sidebar({
         <div className="px-3 pb-2 flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
 
           {/* Notebooks & Recent Sections container with space-y-4 visual separation */}
-          <div className="mt-2 space-y-4">
+        <div className="mt-1.5 space-y-2.5">
             {/* Notebooks Section */}
             <div>
               <div className="flex items-center justify-between mb-2 px-3">
@@ -607,16 +664,14 @@ export default function Sidebar({
 
               <div className="space-y-1">
                 {subjects.length === 0 ? (
-                  <div className="px-3 py-3.5 text-center rounded-xl border border-dashed border-border bg-card/40 flex flex-col items-center gap-1">
-                    <div className="w-6 h-6 rounded-lg bg-brand/10 text-brand flex items-center justify-center mb-0.5">
-                      <BookOpen size={13} strokeWidth={1.75} />
+                  <div className="flex items-center gap-2.5 rounded-xl border border-dashed border-border bg-card/40 px-3 py-2.5">
+                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-brand/10 text-brand">
+                      <BookOpen size={12} strokeWidth={1.75} />
                     </div>
-                    <p className="text-[11px] font-medium text-text-primary">
-                      No notebooks yet
-                    </p>
-                    <p className="text-[10px] text-text-muted leading-tight">
-                      Add a subject to organize your notes & quizzes
-                    </p>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-medium leading-tight text-text-primary">No notebooks yet</p>
+                      <p className="truncate text-[9px] leading-tight text-text-muted">Add a subject to organize notes & quizzes</p>
+                    </div>
                   </div>
                 ) : (
                   subjects.map((subject) => {
@@ -673,12 +728,16 @@ export default function Sidebar({
                   RECENT
                 </p>
                 {chatHistory.length > 0 && (
-                  <DeleteButton
-                    size="sm"
-                    label="Clear"
+                  <button
+                    type="button"
                     title="Clear history"
-                    onClick={() => clearChatHistory()}
-                  />
+                    aria-label="Clear chat history"
+                    className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-[11px] font-medium text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:text-zinc-400 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+                    onClick={() => setConfirmClearChats(true)}
+                  >
+                    <Trash2 size={13} />
+                    <span>Clear</span>
+                  </button>
                 )}
               </div>
               {chatHistory.length === 0 ? (
@@ -695,10 +754,11 @@ export default function Sidebar({
                 </div>
               ) : (
                 <div className="space-y-1">
-                  {chatHistory.slice(0, 15).map((chat) => (
+                  {sortedChatHistory.slice(0, 15).map((chat) => (
                     <div
                       key={chat.id}
                       onClick={() => {
+                        setOpenChatMenuId(null);
                         const messages = getChatTranscript(chat.id);
                         router.push(`/ai-topper-chat?chatId=${chat.id}`);
                         window.dispatchEvent(
@@ -717,24 +777,71 @@ export default function Sidebar({
                       className="group relative w-full cursor-pointer rounded-lg px-3 py-2 text-left transition-colors hover:bg-slate-50 dark:hover:bg-zinc-800/40"
                       style={{ background: 'transparent' }}
                     >
-                      <div className="flex items-center justify-between gap-2 pr-4">
-                        <span className="text-xs font-medium line-clamp-1 text-gray-600 dark:text-zinc-400">
-                          {chat.title}
+                      <div className="flex items-center justify-between gap-2 pr-8">
+                        <span className="flex min-w-0 items-center gap-1.5 text-xs font-medium line-clamp-1 text-gray-600 dark:text-zinc-400">
+                          {pinnedChatIds.includes(chat.id) && <Pin size={11} className="shrink-0 text-blue-500" aria-label="Pinned" />}
+                          <span className="truncate">{chat.title}</span>
                         </span>
                         <span className="text-[9px] shrink-0 text-gray-400 dark:text-zinc-650">
                           {formatChatTime(chat.timestamp)}
                         </span>
                       </div>
-                      <DeleteButton
-                        size="sm"
-                        label="Delete"
-                        title="Remove"
-                        className="absolute right-2 top-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteChatSession(chat.id);
+                      <button
+                        type="button"
+                        title="Chat options"
+                        aria-label={`Options for ${chat.title}`}
+                        aria-haspopup="menu"
+                        aria-expanded={openChatMenuId === chat.id}
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-md text-gray-500 opacity-0 transition-opacity hover:bg-slate-200 hover:text-gray-800 focus:opacity-100 group-hover:opacity-100 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-white"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setOpenChatMenuId((openId) => openId === chat.id ? null : chat.id);
                         }}
-                      />
+                      >
+                        <MoreHorizontal size={17} />
+                      </button>
+                      {openChatMenuId === chat.id && (
+                        <div
+                          role="menu"
+                          aria-label={`Options for ${chat.title}`}
+                          className="absolute right-2 bottom-8 z-50 w-44 overflow-hidden rounded-xl border border-zinc-200 bg-white p-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                            onClick={() => togglePinnedChat(chat.id)}
+                          >
+                            <Pin size={14} />
+                            {pinnedChatIds.includes(chat.id) ? 'Unpin chat' : 'Pin chat'}
+                          </button>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                            onClick={() => void saveChatToNotebook(chat)}
+                          >
+                            <NotebookText size={14} />
+                            Add to notebook
+                          </button>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
+                            onClick={() => {
+                              deleteChatSession(chat.id);
+                              setOpenChatMenuId(null);
+                              const remainingPinned = pinnedChatIds.filter((id) => id !== chat.id);
+                              setPinnedChatIds(remainingPinned);
+                              localStorage.setItem('nk-pinned-chat-ids', JSON.stringify(remainingPinned));
+                            }}
+                          >
+                            <Trash2 size={14} />
+                            Delete chat
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1363,6 +1470,64 @@ export default function Sidebar({
                       }}
                     >
                       Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {confirmClearChats && (
+              <div
+                className="fixed inset-0 z-[1000] flex h-screen w-screen items-center justify-center px-4"
+                style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)' }}
+                onClick={() => setConfirmClearChats(false)}
+              >
+                <div
+                  role="alertdialog"
+                  aria-modal="true"
+                  aria-labelledby="clear-chats-title"
+                  aria-describedby="clear-chats-description"
+                  className="w-full max-w-sm rounded-2xl p-6 shadow-2xl"
+                  style={{
+                    background: theme === 'dark' ? '#303030' : '#ffffff',
+                    border: theme === 'dark' ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
+                    fontFamily: "'Inter', sans-serif",
+                  }}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <div className="mb-3 flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl" style={{ background: 'rgba(239,68,68,0.12)' }}>
+                      <Trash2 size={18} style={{ color: '#ef4444' }} />
+                    </div>
+                    <p id="clear-chats-title" className="text-sm font-bold" style={{ color: theme === 'dark' ? '#ffffff' : '#111111' }}>
+                      Clear all chats?
+                    </p>
+                  </div>
+                  <p id="clear-chats-description" className="mb-5 text-sm" style={{ color: '#a1a1aa' }}>
+                    Are you sure you want to delete all your chats? This action cannot be undone.
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setConfirmClearChats(false)}
+                      className="h-10 flex-1 rounded-xl border text-sm font-semibold transition hover:opacity-80"
+                      style={{ borderColor: theme === 'dark' ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)', color: theme === 'dark' ? '#d4d4d8' : '#3f3f46' }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        clearChatHistory();
+                        setPinnedChatIds([]);
+                        localStorage.removeItem('nk-pinned-chat-ids');
+                        setOpenChatMenuId(null);
+                        setConfirmClearChats(false);
+                      }}
+                      className="h-10 flex-1 rounded-xl text-sm font-bold text-white transition hover:brightness-95"
+                      style={{ background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', boxShadow: '0 4px 16px rgba(239,68,68,0.3)' }}
+                    >
+                      Delete all chats
                     </button>
                   </div>
                 </div>

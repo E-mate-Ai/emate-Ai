@@ -1991,6 +1991,36 @@ export default function ChatMainArea({
         : `chat-${Date.now()}`;
     sessionIdRef.current = targetChatId;
 
+    // Analyze each user prompt once before routing. The model's classification
+    // augments explicit format rules; it never overrides an explicit PPT/file request.
+    let analyzedIntent: 'presentation' | 'document' | 'image' | 'quiz' | 'flashcards' | 'chat' | null = null;
+    if (!isSystemAction) {
+      try {
+        const intentHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+        const intentKey = typeof window !== 'undefined' ? localStorage.getItem('user_openrouter_key') : null;
+        if (intentKey) intentHeaders.Authorization = `Bearer ${intentKey}`;
+        const intentResponse = await fetch('/api/analyze-intent', {
+          method: 'POST',
+          headers: intentHeaders,
+          body: JSON.stringify({ prompt: content }),
+          signal: AbortSignal.timeout(5_500),
+        });
+        if (intentResponse.ok) {
+          const analysis = await intentResponse.json();
+          if (analysis.confidence >= 0.65) analyzedIntent = analysis.intent;
+        }
+      } catch {
+        // Keep chat responsive if model-based analysis is unavailable.
+      }
+    }
+
+    const lowerContent = content.trim().toLowerCase();
+    const presentationIntent = analyzedIntent === 'presentation' ||
+      /\b(?:create|creat|make|mak|generate|genarte|genrate|generat|generte|build|buld|prepare|design|give\s+me|write|writ)\b.*\b(?:presentation|ppt|pptx|powerpoint|slide\s+deck|slides?)\b/i.test(lowerContent) ||
+      /\b(?:presentation|ppt|pptx|powerpoint|slide\s+deck)\b.*\b(?:about|on|for|regarding)\b/i.test(lowerContent);
+    const documentIntent = analyzedIntent === 'document' ||
+      /\b(?:create|make|generate|write|prepare|export|download|draft)\b.{0,60}\b(?:document|docx|word\s+file|report|pdf|resume|cv|essay|study\s+guide|proposal|file)\b/i.test(lowerContent);
+
     // Clear main input search bar immediately
     setInputValue('');
 
@@ -2027,7 +2057,7 @@ export default function ChatMainArea({
       /\b(?:i want|i need|i would like|i'd like)\b[\s\S]{0,80}\b(?:image|picture|photo|illustration|drawing|visual|graphic|artwork|logo|icon|poster|wallpaper|diagram|infographic|portrait|banner|cover|avatar|thumbnail|sticker)\b/i.test(content);
     const additionalImageMetaQuestion =
       /\b(?:know about|learn about|understand|explain)\b[\s\S]{0,80}\b(?:image generation|image models?|visual generation)\b/i.test(content);
-    if (!isSystemAction && latestGeneratedImage && imageEditIntent) {
+    if (!isSystemAction && !presentationIntent && !documentIntent && latestGeneratedImage && imageEditIntent) {
       router.push(`/ai-topper-chat?chatId=${targetChatId}`, { scroll: false });
       try {
         // Keep the user's natural-language edit request intact and provide the
@@ -2046,7 +2076,10 @@ export default function ChatMainArea({
       return;
     }
 
-    if (!isSystemAction && (slashImageMatch || ((naturalImageIntent || personalImageRequest) && !imageMetaQuestion && !additionalImageMetaQuestion))) {
+    if (!isSystemAction && !presentationIntent && !documentIntent && (
+      slashImageMatch || analyzedIntent === 'image' ||
+      ((naturalImageIntent || personalImageRequest) && !imageMetaQuestion && !additionalImageMetaQuestion)
+    )) {
       const promptToUse = (slashImageMatch?.[1] || imageIntentText)
         .replace(/^(?:please\s+)?(?:can you|could you|i want|i need|make me|create me|generate me|show me)\s+/i, '')
         .replace(/^(?:please\s+)?(?:generate|create|make|draw|paint|render|illustrate|design|produce|show me)\s+(?:an?\s+)?(?:(?:image|picture|photo|illustration|drawing|visual|graphic|artwork)\s+(?:of|about|for)?\s+)?/i, '')
@@ -2150,57 +2183,23 @@ export default function ChatMainArea({
       return;
     }
 
-    const lowerContent = content.trim().toLowerCase();
     const generationHowToQuestion = /^(?:how(?:\s+(?:do i|can i|would i|should i|to))?|what is|what are|why|when|where|explain|tell me how)\b/i.test(lowerContent);
 
     // 2. Presentation / PPT Intent: explicit mode or natural language
-    const isPptxIntent =
-      /\b(?:create|creat|make|mak|generate|genarte|genrate|generat|generte|build|buld|prepare|design|give\s+me|write|writ)\b.*\b(?:presentation|ppt|pptx|powerpoint|slide\s+deck|slides?)\b/i.test(lowerContent) ||
-      /\b(?:presentation|ppt|pptx|powerpoint|slide\s+deck)\b.*\b(?:about|on|for|regarding)\b/i.test(lowerContent) ||
-      /^(?:make|creat|create|generate|genarte|genrate)\s+(?:a\s+)?(?:ppt|presentation|slide\s+deck)\b/i.test(lowerContent);
-
-    if (isPptxIntent && !generationHowToQuestion) {
-      const timestamp = new Date().toISOString();
-      const userMsg: ChatMessage = {
-        id: createMessageId(),
-        role: 'user',
-        content,
-        mode,
-        timestamp,
-        subject: selectedContext.subject,
-        isGeneralChat: !isStudyMode,
-      };
-      const assistantPrompt: ChatMessage = {
-        id: createMessageId(),
-        role: 'assistant',
-        content: "Sure, I can build that. One quick question so it lands right — how deep should it go, and who's it for?",
-        mode,
-        timestamp,
-        subject: selectedContext.subject,
-        isGeneralChat: !isStudyMode,
-        presentationRequest: { prompt: content },
-      };
-      const presentationMessages = [...messages, userMsg, assistantPrompt];
-      pendingQuestionScrollRef.current = userMsg.id;
-      setMessages(presentationMessages);
+    if (presentationIntent && !generationHowToQuestion) {
       router.push(`/ai-topper-chat?chatId=${targetChatId}`, { scroll: false });
-      if (!isGuest) {
-        void saveChatSession({
-          id: targetChatId,
-          title: content.length > 60 ? `${content.slice(0, 57)}…` : content,
-          subject: selectedContext.subject,
-          unit: selectedContext.unit,
-          mode,
-          timestamp: Date.now(),
-        });
+      try {
+        // Use a general-audience default when no audience or depth is specified,
+        // then deliver the requested deck in the same turn.
+        await handleDocumentSend(content, 'pptx');
+      } finally {
+        sendInFlightRef.current = false;
       }
-      void saveChatTranscript(targetChatId, presentationMessages);
-      sendInFlightRef.current = false;
       return;
     }
 
     // 3. Document / DOCX Intent: explicit mode or natural language (tolerates typos like "genarte file of this", "genarte resume")
-    const isDocxIntent =
+    const isDocxIntent = documentIntent ||
       /\b(?:create|creat|make|mak|generate|genarte|genrate|generat|generte|build|buld|write|writ|prepare|export|download|downlod|dwnload|draft|give\s+me)\b.{0,60}\b(?:a\s+)?(?:document|docx|word\s+document|word\s+doc|word\s+file|word|doc|report|pdf|resume|cv|curriculum\s+vitae|cover\s+letter|essay|study\s+guide|notes\s+doc|proposal|whitepaper|case\s+study|brief|sop|file|files)\b/i.test(lowerContent) ||
       /\b(?:convert|turn|put|save|export)\s+(?:this|it)\s+(?:in|into|as|to)\s+(?:a\s+)?(?:file|doc|docx|word|document|pdf|resume|cv)\b/i.test(lowerContent) ||
       /\b(?:file|doc|docx|word|document|resume|cv|report)\s+(?:of|for|from)\s+(?:this|it|above)\b/i.test(lowerContent) ||

@@ -837,18 +837,33 @@ export default function ChatMessageBubble({
   }
 
   const showProcessAccordion = !message.quiz && !message.isGeneralChat && processStep >= 1;
+  const isGeneratingImage = Boolean(message.images?.some((img) => img.status === 'generating' || img.status === 'enhancing'));
 
   return (
     <div className="w-full fade-in-up group transition-colors flex flex-col items-start gap-1.5 my-1">
+      {isGeneratingImage && isStreaming && (
+        <StepProgress
+          steps={[
+            ...(message.images?.some((img) => img.status === 'enhancing') ? ['Analysing visual prompt'] : []),
+            'Crafting composition',
+            'Rendering image with Flux',
+            'Applying finishing touches',
+          ]}
+          active
+          duration={1600}
+        />
+      )}
       {/* Assistant Message Container Card */}
       <div className={message.quiz || message.flashcardDeck
         ? 'w-full max-w-none rounded-none bg-transparent p-0 text-[#f0f0f0] shadow-none'
-        : 'px-5 py-3.5 sm:px-6 sm:py-4 rounded-[22px] bg-[#e5e5e5] dark:bg-zinc-800/80 text-[#1a1a1a] dark:text-[#f0f0f0] max-w-[620px] shadow-2xs space-y-2'}>
+        : message.images?.length
+          ? 'w-[min(472px,100%)] max-w-full px-3 py-3 rounded-[22px] bg-[#e5e5e5] dark:bg-zinc-800/80 text-[#1a1a1a] dark:text-[#f0f0f0] shadow-2xs'
+          : 'px-5 py-3.5 sm:px-6 sm:py-4 rounded-[22px] bg-[#e5e5e5] dark:bg-zinc-800/80 text-[#1a1a1a] dark:text-[#f0f0f0] max-w-[620px] shadow-2xs space-y-2'}>
         {/* Animated process accordion — only for study mode with active tracking */}
         {showProcessAccordion && <ProcessAccordion processStep={processStep} theme={theme} />}
 
         {/* Message content */}
-        <div
+        {!message.images?.length && <div
           className="prose prose-zinc dark:prose-invert max-w-none text-xs sm:text-sm leading-relaxed font-normal"
           style={{ color: isDark ? '#f4f4f5' : '#1a1a1a' }}
         >
@@ -882,7 +897,7 @@ export default function ChatMessageBubble({
               />
             )
           )}
-        </div>
+        </div>}
 
         {message.presentationRequest && onPresentationChoice && (
           <div className="mt-4 w-full space-y-2.5" aria-label="Choose presentation audience and depth">
@@ -1052,20 +1067,6 @@ export default function ChatMessageBubble({
               </button>
             )}
           </div>
-        )}
-
-        {/* Generated image step progress */}
-        {message.images && message.images.some((img) => img.status === 'generating' || img.status === 'enhancing') && isStreaming && (
-          <StepProgress
-            steps={[
-              'Analysing visual prompt',
-              'Crafting composition',
-              'Rendering image with Flux',
-              'Applying finishing touches',
-            ]}
-            active={true}
-            duration={1600}
-          />
         )}
 
         {/* Generated image cards */}

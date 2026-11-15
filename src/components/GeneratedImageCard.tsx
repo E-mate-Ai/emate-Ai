@@ -84,30 +84,15 @@ export default function GeneratedImageCard({
       ? 'aspect-video'
       : isPortrait
         ? 'aspect-[9/16] max-h-[380px]'
-        : 'aspect-square max-h-[320px]';
+        : 'aspect-square';
 
     return (
-      <div className="my-2 w-full max-w-md overflow-hidden rounded-2xl border border-blue-400/15 bg-[#030916] shadow-[0_12px_48px_rgba(0,90,255,0.12)]">
-        <div className={`relative flex w-full flex-col items-center justify-center gap-4 overflow-hidden p-6 ${aspectClass}`}>
+      <div className="my-2 w-full max-w-md">
+        <div className={`relative flex w-full items-center justify-center overflow-hidden rounded-[38px] border-[8px] border-slate-300 bg-[#030916] p-1.5 shadow-[0_12px_48px_rgba(0,90,255,0.12)] ${aspectClass}`}>
           <BlueDotMatrix />
-          <p className="text-center text-xs font-medium tracking-[0.12em] text-blue-100/80 sm:text-sm" role="status" aria-live="polite">
-            {image.status === 'enhancing' ? 'Enhancing your prompt...' : 'Creating your imagination...'}
-          </p>
-          {image.enhancedPrompt && (
-            <p className="max-w-[280px] text-center text-[11px] text-cyan-200/70">
-              Prompt ready · preparing your image
-            </p>
-          )}
-          {image.enhancementWarning && (
-            <p className="max-w-[280px] text-center text-[10px] text-amber-200/75">
-              {image.enhancementWarning}
-            </p>
-          )}
-          {image.prompt && (
-            <p className="line-clamp-2 max-w-[280px] px-2 text-center text-[11px] text-slate-400/75">
-              “{image.prompt}”
-            </p>
-          )}
+        </div>
+        <div className="sr-only" role="status" aria-live="polite">
+          {image.status === 'enhancing' ? 'Enhancing your prompt...' : 'Creating your image...'}
         </div>
       </div>
     );

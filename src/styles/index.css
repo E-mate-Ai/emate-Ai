@@ -1,10 +1,11 @@
 @import './tailwind.css';
 
 .blue-dot-matrix {
-  width: min(100%, 240px);
+  width: min(100%, 420px);
   aspect-ratio: 1;
   overflow: hidden;
   background: #030916;
+  border-radius: 30px;
 }
 
 .generated-image-reveal {
