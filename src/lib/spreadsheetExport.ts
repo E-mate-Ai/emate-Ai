@@ -61,7 +61,7 @@ export function generateXlsXml(data: SpreadsheetData): string {
  xmlns:html="http://www.w3.org/TR/REC-html40">
  <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
   <Title>${escapeXml(sheetTitle)}</Title>
-  <Author>e-Mate AI Studio</Author>
+  <Author>Document Studio</Author>
   <Created>${new Date().toISOString()}</Created>
  </DocumentProperties>
  <Styles>

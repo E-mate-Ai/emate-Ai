@@ -466,7 +466,7 @@ export function buildUniversalDocx(title: string, markdown: string, forcedTempla
         spacing: { before: 40, after: 280 },
         children: [
           new TextRun({
-            text: docData.authorInfo?.institution || `e-Mate University \u2014 ${docData.metadata.date}`,
+            text: docData.authorInfo?.institution || (docData.metadata.date ? `Department of Study \u2014 ${docData.metadata.date}` : 'Academic Assignment'),
             italics: true, size: 22, color: '475569', font: 'Georgia',
           }),
         ],
@@ -490,8 +490,8 @@ export function buildUniversalDocx(title: string, markdown: string, forcedTempla
                 width: { size: 60, type: WidthType.PERCENTAGE },
                 margins: { top: 80, bottom: 80, left: 0, right: 100 },
                 children: [
-                  new Paragraph({ children: [new TextRun({ text: 'EMATE ENTERPRISES', bold: true, size: 24, color: '003366', font: 'Calibri' })] }),
-                  new Paragraph({ children: [new TextRun({ text: 'contact@emate.ai  |  (800) 555-0199', size: 18, color: '64748B' })] }),
+                  new Paragraph({ children: [new TextRun({ text: docData.authorInfo?.institution || 'COMMERCIAL INVOICE', bold: true, size: 24, color: '003366', font: 'Calibri' })] }),
+                  new Paragraph({ children: [new TextRun({ text: docData.authorInfo?.email || 'billing@company.com  |  (800) 555-0199', size: 18, color: '64748B' })] }),
                 ],
               }),
               new TableCell({
@@ -567,7 +567,7 @@ export function buildUniversalDocx(title: string, markdown: string, forcedTempla
                   new Paragraph({
                     children: [
                       new TextRun({ text: 'ORGANIZATION: ', bold: true, size: 17, color: '64748B', font: mainFont }),
-                      new TextRun({ text: 'e-Mate AI Studio', bold: true, size: 17, color: '0F2744', font: mainFont }),
+                      new TextRun({ text: docData.authorInfo?.institution || 'Executive Report', bold: true, size: 17, color: '0F2744', font: mainFont }),
                     ],
                   }),
                 ],
@@ -894,7 +894,7 @@ export function buildUniversalDocx(title: string, markdown: string, forcedTempla
                 children: activeTemplate === 'assignment' ? [
                   new TextRun({ children: [PageNumber.CURRENT], size: 18, color: '475569', font: 'Georgia' }),
                 ] : [
-                  new TextRun({ text: 'e-Mate AI Studio   |   Page ', size: 16, color: '94A3B8', font: mainFont }),
+                  new TextRun({ text: 'Page ', size: 16, color: '94A3B8', font: mainFont }),
                   new TextRun({ children: [PageNumber.CURRENT], size: 16, color: '94A3B8', font: mainFont }),
                   new TextRun({ text: ' of ', size: 16, color: '94A3B8', font: mainFont }),
                   new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 16, color: '94A3B8', font: mainFont }),

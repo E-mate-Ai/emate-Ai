@@ -333,7 +333,7 @@ function parseSlides(markdown: string, presentationTitle: string, selectedThemeI
   const finalPills = (directPillars.length >= 3 ? directPillars : defaultPills).slice(0, 4);
 
   // Presenter detection (from markdown or clean default)
-  let presenterName = 'Prepared with e-Mate AI Studio';
+  let presenterName = '';
   const presenterMatch = markdown.match(/(?:Presented by|Author:|Prepared by|Speaker:)\s*([A-Za-z\s.]+)/i);
   if (presenterMatch && presenterMatch[1] && presenterMatch[1].trim().length > 2 && presenterMatch[1].trim().length < 40) {
     presenterName = `Presented by ${presenterMatch[1].trim()}`;

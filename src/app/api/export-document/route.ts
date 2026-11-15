@@ -69,8 +69,8 @@ async function generatePptxBuffer(title: string, markdown: string, themeId?: str
   const pres = new PptxGenJS();
   pres.defineLayout({ name: 'WIDE_16x9', width: 13.333, height: 7.5 });
   pres.layout = 'WIDE_16x9';
-  pres.author = 'e-Mate AI';
-  pres.company = 'e-Mate AI Studio';
+  pres.author = '';
+  pres.company = '';
   pres.title = title;
 
   const coverData = extractPresentationCoverData(markdown, title);
@@ -92,7 +92,7 @@ async function generatePptxBuffer(title: string, markdown: string, themeId?: str
   const finalPills = (extractedPills.length >= 3 ? extractedPills : defaultPills).slice(0, 4);
 
   // Presenter line
-  let presenterName = 'Prepared with e-Mate AI Studio';
+  let presenterName = '';
   const presenterMatch = markdown.match(/(?:Presented by|Author:|Prepared by|Speaker:)\s*([A-Za-z\s.]+)/i);
   if (presenterMatch && presenterMatch[1] && presenterMatch[1].trim().length > 2 && presenterMatch[1].trim().length < 40) {
     presenterName = `Presented by ${presenterMatch[1].trim()}`;
@@ -152,15 +152,17 @@ async function generatePptxBuffer(title: string, markdown: string, themeId?: str
   }
 
   // Presenter line
-  titleSlide.addText(presenterName, {
-    x: 0.8,
-    y: 4.8,
-    w: 8.0,
-    h: 0.35,
-    fontSize: 11,
-    color: theme.coverPresenterColor.replace('#', ''),
-    fontFace: 'Arial',
-  });
+  if (presenterName) {
+    titleSlide.addText(presenterName, {
+      x: 0.8,
+      y: 4.8,
+      w: 8.0,
+      h: 0.35,
+      fontSize: 11,
+      color: theme.coverPresenterColor.replace('#', ''),
+      fontFace: 'Arial',
+    });
+  }
 
   // Bottom Feature Pills (4 pills across 13.333" width)
   finalPills.forEach((pill, pi) => {

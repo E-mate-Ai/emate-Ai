@@ -570,7 +570,7 @@ export function createPresentationCoverSvg(
 
   <!-- Presenter line -->
   <text x="70" y="${subStartY + subLines.length * 30 + 26}" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="500" fill="${theme.coverPresenterColor}">
-    Prepared with e-Mate AI Studio
+    Executive Presentation
   </text>
 
   <!-- Feature Pills Row (4 pills) -->
@@ -781,7 +781,7 @@ export function createDocumentCoverSvg(
   <!-- Footer Bar -->
   <g transform="translate(70, 618)">
     <line x1="0" y1="-22" x2="1060" y2="-22" stroke="rgba(255, 255, 255, 0.1)" stroke-width="1.5" />
-    <text x="0" y="0" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="600">e-Mate AI Studio</text>
+    <text x="0" y="0" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="600">Document Overview</text>
     <text x="1060" y="0" text-anchor="end" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="13">Word Document (.docx)</text>
   </g>
 </svg>`;
