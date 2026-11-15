@@ -267,6 +267,75 @@ export default function Sidebar({
   const sortedChatHistory = [...chatHistory].sort((a, b) =>
     Number(pinnedChatIds.includes(b.id)) - Number(pinnedChatIds.includes(a.id))
   );
+  const pinnedChats = sortedChatHistory.filter((chat) => pinnedChatIds.includes(chat.id));
+  const recentChats = sortedChatHistory.filter((chat) => !pinnedChatIds.includes(chat.id));
+
+  const renderChatRow = (chat: ChatHistoryItem) => (
+    <div
+      key={chat.id}
+      onClick={() => {
+        setOpenChatMenuId(null);
+        const messages = getChatTranscript(chat.id);
+        router.push(`/ai-topper-chat?chatId=${chat.id}`);
+        window.dispatchEvent(new CustomEvent('nk-chat-load', {
+          detail: { id: chat.id, title: chat.title, subject: chat.subject, unit: chat.unit, mode: chat.mode, messages },
+        }));
+      }}
+      className="group relative w-full cursor-pointer rounded-lg px-3 py-1.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-zinc-800/40"
+      style={{ background: 'transparent' }}
+    >
+      <div className="flex items-center justify-between gap-2 pr-8">
+        <span className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-zinc-400">
+          {pinnedChatIds.includes(chat.id) && <Pin size={11} className="shrink-0 text-blue-500" aria-label="Pinned" />}
+          <span className="truncate">{chat.title}</span>
+        </span>
+        <span className="shrink-0 text-[9px] text-gray-400 dark:text-zinc-650">{formatChatTime(chat.timestamp)}</span>
+      </div>
+      <button
+        type="button"
+        title="Chat options"
+        aria-label={`Options for ${chat.title}`}
+        aria-haspopup="menu"
+        aria-expanded={openChatMenuId === chat.id}
+        className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-gray-500 opacity-0 transition-opacity hover:bg-slate-200 hover:text-gray-800 focus:opacity-100 group-hover:opacity-100 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-white"
+        onClick={(event) => {
+          event.stopPropagation();
+          setOpenChatMenuId((openId) => openId === chat.id ? null : chat.id);
+        }}
+      >
+        <MoreHorizontal size={17} />
+      </button>
+      {openChatMenuId === chat.id && (
+        <div
+          role="menu"
+          aria-label={`Options for ${chat.title}`}
+          className="absolute right-2 bottom-8 z-50 w-44 overflow-hidden rounded-xl border border-zinc-200 bg-white p-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <button type="button" role="menuitem" className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800" onClick={() => togglePinnedChat(chat.id)}>
+            <Pin size={14} />{pinnedChatIds.includes(chat.id) ? 'Unpin chat' : 'Pin chat'}
+          </button>
+          <button type="button" role="menuitem" className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800" onClick={() => void saveChatToNotebook(chat)}>
+            <NotebookText size={14} />Add to notebook
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
+            onClick={() => {
+              deleteChatSession(chat.id);
+              setOpenChatMenuId(null);
+              const remainingPinned = pinnedChatIds.filter((id) => id !== chat.id);
+              setPinnedChatIds(remainingPinned);
+              localStorage.setItem('nk-pinned-chat-ids', JSON.stringify(remainingPinned));
+            }}
+          >
+            <Trash2 size={14} />Delete chat
+          </button>
+        </div>
+      )}
+    </div>
+  );
 
   const handleCreateNotebook = () => {
     setNewSubjectName('');
@@ -451,9 +520,9 @@ export default function Sidebar({
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap"
         />
-        {/* ── Sticky top section: logo + nav + search (never scrolls) ── */}
+        {/* ── Sticky top section: brand, search, and primary action ── */}
         <div className="px-3 pt-2.5 pb-1.5 shrink-0">
-          {/* Logo + collapse button */}
+          {/* Brand + header actions */}
           <div className="flex items-center justify-between mb-2">
             <Link
               href="/"
@@ -480,18 +549,28 @@ export default function Sidebar({
                 e-Mate AI
               </span>
             </Link>
-            <button
-              type="button"
-              className="w-9 h-9 flex items-center justify-center rounded-2xl border transition"
-              style={{
-                borderColor: theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-                color: theme === 'dark' ? '#a1a1aa' : '#71717a',
-              }}
-              onClick={onToggle}
-              title="Close sidebar"
-            >
-              <ChevronLeft size={16} />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                className="flex h-9 w-9 items-center justify-center rounded-xl transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                style={{ color: theme === 'dark' ? '#a1a1aa' : '#71717a' }}
+                onClick={() => setSearchOpen(true)}
+                title="Search chats"
+                aria-label="Search chats"
+              >
+                <Search size={18} />
+              </button>
+              <button
+                type="button"
+                className="flex h-9 w-9 items-center justify-center rounded-xl transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                style={{ color: theme === 'dark' ? '#a1a1aa' : '#71717a' }}
+                onClick={onToggle}
+                title="Close sidebar"
+                aria-label="Close sidebar"
+              >
+                <ChevronLeft size={18} />
+              </button>
+            </div>
           </div>
 
           {/* Nav */}
@@ -510,44 +589,29 @@ export default function Sidebar({
                   router.push('/ai-topper-chat');
                 }
               }}
-              className="w-full flex items-center justify-center gap-2 rounded-full px-4 py-2 bg-[#0060df] hover:bg-[#0052cc] text-white text-[11px] font-semibold shadow-xs transition-all active:scale-[0.98] cursor-pointer mb-1"
+              className="mb-1 flex w-full items-center justify-start gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors hover:opacity-85 cursor-pointer"
+              style={{
+                background: theme === 'dark' ? '#2b2b2b' : '#e9e9e9',
+                color: theme === 'dark' ? '#f4f4f5' : '#3f3f46',
+              }}
             >
-              <Plus size={15} />
-              <span>{!selectedSubject ? 'General Workspace' : 'New chat'}</span>
+              <PenSquare size={18} />
+              <span>New Chat</span>
             </a>
 
             <button
               type="button"
-              onClick={() => setSearchOpen(true)}
-              className="flex items-center gap-2.5 w-full rounded-lg px-3 py-1.5 text-[11px] font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-              style={{ color: theme === 'dark' ? '#71717a' : '#52525b' }}
-            >
-              <Search size={14} />
-              <span>Search</span>
-              <span
-                className="ml-auto text-[8px] font-medium px-1 py-0.5 rounded"
-                style={{
-                  color: theme === 'dark' ? '#8aa2ff' : '#1f51ff',
-                  background: theme === 'dark' ? 'rgba(20,119,242,0.16)' : 'rgba(20,119,242,0.08)',
-                }}
-              >
-                ⌘K
-              </span>
-            </button>
-
-            <button
-              type="button"
               onClick={() => setLibraryOpen(true)}
-              className="flex items-center gap-2.5 w-full rounded-lg px-3 py-1.5 text-[11px] font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5"
               style={{ color: theme === 'dark' ? '#71717a' : '#71717a' }}
             >
-              <BookOpen size={14} />
+              <BookOpen size={16} />
               <span>Library</span>
             </button>
 
             <Link
               href="/ai-flashcard-generator"
-              className={`flex items-center justify-between w-full rounded-lg px-3 py-1.5 text-[11px] font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${
+              className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-[13px] font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${
                 pathname === '/ai-flashcard-generator' || pathname === '/flashcards'
                   ? 'bg-blue-600/10 text-blue-700 dark:text-blue-300 font-semibold'
                   : ''
@@ -561,12 +625,12 @@ export default function Sidebar({
                     : '#52525b',
               }}
             >
-              <div className="flex items-center gap-2.5">
-                <Layers size={14} className={pathname === '/ai-flashcard-generator' || pathname === '/flashcards' ? 'text-blue-600 dark:text-blue-400' : ''} />
+              <div className="flex items-center gap-3">
+                <Layers size={16} className={pathname === '/ai-flashcard-generator' || pathname === '/flashcards' ? 'text-blue-600 dark:text-blue-400' : ''} />
                 <span>Flashcards</span>
               </div>
               <span
-                className="px-1 py-0.5 text-[9px] font-semibold rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20"
+                className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20"
               >
                 AI
               </span>
@@ -574,7 +638,7 @@ export default function Sidebar({
 
             <Link
               href="/ai-study-planner"
-              className={`flex items-center justify-between w-full rounded-lg px-3 py-1.5 text-[11px] font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${
+              className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-[13px] font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${
                 pathname === '/ai-study-planner'
                   ? 'bg-blue-600/10 text-blue-700 dark:text-blue-300 font-semibold'
                   : ''
@@ -588,12 +652,12 @@ export default function Sidebar({
                     : '#52525b',
               }}
             >
-              <div className="flex items-center gap-2.5">
-                <Calendar size={14} className={pathname === '/ai-study-planner' ? 'text-blue-600 dark:text-blue-400' : ''} />
+              <div className="flex items-center gap-3">
+                <Calendar size={16} className={pathname === '/ai-study-planner' ? 'text-blue-600 dark:text-blue-400' : ''} />
                 <span>Study Planner</span>
               </div>
               <span
-                className="px-1 py-0.5 text-[9px] font-semibold rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20"
+                className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20"
               >
                 Plan
               </span>
@@ -606,15 +670,15 @@ export default function Sidebar({
                   description: 'We are building an advanced AI agent workspace. Stay tuned!',
                 })
               }
-              className="flex items-center justify-between w-full rounded-lg px-3 py-1.5 text-[11px] font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+              className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-[13px] font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5"
               style={{ color: theme === 'dark' ? '#71717a' : '#52525b' }}
             >
-              <div className="flex items-center gap-2.5">
-                <Hammer size={14} />
+              <div className="flex items-center gap-3">
+                <Hammer size={16} />
                 <span>Builder X</span>
               </div>
               <span
-                className="px-1 py-0.5 text-[9px] font-semibold rounded-full"
+                className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full"
                 style={{
                   background: theme === 'dark' ? 'rgba(20,119,242,0.16)' : 'rgba(20,119,242,0.08)',
                   color: theme === 'dark' ? '#8aa2ff' : '#1f51ff',
@@ -630,13 +694,22 @@ export default function Sidebar({
         {/* ── Scrollable section: notebooks + recent chats only ── */}
         <div className="px-3 pb-2 flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
 
-          {/* Notebooks & Recent Sections container with space-y-4 visual separation */}
+          {/* Scrollable workspace groups: pinned chats, notebooks, and recents */}
         <div className="mt-1.5 space-y-2.5">
+            {pinnedChats.length > 0 && (
+              <section aria-label="Pinned chats">
+                <div className="mb-1 px-3 pt-1">
+                  <p className="text-[11px] font-medium text-gray-400">Pinned</p>
+                </div>
+                <div className="space-y-0.5">{pinnedChats.map(renderChatRow)}</div>
+              </section>
+            )}
+
             {/* Notebooks Section */}
             <div>
               <div className="flex items-center justify-between mb-2 px-3">
-                <p className="text-[10px] tracking-wider font-bold text-gray-400 uppercase">
-                  NOTEBOOKS
+                <p className="text-[11px] font-medium text-gray-400">
+                  Notebooks
                 </p>
                 <div className="flex items-center gap-1">
                   <button
@@ -724,8 +797,8 @@ export default function Sidebar({
             {/* Recent chats Section */}
             <div>
               <div className="flex items-center justify-between mb-2 px-3">
-                <p className="text-[10px] tracking-wider font-bold text-gray-400 uppercase">
-                  RECENT
+                <p className="text-[11px] font-medium text-gray-400">
+                  Recents
                 </p>
                 {chatHistory.length > 0 && (
                   <button
@@ -740,7 +813,7 @@ export default function Sidebar({
                   </button>
                 )}
               </div>
-              {chatHistory.length === 0 ? (
+              {recentChats.length === 0 ? (
                 <div className="text-center py-5 px-3 flex flex-col items-center gap-1">
                   <div className="w-6 h-6 rounded-lg bg-card-hover text-text-muted flex items-center justify-center mb-0.5">
                     <Clock size={13} strokeWidth={1.75} />
@@ -754,96 +827,7 @@ export default function Sidebar({
                 </div>
               ) : (
                 <div className="space-y-1">
-                  {sortedChatHistory.slice(0, 15).map((chat) => (
-                    <div
-                      key={chat.id}
-                      onClick={() => {
-                        setOpenChatMenuId(null);
-                        const messages = getChatTranscript(chat.id);
-                        router.push(`/ai-topper-chat?chatId=${chat.id}`);
-                        window.dispatchEvent(
-                          new CustomEvent('nk-chat-load', {
-                            detail: {
-                              id: chat.id,
-                              title: chat.title,
-                              subject: chat.subject,
-                              unit: chat.unit,
-                              mode: chat.mode,
-                              messages,
-                            },
-                          })
-                        );
-                      }}
-                      className="group relative w-full cursor-pointer rounded-lg px-3 py-2 text-left transition-colors hover:bg-slate-50 dark:hover:bg-zinc-800/40"
-                      style={{ background: 'transparent' }}
-                    >
-                      <div className="flex items-center justify-between gap-2 pr-8">
-                        <span className="flex min-w-0 items-center gap-1.5 text-xs font-medium line-clamp-1 text-gray-600 dark:text-zinc-400">
-                          {pinnedChatIds.includes(chat.id) && <Pin size={11} className="shrink-0 text-blue-500" aria-label="Pinned" />}
-                          <span className="truncate">{chat.title}</span>
-                        </span>
-                        <span className="text-[9px] shrink-0 text-gray-400 dark:text-zinc-650">
-                          {formatChatTime(chat.timestamp)}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        title="Chat options"
-                        aria-label={`Options for ${chat.title}`}
-                        aria-haspopup="menu"
-                        aria-expanded={openChatMenuId === chat.id}
-                        className="absolute right-1.5 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-md text-gray-500 opacity-0 transition-opacity hover:bg-slate-200 hover:text-gray-800 focus:opacity-100 group-hover:opacity-100 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-white"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setOpenChatMenuId((openId) => openId === chat.id ? null : chat.id);
-                        }}
-                      >
-                        <MoreHorizontal size={17} />
-                      </button>
-                      {openChatMenuId === chat.id && (
-                        <div
-                          role="menu"
-                          aria-label={`Options for ${chat.title}`}
-                          className="absolute right-2 bottom-8 z-50 w-44 overflow-hidden rounded-xl border border-zinc-200 bg-white p-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          <button
-                            type="button"
-                            role="menuitem"
-                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                            onClick={() => togglePinnedChat(chat.id)}
-                          >
-                            <Pin size={14} />
-                            {pinnedChatIds.includes(chat.id) ? 'Unpin chat' : 'Pin chat'}
-                          </button>
-                          <button
-                            type="button"
-                            role="menuitem"
-                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                            onClick={() => void saveChatToNotebook(chat)}
-                          >
-                            <NotebookText size={14} />
-                            Add to notebook
-                          </button>
-                          <button
-                            type="button"
-                            role="menuitem"
-                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
-                            onClick={() => {
-                              deleteChatSession(chat.id);
-                              setOpenChatMenuId(null);
-                              const remainingPinned = pinnedChatIds.filter((id) => id !== chat.id);
-                              setPinnedChatIds(remainingPinned);
-                              localStorage.setItem('nk-pinned-chat-ids', JSON.stringify(remainingPinned));
-                            }}
-                          >
-                            <Trash2 size={14} />
-                            Delete chat
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                  {recentChats.slice(0, 15).map(renderChatRow)}
                 </div>
               )}
             </div>

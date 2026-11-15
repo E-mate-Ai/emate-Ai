@@ -387,7 +387,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
 
   return (
     <div
-      className="relative w-[calc(100vw-24px)] sm:w-[min(62.5vw,1248px)] h-[calc(100dvh-24px)] sm:h-[min(89vh,856px)] max-h-[calc(100dvh-24px)] bg-white dark:bg-[#252525] rounded-[32px] sm:rounded-[52px] shadow-2xl border border-zinc-200 dark:border-[#303030] flex overflow-hidden text-zinc-900 dark:text-zinc-100 font-sans transition-colors duration-150 animate-in zoom-in-95"
+      className="relative w-[calc(100vw-24px)] sm:w-[min(74vw,1440px)] h-[calc(100dvh-24px)] sm:h-[min(90vh,920px)] max-h-[calc(100dvh-24px)] bg-white dark:bg-[#252525] rounded-[32px] sm:rounded-[52px] shadow-2xl border border-zinc-200 dark:border-[#303030] flex overflow-hidden text-zinc-900 dark:text-zinc-100 font-sans transition-colors duration-150 animate-in zoom-in-95"
       onClick={(e) => e.stopPropagation()}
     >
       {/* ── Left Sidebar Navigation Pane ─────────────────────────────────── */}
@@ -465,6 +465,9 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
           <h3 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-white">
             {NAV_ITEMS.find((item) => item.id === activeTab)?.label || 'General'}
           </h3>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-500 dark:text-[#b3b3b3]">
+            {TAB_DESCRIPTIONS[activeTab]}
+          </p>
         </div>
 
         {/* ── GENERAL TAB CONTENT ───────────────────────────────────────── */}
@@ -689,7 +692,6 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         {/* ── CONNECTORS TAB ────────────────────────────────────────────── */}
         {activeTab === 'connectors' && (
           <div className="space-y-4">
-            <p className="text-xs text-zinc-500 dark:text-[#b3b3b3]">Connect third-party models, search grounding, &amp; data stores.</p>
             <div className="space-y-3">
               {connectors.map((c) => (
                 <div key={c.id} className="p-5 rounded-[22px] bg-white dark:bg-[#404040] border border-zinc-200 dark:border-[#4b4b4b] shadow-sm dark:shadow-none flex items-center justify-between">
